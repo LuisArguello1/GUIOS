@@ -165,8 +165,9 @@ pip install -r requirements.txt
 > **Importante sobre migraciones:** Las migraciones de modelos no se encuentran versionadas en el repositorio para evitar conflictos entre desarrolladores. Cada clon genera y aplica sus migraciones locales:
 
 ```bash
-python backend/manage.py makemigrations auth core guios
-python backend/manage.py migrate
+cd backend
+python manage.py makemigrations
+python manage.py migrate
 ```
 
 ### 6.4 Creacion de superusuario y datos iniciales
@@ -187,11 +188,10 @@ python backend/manage.py migrate
 Inicie el servidor de desarrollo de Django especificando el puerto 8050:
 
 ```bash
-python backend/manage.py runserver 0.0.0.0:8050
+python manage.py runserver 8050
 ```
 
-El servicio estara disponible en `http://127.0.0.1:8050/`. Puede verificar la documentacion interactiva de Swagger/OpenAPI en:
-- `http://127.0.0.1:8050/api/schema/swagger-ui/`
+El servicio estara disponible en `http://127.0.0.1:8050/`. 
 
 ---
 
@@ -236,15 +236,16 @@ El frontend se expondra habitualmente en `http://localhost:5173/`.
 Para trabajar en el entorno de desarrollo se requieren dos terminales abiertas simultaneamente:
 
 ### Terminal 1: Backend (Django REST Framework en puerto 8050)
-```powershell
-cd c:\Proyectos\Guios
-.\venv\Scripts\Activate.ps1
-python backend/manage.py runserver 0.0.0.0:8050
+```bash
+venv\Scripts\Activate
+cd backend
+python manage.py runserver 8050
 ```
 
 ### Terminal 2: Frontend (React + Vite)
-```powershell
-cd c:\Proyectos\Guios\frontend
+```bash
+venv\Scripts\Activate
+cd frontend
 npm run dev
 ```
 
