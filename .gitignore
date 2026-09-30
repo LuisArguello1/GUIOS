@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django
+*.log
+*.logs
+logs/
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+db_before_restore_*.sqlite3
+media/
+# Static de backend (colectados)
+staticfiles/
+
+# Backups y Datos Temporales
+backups/
+.backups/
+backend/backups/
+Gdrives/
+*.sqlite3.gz
+*.backup
+*.sha256
+MANIFEST.txt
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Tunnel (Cloudflared)
+tunnel.pid
+tunnel_url.txt
+tunnel_output.log
+tunnel_meta.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Frontend
+node_modules/
+dist/
+build/
+.npm/
+.yarn/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+public/build/
+
+# OS
+.DS_Store
+Thumbs.db
+notas-locales.md
+
+# Contexto y skills locales (no versionar)
+.codex/
+contexto/
+
+# Redis (dump de persistencia local)
+dump.rdb
+
+# Script local de arranque de desarrollo
+iniciar-dev.ps1
+
+# Plan de importación
+plans/
+
+# Migraciones
+**/migrations/*
+!**/migrations/__init__.py
+
+# Agent
+*.agent
+.agent/
+scripts/
+nginx/
+logs/
+.logs
+.scripts
+.nginx
+run_production.py 

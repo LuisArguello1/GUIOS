@@ -1,0 +1,77 @@
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db import models
+from .dimension import Dimension
+
+
+class Factor(models.Model):
+    """
+    Criterio de evaluación de segundo nivel.
+    Cada factor tiene una Importancia Sistémica (IS) definida por la metodología.
+    """
+    SCOPE_INTERNAL = 'internal'
+    SCOPE_EXTERNAL = 'external'
+    SCOPE_BOTH = 'both'
+
+    SCOPE_CHOICES = (
+        (SCOPE_INTERNAL, 'Interno'),
+        (SCOPE_EXTERNAL, 'Externo'),
+        (SCOPE_BOTH, 'Ambos'),
+    )
+
+    dimension = models.ForeignKey(
+        Dimension,
+        on_delete=models.CASCADE,
+        related_name='factors',
+        verbose_name="Dimensión"
+    )
+    name = models.CharField(
+        max_length=200,
+        verbose_name="Nombre del factor"
+    )
+    systemic_importance = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+        verbose_name="Importancia Sistémica (IS)",
+        help_text="Valor fijo definido por la metodología (1: Irrelevante, 2: Opcional, 3: Importante, 4: Fundamental)."
+    )
+    scope = models.CharField(
+        max_length=10,
+        choices=SCOPE_CHOICES,
+        default=SCOPE_INTERNAL,
+        verbose_name="Ámbito FODA predeterminado"
+    )
+    scope_configurable = models.BooleanField(
+        default=False,
+        verbose_name="Ámbito configurable por el decisor",
+        help_text="True únicamente para el factor 'Soporte' (RF-PUB-02, RN-06)."
+    )
+    order = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Orden dentro de la dimensión"
+    )
+    is_base = models.BooleanField(
+        default=False,
+        verbose_name="Pertenece al catálogo base",
+        help_text="Pertenece al catálogo base de la tesis. No eliminable si True."
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Activo",
+        help_text="Factor activo. Inactivo = no aparece en nuevas evaluaciones."
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de creación"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Fecha de modificación"
+    )
+
+    class Meta:
+        db_table = "guios_factor"
+        ordering = ["dimension__order", "order", "id"]
+        verbose_name = "Factor"
+        verbose_name_plural = "Factores"
+
+    def __str__(self):
+        return f"{self.dimension.name} - {self.name}"

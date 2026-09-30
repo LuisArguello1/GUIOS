@@ -1,0 +1,298 @@
+@import "tailwindcss";
+
+/* Typography */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/material-icons";
+
+:root {
+  /* ===== GUIOS Brand Theme — Verde Menta (Light Mode) ===== */
+
+  /* Colores principales Verde Menta */
+  --color-primary: #059669;          /* Verde Menta / Emerald 600 */
+  --color-primary-hover: #047857;    /* Verde Menta Intenso / Emerald 700 */
+  --color-primary-active: #065f46;   /* Verde Menta Profundo / Emerald 800 */
+  --color-primary-soft-bg: #ecfdf5;  /* Verde Menta Suave / Emerald 50 */
+
+  --color-secondary: #10b981;        /* Verde Esmeralda / Emerald 500 */
+  --color-secondary-hover: #059669;
+  --color-secondary-active: #047857;
+
+  --color-tertiary: #0d9488;         /* Teal Menta / Teal 600 */
+  --color-tertiary-hover: #0f766e;
+
+  --color-accent: #059669;           /* Acento Verde Menta */
+  --color-tag-bg: #ecfdf5;           /* Fondo suave para badges */
+  --color-tag-text: #065f46;
+
+  /* ===== Fondos ===== */
+  --color-bg-page: #F8F8F9;
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F1F1F2;
+  --color-bg-tertiary: #E8E8EB;
+  --color-bg-elevated: #FFFFFF;
+
+  /* ===== Texto ===== */
+  --color-text-primary: #161823;
+  --color-text-secondary: #5B5D68;
+  --color-text-tertiary: #8A8B93;
+  --color-text-disabled: #B5B6BB;
+
+  --color-text-inverse: #FFFFFF;
+  --color-text-on-primary: #FFFFFF;
+  --color-text-on-secondary: #161823;
+
+  /* ===== Bordes ===== */
+  --color-border-subtle: #E8E8EA;
+  --color-border-default: #D9D9DC;
+  --color-border-strong: #B5B6BB;
+  --color-border-focus: #059669;
+
+  /* ===== Estados ===== */
+  --color-success: #059669;
+  --color-success-bg: #E6F9F3;
+  --color-success-text: #008A62;
+
+  --color-warning: #FF9F00;
+  --color-warning-bg: #FFF6E5;
+  --color-warning-text: #B26F00;
+
+  --color-danger: #EF4444;
+  --color-danger-bg: #FFF0F3;
+  --color-danger-text: #DC2626;
+
+  --color-info: #0284C7;
+  --color-info-bg: #E6F7FF;
+  --color-info-text: #0369A1;
+
+  /* ===== Sombras ===== */
+  --shadow-sm: 0 1px 2px rgba(22, 24, 35, 0.04);
+  --shadow-md: 0 2px 8px rgba(22, 24, 35, 0.08);
+  --shadow-lg: 0 8px 24px rgba(22, 24, 35, 0.12);
+
+  /* ===== UI Tokens — Escala de Bordes ===== */
+  --radius-xs: 2px;
+  --radius-sm: 2px;   /* Botones, inputs, badges, píldoras */
+  --radius-md: 2px;   /* Alertas, dropdowns, tooltips */
+  --radius-lg: 2px;   /* Tarjetas, contenedores, paneles */
+  --radius-xl: 2px;  /* Modales */
+
+  --font-sans: "Inter", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --transition-fast: 100ms ease;
+  --transition-base: 160ms ease;
+  --transition-slow: 240ms ease;
+}
+
+:root.dark {
+  /* ===== GUIOS Brand Theme — Verde Menta (Dark Mode) ===== */
+
+  /* Colores principales Verde Menta */
+  --color-primary: #10b981;          /* Verde Menta Luminoso / Emerald 500 */
+  --color-primary-hover: #34d399;    /* Verde Menta Claro / Emerald 400 */
+  --color-primary-active: #059669;   /* Verde Menta Medio / Emerald 600 */
+  --color-primary-soft-bg: rgba(16, 185, 129, 0.14);
+
+  --color-secondary: #34d399;
+  --color-secondary-hover: #6ee7b7;
+  --color-secondary-active: #10b981;
+
+  --color-tertiary: #14b8a6;
+  --color-tertiary-hover: #2dd4bf;
+
+  --color-accent: #10b981;
+  --color-tag-bg: rgba(16, 185, 129, 0.16);
+  --color-tag-text: #6ee7b7;
+
+  /* ===== Fondos ===== */
+  --color-bg-page: #0f0f0f;          /* Negro profundo */
+  --color-bg-primary: #010101;
+  --color-bg-secondary: #121212;
+  --color-bg-tertiary: #1E202B;
+  --color-bg-elevated: #1e1f25;      /* Superficie de tarjetas */
+
+  /* ===== Texto ===== */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #A0A1A8;
+  --color-text-tertiary: #757780;
+  --color-text-disabled: #44464E;
+
+  --color-text-inverse: #010101;
+  --color-text-on-primary: #FFFFFF;
+  --color-text-on-secondary: #FFFFFF;
+
+  /* ===== Bordes ===== */
+  --color-border-subtle: rgba(255, 255, 255, 0.226);
+  --color-border-default: rgba(255, 255, 255, 0.14);
+  --color-border-strong: rgba(255, 255, 255, 0.24);
+  --color-border-focus: #10b981;
+
+  /* ===== Estados ===== */
+  --color-success: #10b981;
+  --color-success-bg: rgba(16, 185, 129, 0.14);
+  --color-success-text: #5EEAD4;
+
+  --color-warning: #FF9F00;
+  --color-warning-bg: rgba(255, 159, 0, 0.14);
+  --color-warning-text: #FCD34D;
+
+  --color-danger: #EF4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.14);
+  --color-danger-text: #FCA5A5;
+
+  --color-info: #0284C7;
+  --color-info-bg: rgba(2, 132, 199, 0.14);
+  --color-info-text: #38BDF8;
+
+  /* ===== Sombras ===== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.8);
+
+  /* ===== UI Tokens — Escala de Bordes Sutiles TikTok ===== */
+  --radius-xs: 2px;
+  --radius-sm: 2px;   /* Botones, inputs, badges, píldoras */
+  --radius-md: 2px;   /* Alertas, dropdowns, tooltips */
+  --radius-lg: 2px;   /* Tarjetas, contenedores, paneles */
+  --radius-xl: 2px; /* Modales */
+
+  --font-sans: "Inter", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --transition-fast: 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-base: 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-slow: 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ===== Base Styles ===== */
+@layer base {
+  body {
+    background-color: var(--color-bg-page);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    transition: background-color 200ms ease, color 200ms ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-primary);
+    color: #ffffff;
+  }
+}
+
+/* ===== Custom Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.20);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.35);
+  background-clip: content-box;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.20);
+  background-clip: content-box;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+  background-clip: content-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+/* ===== Glassmorphism ===== */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.50);
+}
+
+.dark .glass {
+  background: rgba(22, 24, 35, 0.75);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* ===== Rich Text / Tiptap Content ===== */
+.tiptap-content {
+  font-size: inherit;
+  line-height: 1.5;
+}
+
+.tiptap-content p {
+  margin: 6px 0 !important;
+}
+
+.tiptap-content p:first-child {
+  margin-top: 0 !important;
+}
+
+.tiptap-content p:last-child {
+  margin-bottom: 0 !important;
+}
+
+.tiptap-content ul {
+  list-style-type: disc !important;
+  list-style-position: outside !important;
+  padding-left: 20px !important;
+  margin: 8px 0 !important;
+}
+
+.tiptap-content ol {
+  list-style-type: decimal !important;
+  list-style-position: outside !important;
+  padding-left: 20px !important;
+  margin: 8px 0 !important;
+}
+
+.tiptap-content li {
+  display: list-item !important;
+  margin: 4px 0 !important;
+}
+
+.tiptap-content strong,
+.tiptap-content b {
+  font-weight: 700 !important;
+}
+
+.tiptap-content em,
+.tiptap-content i {
+  font-style: italic !important;
+}
+
+.tiptap-content u {
+  text-decoration: underline !important;
+}
+
+.tiptap-content strike,
+.tiptap-content s {
+  text-decoration: line-through !important;
+}
