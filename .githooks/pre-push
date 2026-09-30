@@ -1,0 +1,62 @@
+#!/bin/sh
+
+echo "========================================================"
+echo "  [PRE-PUSH] Validating Backend and Frontend..."
+echo "========================================================"
+
+# 1. Backend: Django check
+echo ""
+echo ">> [1/3] Backend validation (manage.py check)..."
+if [ -f "./venv/Scripts/python.exe" ]; then
+    PYTHON_CMD="./venv/Scripts/python.exe"
+elif [ -f "./venv/bin/python" ]; then
+    PYTHON_CMD="./venv/bin/python"
+else
+    PYTHON_CMD="python"
+fi
+
+$PYTHON_CMD backend/manage.py check
+BACKEND_STATUS=$?
+
+if [ $BACKEND_STATUS -ne 0 ]; then
+    echo ""
+    echo "[ERROR] Backend validation failed (manage.py check)."
+    echo "Push aborted to protect the repository."
+    exit 1
+fi
+echo "[OK] Backend check passed."
+
+# 2. Frontend: ESLint
+echo ""
+echo ">> [2/3] Frontend linting (npm run lint)..."
+cd frontend || exit 1
+npm run lint
+LINT_STATUS=$?
+
+if [ $LINT_STATUS -ne 0 ]; then
+    echo ""
+    echo "[ERROR] Frontend linting failed (ESLint reported errors)."
+    echo "Push aborted to protect the repository."
+    exit 1
+fi
+echo "[OK] ESLint passed."
+
+# 3. Frontend: TypeScript and Build
+echo ""
+echo ">> [3/3] Frontend compilation and type check (npm run build)..."
+npm run build
+BUILD_STATUS=$?
+
+if [ $BUILD_STATUS -ne 0 ]; then
+    echo ""
+    echo "[ERROR] Frontend build/typecheck failed."
+    echo "Push aborted to protect the repository."
+    exit 1
+fi
+echo "[OK] Frontend build passed."
+
+echo ""
+echo "========================================================"
+echo "  [SUCCESS] All checks passed. Proceeding with push."
+echo "========================================================"
+exit 0
