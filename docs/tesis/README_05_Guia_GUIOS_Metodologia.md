@@ -1,3 +1,11 @@
+> **⚠️ Resumen NO normativo.** Este archivo es un resumen de la tesis escrito a mano y contiene errores conocidos. **No lo uses para programar ni para tomar decisiones.** Las fuentes válidas son, en este orden: la tesis original (Rea Sánchez, 2022), `docs/REQUISITOS.md`, `docs/catalogo_guios.json` y `docs/ANALISIS_GUIOS_ORIGINAL.md` (ver hallazgo R-05).
+>
+> **Errores conocidos en este archivo:**
+> - Los subfactores por dimensión son 40 / 19 / 2, no 29 / 26 / 6 (Tabla 5.1 y Tabla 5.3, págs. 75-79 y 88).
+> - No existe un factor "Licencias"; los 18 factores y su ámbito están en la Tabla 5.4 (pág. 90).
+> - La FODA se aplica a cada **factor** según su Ponderación Media (PM), no a cada subfactor (Ecuación 5.3, pág. 91).
+> - Varios textos de ejemplo de subfactores no son los de la tesis (p. ej., "(ej. ODF)"). Los textos válidos están en `docs/catalogo_guios.json`.
+
 # Módulo 5: Elaboración de la Guía GUIOS e Indicadores de Importancia
 
 **Capítulo 5 del Documento de Tesis Doctoral**  

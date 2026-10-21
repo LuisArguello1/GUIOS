@@ -1,0 +1,562 @@
+<!DOCTYPE html><html class="dark" lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<meta content="web_dashboard" name="shell-type">
+<title>Mi perfil · GUIOS PRO</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "obsidian-base": "#121212",
+            "obsidian-sidebar": "#0E0E0E",
+            "obsidian-card": "#1E1E24",
+            "obsidian-border": "#33333B",
+            "obsidian-subtle": "#1F1F23",
+            "obsidian-pill": "#27272A",
+            "text-primary": "#F4F4F5",
+            "text-muted": "#A1A1AA",
+            "text-placeholder": "#71717A",
+          },
+          fontFamily: {
+            sans: ["Geist", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #121212;
+        color: #F4F4F5;
+        font-family: 'Geist', sans-serif;
+      }
+      body {
+        overscroll-behavior: none;
+      }
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #121212;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272A;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #33333B;
+    }
+  </style>
+</head>
+<body class="bg-[#121212] text-[#F4F4F5] antialiased min-h-screen overflow-hidden flex">
+<!-- 1. Global Persistent Left Sidebar -->
+<aside class="w-64 h-screen bg-[#0E0E0E] border-r border-[#1F1F23] flex flex-col justify-between shrink-0 select-none z-50">
+<div class="flex flex-col">
+<!-- Sidebar Header -->
+<div class="h-16 px-5 flex items-center gap-3 border-b border-[#1F1F23]/60 bg-[#0E0E0E]">
+<div class="w-9 h-9 rounded-lg bg-[#1E1E24] border border-[#33333B]/60 flex items-center justify-center text-[#F4F4F5] shadow-inner">
+<span class="material-symbols-outlined text-[20px]">shield</span>
+</div>
+<div class="flex flex-col leading-tight min-w-0">
+<span class="text-base font-bold text-[#F4F4F5] tracking-tight truncate">GUIOS PRO</span>
+<span class="font-mono text-[11px] font-medium text-[#A1A1AA] tracking-wider uppercase">AUDITORÍA V2.4</span>
+</div>
+</div>
+<!-- Navigation Categories -->
+<div class="py-4 px-3 space-y-6 overflow-y-auto max-h-[calc(100vh-140px)]">
+<!-- PANEL PRINCIPAL -->
+<div>
+<span class="px-3 text-[11px] font-mono uppercase tracking-wider text-[#71717A] block mb-2 font-medium">PANEL PRINCIPAL</span>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/dashboard">
+<span class="material-symbols-outlined text-[19px]">dashboard</span>
+<span class="">Dashboard</span>
+</a>
+</nav>
+</div>
+<!-- GESTIÓN METODOLÓGICA -->
+<div>
+<span class="px-3 text-[11px] font-mono uppercase tracking-wider text-[#71717A] block mb-2 font-medium">GESTIÓN METODOLÓGICA</span>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/catalog/dimensions">
+<span class="material-symbols-outlined text-[19px]">rule</span>
+<span class="">Catálogo</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/evaluations">
+<span class="material-symbols-outlined text-[19px]">history</span>
+<span class="">Historial</span>
+</a>
+</nav>
+</div>
+<!-- SEGURIDAD Y ACCESO (Active State) -->
+<div>
+<span class="px-3 text-[11px] font-mono uppercase tracking-wider text-[#71717A] block mb-2 font-medium">SEGURIDAD Y ACCESO</span>
+<nav class="space-y-1">
+<a class="relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#F4F4F5] font-medium bg-[#27272A] transition-colors" href="/admin/users">
+<!-- Left white accent bar -->
+<span class="absolute left-0 top-1.5 bottom-1.5 w-1 bg-[#F4F4F5] rounded-r-full"></span>
+<span class="material-symbols-outlined text-[19px]">group</span>
+<span class="">Usuarios</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/roles">
+<span class="material-symbols-outlined text-[19px]">admin_panel_settings</span>
+<span class="">Roles y Permisos</span>
+</a>
+
+</nav>
+</div>
+<!-- CONFIGURACIÓN -->
+<div>
+<span class="px-3 text-[11px] font-mono uppercase tracking-wider text-[#71717A] block mb-2 font-medium">CONFIGURACIÓN</span>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/settings/organization">
+<span class="material-symbols-outlined text-[19px]">domain</span>
+<span class="">Organización</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/settings/menu-structure">
+<span class="material-symbols-outlined text-[19px]">menu_open</span>
+<span class="">Estructura del Menú</span>
+</a>
+</nav>
+</div>
+<!-- TRAZABILIDAD -->
+<div>
+<span class="px-3 text-[11px] font-mono uppercase tracking-wider text-[#71717A] block mb-2 font-medium">TRAZABILIDAD</span>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/audit-log">
+<span class="material-symbols-outlined text-[19px]">manage_search</span>
+<span class="">Auditoría</span>
+</a>
+</nav>
+</div>
+</div>
+</div>
+<!-- Sidebar Bottom Action -->
+<div class="p-3 border-t border-[#1F1F23] bg-[#0E0E0E]">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-red-400 hover:bg-red-500/10 transition-colors" href="/login">
+<span class="material-symbols-outlined text-[19px]">logout</span>
+<span class="">Cerrar Sesión</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Layout wrapper -->
+<div class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+<!-- Top Navbar (64px / h-16) -->
+<header class="h-16 px-8 border-b border-[#1F1F23] bg-[#0E0E0E] flex items-center justify-between shrink-0 select-none z-30">
+<!-- Breadcrumbs -->
+<nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs md:text-sm text-[#A1A1AA]">
+<span class="hover:text-[#F4F4F5] cursor-pointer transition-colors">Inicio</span>
+<span class="text-[#71717A]">/</span>
+<span class="text-[#F4F4F5] font-semibold">Mi Perfil</span>
+</nav>
+<!-- Right Header Actions -->
+<div class="flex items-center gap-4 relative">
+<!-- Notification button with ping -->
+<button class="relative w-9 h-9 rounded-lg bg-[#1E1E24] border border-[#33333B] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] hover:border-[#71717A] transition-colors" onclick="showToast('No hay alertas críticas pendientes', 'notifications')" title="Notificaciones" type="button">
+<span class="material-symbols-outlined text-[19px]">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-[#0E0E0E]"></span>
+</button>
+<!-- User Profile Pill with chevron -->
+<div class="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-full bg-[#1E1E24] border border-[#33333B] hover:border-[#71717A] cursor-pointer transition-colors select-none" id="userProfileTrigger">
+<div class="w-7 h-7 rounded-full bg-[#27272A] border border-[#33333B] text-[#F4F4F5] font-bold text-xs flex items-center justify-center">
+            A
+          </div>
+<div class="flex flex-col text-left leading-tight hidden sm:flex">
+<span class="text-xs font-semibold text-[#F4F4F5]">Admin GUIOS</span>
+<span class="text-[10px] text-[#A1A1AA]">Superadministrador</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-[#A1A1AA]">expand_more</span>
+</div>
+<!-- User Navbar Dropdown Container -->
+<div class="hidden absolute top-12 right-0 w-56 bg-[#1E1E24] border border-[#33333B] rounded-xl shadow-2xl p-1.5 z-50 flex-col gap-1 backdrop-blur-md" id="navbarUserDropdown">
+<div class="px-3 py-2 border-b border-[#33333B]/60 mb-1">
+<span class="text-xs font-semibold text-[#F4F4F5] block">Admin GUIOS</span>
+<span class="text-[11px] font-mono text-[#A1A1AA]">admin@guios.pro</span>
+</div>
+<button class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#F4F4F5] hover:bg-[#27272A] transition-colors text-left w-full" onclick="openUserProfileModal('Admin GUIOS', 'admin@guios.pro', 'Superadministrador', 'Dirección TICs MINTEL', 'Activo'); closeNavDropdown();" type="button">
+<span class="material-symbols-outlined text-[17px] text-[#A1A1AA]">badge</span>
+<span class="">Ver perfil</span>
+</button>
+<button class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#F4F4F5] hover:bg-[#27272A] transition-colors text-left w-full" onclick="showToast('Selección de rol activo actualizada', 'swap_horiz'); closeNavDropdown();" type="button">
+<span class="material-symbols-outlined text-[17px] text-[#A1A1AA]">swap_horiz</span>
+<span class="">Cambiar rol</span>
+</button>
+<div class="border-t border-[#33333B]/60 my-1"></div>
+<a class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-red-400 hover:bg-red-500/10 transition-colors" href="/login">
+<span class="material-symbols-outlined text-[17px]">logout</span>
+<span class="">Cerrar sesión</span>
+</a>
+</div>
+</div>
+</header>
+<!-- Main Container (scrollable) -->
+<main class="flex-1 bg-[#121212] p-8">
+<div class="max-w-[1100px] mx-auto space-y-6">
+<div class="flex items-end justify-between gap-4">
+<div class="space-y-1">
+<h1 class="text-2xl font-bold tracking-tight text-[#F4F4F5]">Mi Perfil</h1>
+<p class="text-sm text-[#A1A1AA]">Datos personales, contraseña, imagen de perfil y verificación en dos pasos de tu cuenta.</p>
+</div>
+<button class="bg-[#F4F4F5] text-[#121212] font-semibold text-sm rounded-lg px-4 py-2.5 flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">save</span><span>Guardar cambios</span></button>
+</div>
+<section class="bg-[#1E1E24] border border-[#33333B] rounded-xl p-6 flex items-center gap-6">
+<div class="w-20 h-20 rounded-full bg-[#27272A] border border-[#33333B] flex items-center justify-center text-2xl font-bold text-[#F4F4F5]">EG</div>
+<div class="flex-1 space-y-1">
+<div class="flex items-center gap-2"><span class="text-lg font-semibold text-[#F4F4F5]">Erick Guaillas</span><span class="material-symbols-outlined text-[18px] text-[#34D399]">verified</span></div>
+<div class="font-mono text-sm text-[#A1A1AA]">eguaillasv@unemi.edu.ec</div>
+<div class="flex gap-2 pt-1"><span class="text-xs px-2 py-1 rounded-md bg-[#27272A] border border-[#33333B] text-[#F4F4F5]">Superadministrador</span><span class="text-xs px-2 py-1 rounded-md bg-[#27272A] border border-[#33333B] text-[#A1A1AA]">Equipo TICs UNEMI</span></div>
+</div>
+<div class="text-right text-xs text-[#A1A1AA] space-y-1 font-mono"><div>ÚLTIMO ACCESO</div><div class="text-[#F4F4F5]">Hoy, 10:15</div></div>
+</section>
+<div class="grid grid-cols-2 gap-6">
+<section class="bg-[#1E1E24] border border-[#33333B] rounded-xl p-6 space-y-4">
+<div class="flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-[#A1A1AA]">badge</span><h2 class="text-base font-semibold text-[#F4F4F5]">Datos personales</h2></div>
+<div class="space-y-1"><label class="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">Nombres y apellidos</label><input class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3.5 py-2.5 rounded-lg text-sm" value="Erick Joel Guaillas Villacis"></div>
+<div class="space-y-1"><label class="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">Correo institucional</label><input class="w-full bg-[#121212] border border-[#33333B] text-[#71717A] px-3.5 py-2.5 rounded-lg text-sm" value="eguaillasv@unemi.edu.ec" disabled><p class="text-[11px] text-[#71717A]">El correo solo puede cambiarlo un administrador.</p></div>
+<div class="space-y-1"><label class="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">Teléfono</label><input class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3.5 py-2.5 rounded-lg text-sm" value="+593 98 442 1980"></div>
+<div class="space-y-2"><label class="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">Imagen de perfil</label>
+<div class="flex items-center gap-4 p-3 rounded-lg border border-dashed border-[#33333B] bg-[#121212]"><div class="w-12 h-12 rounded-full bg-[#27272A] flex items-center justify-center text-sm font-bold text-[#F4F4F5]">EG</div><div class="flex-1 text-xs text-[#A1A1AA]">PNG o JPG, máximo 2 MB</div><button class="text-xs font-medium px-3 py-2 rounded-lg border border-[#33333B] text-[#F4F4F5] flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">upload</span>Cambiar imagen</button></div></div>
+</section>
+<section class="bg-[#1E1E24] border border-[#33333B] rounded-xl p-6 space-y-4">
+<div class="flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-[#A1A1AA]">lock_reset</span><h2 class="text-base font-semibold text-[#F4F4F5]">Cambiar contraseña</h2></div>
+<div class="space-y-1"><label class="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">Contraseña actual</label><input type="password" class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3.5 py-2.5 rounded-lg text-sm" value="contrasena1"></div>
+<div class="space-y-1"><label class="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">Nueva contraseña</label><input type="password" class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3.5 py-2.5 rounded-lg text-sm" value="contrasena12"></div>
+<div class="space-y-1"><label class="text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">Confirmar nueva contraseña</label><input type="password" class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3.5 py-2.5 rounded-lg text-sm" value="contrasena12"></div>
+<div class="rounded-lg bg-[#121212] border border-[#33333B] p-3 space-y-1.5 text-xs">
+<div class="flex items-center gap-2 text-[#34D399]"><span class="material-symbols-outlined text-[16px]">check_circle</span>Mínimo 8 caracteres</div>
+<div class="flex items-center gap-2 text-[#34D399]"><span class="material-symbols-outlined text-[16px]">check_circle</span>Al menos una letra mayúscula</div>
+<div class="flex items-center gap-2 text-[#A1A1AA]"><span class="material-symbols-outlined text-[16px]">radio_button_unchecked</span>Al menos un número</div>
+</div>
+<button class="w-full text-sm font-semibold px-4 py-2.5 rounded-lg border border-[#33333B] text-[#F4F4F5] bg-[#27272A]">Actualizar contraseña</button>
+</section>
+</div>
+<section class="bg-[#1E1E24] border border-[#33333B] rounded-xl p-6">
+<div class="flex items-center justify-between mb-4"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-[#A1A1AA]">phonelink_lock</span><h2 class="text-base font-semibold text-[#F4F4F5]">Verificación en dos pasos (2FA)</h2></div>
+<span class="text-xs px-2.5 py-1 rounded-full border border-[#10B981]/40 bg-[#10B981]/10 text-[#34D399] flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>Activa · Google Authenticator</span></div>
+<div class="grid grid-cols-[180px_1fr] gap-6 items-center">
+<div class="w-[180px] h-[180px] bg-white rounded-lg p-3 grid grid-cols-9 grid-rows-9 gap-[2px]">
+<div class="bg-black col-span-3 row-span-3 rounded-sm"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black col-span-3 row-span-3 rounded-sm"></div>
+<div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div>
+<div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div><div class="bg-white"></div>
+<div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div>
+<div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div><div class="bg-white"></div>
+<div class="bg-black"></div><div class="bg-white"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-white"></div><div class="bg-black"></div>
+<div class="bg-black col-span-3 row-span-3 rounded-sm"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div>
+<div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div>
+<div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div>
+</div>
+<div class="space-y-4">
+<p class="text-sm text-[#A1A1AA] leading-relaxed">Tu cuenta solicita un código temporal de 6 dígitos (TOTP) en cada inicio de sesión. Si cambias de teléfono, vuelve a escanear el código QR desde tu aplicación autenticadora.</p>
+<div class="grid grid-cols-3 gap-3">
+<button class="text-sm font-medium px-3 py-2.5 rounded-lg border border-[#33333B] text-[#F4F4F5] bg-[#27272A] flex items-center justify-center gap-2"><span class="material-symbols-outlined text-[18px]">autorenew</span>Regenerar códigos</button>
+<button class="text-sm font-medium px-3 py-2.5 rounded-lg border border-[#33333B] text-[#F4F4F5] bg-[#27272A] flex items-center justify-center gap-2"><span class="material-symbols-outlined text-[18px]">download</span>Descargar códigos (PDF)</button>
+<button class="text-sm font-medium px-3 py-2.5 rounded-lg border border-[#EF4444]/50 text-[#F87171] bg-[#EF4444]/10 flex items-center justify-center gap-2"><span class="material-symbols-outlined text-[18px]">phonelink_erase</span>Desactivar 2FA</button>
+</div>
+<div class="text-xs text-[#71717A] flex items-center gap-2"><span class="material-symbols-outlined text-[16px]">info</span>Quedan 8 de 10 códigos de recuperación sin usar.</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+
+</div>
+<!-- 6. MODAL LAYER -->
+<!-- Modal 1: + Nuevo Usuario -->
+<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4" id="modalCreateUser">
+<div class="bg-[#1E1E24] border border-[#33333B] max-w-lg w-full rounded-xl overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
+<div class="px-6 py-4 border-b border-[#33333B] flex items-center justify-between bg-[#121212]">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-[#27272A] border border-[#33333B] flex items-center justify-center text-[#F4F4F5]">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-[#F4F4F5]">Crear Usuario</h3>
+<p class="text-xs text-[#A1A1AA]">Alta de nuevo operador en el sistema de auditoría</p>
+</div>
+</div>
+<button class="text-[#71717A] hover:text-[#F4F4F5] transition-colors" onclick="closeModal('modalCreateUser')" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<form class="p-6 space-y-4" id="formNewUser">
+<div class="space-y-1.5">
+<label class="text-xs font-semibold text-[#A1A1AA] uppercase">Nombres y Apellidos *</label>
+<input class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] placeholder-[#71717A] px-3.5 py-2 rounded-lg text-sm outline-none focus:border-[#A1A1AA]" placeholder="Ej. Carlos Mendoza Vera" required="" type="text">
+</div>
+<div class="space-y-1.5">
+<label class="text-xs font-semibold text-[#A1A1AA] uppercase">Correo Electrónico Institucional *</label>
+<input class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] placeholder-[#71717A] px-3.5 py-2 rounded-lg text-sm font-mono outline-none focus:border-[#A1A1AA]" placeholder="cmendozav@unemi.edu.ec" required="" type="email">
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="space-y-1.5">
+<label class="text-xs font-semibold text-[#A1A1AA] uppercase">Rol *</label>
+<select class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3 py-2 rounded-lg text-sm outline-none focus:border-[#A1A1AA]" required="">
+<option value="Evaluador TI">Evaluador TI</option>
+<option value="Administrador">Administrador</option>
+<option value="Superadministrador">Superadministrador</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="text-xs font-semibold text-[#A1A1AA] uppercase">Grupo *</label>
+<select class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3 py-2 rounded-lg text-sm outline-none focus:border-[#A1A1AA]" required="">
+<option value="Equipo TICs UNEMI">Equipo TICs UNEMI</option>
+<option value="Departamento de Auditoría">Departamento de Auditoría</option>
+<option value="Dirección TICs MINTEL">Dirección TICs MINTEL</option>
+</select>
+</div>
+</div>
+<div class="p-3 bg-[#121212] rounded-lg border border-[#33333B]/60 text-xs text-[#A1A1AA] flex items-start gap-2">
+<span class="material-symbols-outlined text-[17px] text-[#F4F4F5] shrink-0 mt-0.5">info</span>
+<span class="">Se enviará un correo con token seguro de enrolamiento para configurar su contraseña y activar 2FA TOTP.</span>
+</div>
+<div class="flex items-center justify-end gap-3 pt-3 border-t border-[#33333B]">
+<button class="px-4 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" onclick="closeModal('modalCreateUser')" type="button">
+            Cancelar
+          </button>
+<button class="bg-[#F4F4F5] text-[#121212] font-semibold text-sm rounded-lg px-4 py-2 hover:bg-[#E4E4E7] transition-all" type="submit">
+            Guardar Usuario
+          </button>
+</div>
+</form>
+</div>
+</div>
+<!-- Modal 2: Ver Detalle Usuario -->
+<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4" id="modalUserProfile">
+<div class="bg-[#1E1E24] border border-[#33333B] max-w-md w-full rounded-xl overflow-hidden shadow-2xl flex flex-col">
+<div class="px-6 py-4 border-b border-[#33333B] flex items-center justify-between bg-[#121212]">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#27272A] border border-[#33333B] text-[#F4F4F5] text-xs font-bold flex items-center justify-center" id="detailAvatar">
+            EG
+          </div>
+<div>
+<h3 class="text-base font-bold text-[#F4F4F5]" id="detailName">Erick Guaillas</h3>
+<span class="text-xs font-mono text-[#A1A1AA]" id="detailEmail">eguaillasv@unemi.edu.ec</span>
+</div>
+</div>
+<button class="text-[#71717A] hover:text-[#F4F4F5]" onclick="closeModal('modalUserProfile')" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="p-6 space-y-4">
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-[#121212] p-3 rounded-lg border border-[#33333B]">
+<span class="text-[10px] uppercase font-mono text-[#71717A] block">Rol Asignado</span>
+<span class="text-sm font-semibold text-[#F4F4F5]" id="detailRole">Superadministrador</span>
+</div>
+<div class="bg-[#121212] p-3 rounded-lg border border-[#33333B]">
+<span class="text-[10px] uppercase font-mono text-[#71717A] block">Estado</span>
+<span class="text-sm font-semibold text-emerald-400" id="detailStatus">Activo</span>
+</div>
+</div>
+<div class="bg-[#121212] p-3 rounded-lg border border-[#33333B] space-y-1">
+<span class="text-[10px] uppercase font-mono text-[#71717A] block">Grupo de Trabajo</span>
+<span class="text-xs text-[#F4F4F5]" id="detailGroup">Equipo TICs UNEMI</span>
+</div>
+<div class="bg-[#121212] p-3 rounded-lg border border-[#33333B] space-y-1">
+<span class="text-[10px] uppercase font-mono text-[#71717A] block">Factor de Doble Autenticación</span>
+<span class="text-xs text-[#10B981] flex items-center gap-1.5 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+            TOTP Habilitado y Sincronizado
+          </span>
+</div>
+</div>
+<div class="px-6 py-3 border-t border-[#33333B] bg-[#121212] flex justify-end">
+<button class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#27272A] text-[#F4F4F5] hover:bg-[#33333B] transition-colors" onclick="closeModal('modalUserProfile')" type="button">
+          Cerrar
+        </button>
+</div>
+</div>
+</div>
+<!-- Modal 3: Restricción Regla RN-07 (Eliminar) -->
+<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4" id="modalRuleRN07">
+<div class="bg-[#1E1E24] border border-[#33333B] max-w-md w-full rounded-xl overflow-hidden shadow-2xl flex flex-col">
+<div class="px-6 py-4 border-b border-[#33333B] flex items-center justify-between bg-[#121212]">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-[19px]">gavel</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-[#F4F4F5]">Acción Restringida (RN-07)</h3>
+<span class="text-xs text-[#A1A1AA]">Política de Integridad y Trazabilidad</span>
+</div>
+</div>
+<button class="text-[#71717A] hover:text-[#F4F4F5]" onclick="closeModal('modalRuleRN07')" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="p-6 space-y-4">
+<div class="bg-[#121212] border border-[#33333B] p-3.5 rounded-lg space-y-1">
+<span class="text-sm font-semibold text-[#F4F4F5]" id="rn07UserName">No es posible purgar a Erick Guaillas</span>
+<p class="text-xs text-[#A1A1AA] leading-relaxed">
+            El operador posee registros inmutables vinculados: <span class="font-mono text-[#F4F4F5] font-semibold" id="rn07CountEvals">12</span> evaluaciones metodológicas y <span class="font-mono text-[#F4F4F5] font-semibold" id="rn07CountLogs">45</span> eventos en la bitácora de auditoría.
+          </p>
+</div>
+<p class="text-xs text-[#71717A] leading-relaxed">
+          Para suspender permanentemente sus atribuciones sin quebrantar la cadena de custodia probatoria, proceda a inactivar la cuenta.
+        </p>
+<div class="flex items-center justify-end gap-3 pt-2">
+<button class="px-4 py-2 rounded-lg text-xs font-medium text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" onclick="closeModal('modalRuleRN07')" type="button">
+            Cancelar
+          </button>
+<button class="px-4 py-2 rounded-lg text-xs font-semibold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-colors" onclick="confirmDeactivateFromRN07()" type="button">
+            Inactivar Cuenta
+          </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Toast Notification Container -->
+<div class="fixed bottom-6 right-6 z-50 bg-[#1E1E24] border border-[#33333B] text-[#F4F4F5] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 transition-all duration-300 opacity-0 pointer-events-none translate-y-3" id="toastNotification">
+<span class="material-symbols-outlined text-[20px] text-[#F4F4F5]" id="toastIcon">check_circle</span>
+<span class="text-xs font-medium" id="toastMessage">Operación realizada con éxito</span>
+</div>
+<!-- Scripts -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // User Profile Dropdown toggle
+      const trigger = document.getElementById('userProfileTrigger');
+      const dropdown = document.getElementById('navbarUserDropdown');
+
+      if (trigger && dropdown) {
+        trigger.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dropdown.classList.toggle('hidden');
+          dropdown.classList.toggle('flex');
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!dropdown.contains(e.target) && !trigger.contains(e.target)) {
+            closeNavDropdown();
+          }
+        });
+      }
+
+      // Open Create User Modal
+      const openCreateBtn = document.getElementById('btnOpenCreateUser');
+      if (openCreateBtn) {
+        openCreateBtn.addEventListener('click', () => {
+          openModal('modalCreateUser');
+        });
+      }
+
+      // Handle Create User Submit
+      const formNewUser = document.getElementById('formNewUser');
+      if (formNewUser) {
+        formNewUser.addEventListener('submit', (e) => {
+          e.preventDefault();
+          closeModal('modalCreateUser');
+          showToast('Usuario creado con éxito y correo de enrolamiento enviado.', 'mark_email_read');
+          formNewUser.reset();
+        });
+      }
+
+      // Filter change listeners
+      const searchInput = document.getElementById('searchInput');
+      const roleSelect = document.getElementById('roleSelect');
+      const statusSelect = document.getElementById('statusSelect');
+
+      [searchInput, roleSelect, statusSelect].forEach(elem => {
+        if (elem) {
+          elem.addEventListener('input', () => {
+            // Instant feedback
+            const count = (searchInput.value ? 1 : 0) + (roleSelect.value ? 1 : 0) + (statusSelect.value ? 1 : 0);
+            if (count > 0) {
+              console.log(`Filtros activos: ${count}`);
+            }
+          });
+        }
+      });
+    });
+
+    function closeNavDropdown() {
+      const dropdown = document.getElementById('navbarUserDropdown');
+      if (dropdown) {
+        dropdown.classList.add('hidden');
+        dropdown.classList.remove('flex');
+      }
+    }
+
+    function openModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function openUserProfileModal(name, email, role, group, status) {
+      document.getElementById('detailName').innerText = name;
+      document.getElementById('detailEmail').innerText = email;
+      document.getElementById('detailRole').innerText = role;
+      document.getElementById('detailGroup').innerText = group;
+      
+      const statusElem = document.getElementById('detailStatus');
+      statusElem.innerText = status;
+      if (status === 'Activo') {
+        statusElem.className = 'text-sm font-semibold text-emerald-400';
+      } else {
+        statusElem.className = 'text-sm font-semibold text-red-400';
+      }
+
+      const initials = name.split(' ').map(p => p[0]).slice(0, 2).join('');
+      document.getElementById('detailAvatar').innerText = initials || 'US';
+
+      openModal('modalUserProfile');
+    }
+
+    function openRuleRN07Modal(userName, evalsCount, logsCount) {
+      document.getElementById('rn07UserName').innerText = `No es posible purgar a ${userName}`;
+      document.getElementById('rn07CountEvals').innerText = evalsCount;
+      document.getElementById('rn07CountLogs').innerText = logsCount;
+
+      openModal('modalRuleRN07');
+    }
+
+    function confirmDeactivateFromRN07() {
+      closeModal('modalRuleRN07');
+      showToast('La cuenta fue conmutada a Inactiva bajo regla RN-07', 'shield');
+    }
+
+    let toastTimer;
+    function showToast(message, icon = 'check_circle') {
+      const toast = document.getElementById('toastNotification');
+      const msgSpan = document.getElementById('toastMessage');
+      const iconSpan = document.getElementById('toastIcon');
+
+      if (!toast || !msgSpan) return;
+
+      msgSpan.innerText = message;
+      if (iconSpan) iconSpan.innerText = icon;
+
+      toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-3');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 3500);
+    }
+  </script>
+
+
+</body></html>

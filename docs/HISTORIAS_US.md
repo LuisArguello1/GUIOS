@@ -284,20 +284,21 @@ Documento de historias de usuario del sistema. Cada historia incluye su descripc
 **Flujos alternativos / excepciones**
 1. Un factor irrelevante no participa en subfactores ni dictamen.
 2. Una PM incompleta no genera FODA.
-3. Si no existe ninguna PM, no se emite dictamen.
+3. Si falta algún factor relevante por evaluar, no se emite dictamen y se informa cuáles faltan.
 4. Los cálculos no deben depender de la disponibilidad de IA.
 
 **Criterios de aceptación**
-- **CA-01:** El motor calcula IR de manera determinista.
-- **CA-02:** La escala utilizada es 1–4.
+- **CA-01:** El motor calcula IR de manera determinista con la matriz de la Figura 5.10 de la tesis.
+- **CA-02:** La escala utilizada es 1–4; un valor "sin calificar" no se trata como 1.
 - **CA-03:** PM solo se calcula con todos los subfactores calificados.
-- **CA-04:** El umbral positivo de FODA es PM ≥ 3.0.
-- **CA-05:** Se aplican las reglas de dictamen A/B/C definidas en la metodología.
-- **CA-06:** El motor puede ejecutarse sin componentes visuales.
-- **CA-07:** El motor no depende del servicio de IA.
-- **CA-08:** Se realizan pruebas unitarias para las reglas matemáticas.
+- **CA-04:** El umbral positivo de FODA es PM ≥ 3.0 (sin redondear).
+- **CA-05:** Dictamen según la tesis: A Adoptar (sin negativos), B Con matices (negativos solo en IR Opcional), C Posponer (algún negativo con IR Importante o Fundamental). C prevalece sobre B.
+- **CA-06:** El motor devuelve los factores que causan el dictamen, con su IR, PM y FODA.
+- **CA-07:** El motor puede ejecutarse sin componentes visuales.
+- **CA-08:** El motor no depende del servicio de IA.
+- **CA-09:** Se realizan pruebas unitarias para las reglas matemáticas, incluido el caso UNEMI de la tesis (Figuras 6.3 a 6.5), que debe dar C.
 
-**Reglas de negocio:** RN-01, RN-02, RN-03, RN-04.
+**Reglas de negocio:** RN-01, RN-02, RN-03, RN-04, RN-12, RN-13, RN-14.
 
 **Requerimientos relacionados:** RNF-01, RNF-08, RNF-12.
 
@@ -349,32 +350,34 @@ Documento de historias de usuario del sistema. Cada historia incluye su descripc
 
 **Historia de usuario:** Como evaluador, quiero configurar la Importancia del Decisor de los factores, para que el sistema determine automáticamente cuáles son relevantes para mi evaluación.
 
-**Descripción:** El evaluador configura mediante sliders la importancia de cada uno de los 18 factores y el sistema calcula la Importancia Relativa.
+**Descripción:** El evaluador elige la importancia de cada uno de los 18 factores con un control de 4 opciones y el sistema calcula la Importancia Relativa.
 
 **Precondiciones:** Debe existir una evaluación iniciada y un catálogo activo.
 
 **Flujo principal**
-1. El sistema muestra los 18 factores.
-2. Muestra la IS en solo lectura.
-3. El evaluador asigna ID mediante slider de 1 a 4.
-4. El sistema calcula IR inmediatamente.
+1. El sistema muestra los 18 factores, todos "sin calificar".
+2. Muestra la Importancia Sugerida (IS) de la guía en solo lectura, como referencia.
+3. El evaluador elige la ID (1 a 4) de cada factor.
+4. El sistema calcula IR inmediatamente y guarda el avance.
 5. Determina los factores relevantes.
-6. Los factores irrelevantes son excluidos de las siguientes etapas.
+6. El evaluador elige el ámbito (Interno o Externo) de Soporte.
+7. Los factores irrelevantes son excluidos de las siguientes etapas.
 
 **Flujos alternativos / excepciones**
 1. No se pueden introducir valores fuera de 1–4.
-2. El ámbito solo puede modificarse para Soporte.
+2. El ámbito solo puede modificarse para Soporte; no tiene valor preseleccionado.
 3. Los factores con IR = Irrelevante no pasan a la calificación de subfactores.
+4. Si el evaluador cambia una ID o el ámbito después, todos los resultados afectados se recalculan.
 
 **Criterios de aceptación**
-- **CA-01:** Se muestran los 18 factores activos.
-- **CA-02:** ID utiliza valores de 1 a 4.
+- **CA-01:** Se muestran los 18 factores activos, sin valores preseleccionados.
+- **CA-02:** ID utiliza valores de 1 a 4; la IS no se usa como valor por defecto.
 - **CA-03:** IR se recalcula automáticamente.
 - **CA-04:** El recálculo se realiza en menos de 100 ms.
 - **CA-05:** Solo Soporte permite modificar su ámbito.
 - **CA-06:** Los factores irrelevantes son filtrados automáticamente.
 
-**Reglas de negocio:** RN-01, RN-06.
+**Reglas de negocio:** RN-01, RN-06, RN-12, RN-13.
 
 **Requerimientos relacionados:** RF-PUB-02, RF-PUB-03; RNF-01, RNF-06, RNF-07.
 
@@ -387,34 +390,34 @@ Documento de historias de usuario del sistema. Cada historia incluye su descripc
 
 **Historia de usuario:** Como evaluador, quiero calificar los subfactores de los factores relevantes, para que el sistema calcule la Ponderación Media y la clasificación FODA.
 
-**Descripción:** El evaluador selecciona cada factor relevante y asigna una calificación de 1 a 4 a sus subfactores.
+**Descripción:** El evaluador selecciona cada factor relevante y califica sus subfactores de 1 a 4 con un solo clic por subfactor. Es la mejora de "calificación más fácil" que pidió la especialista del caso de estudio (tesis, pág. 107), frente al prototipo original, que necesitaba al menos tres clics y un botón "Guardar" por factor.
 
 **Precondiciones:** Deben haberse configurado los factores y determinado cuáles son relevantes.
 
 **Flujo principal**
-1. El sistema muestra únicamente factores relevantes.
+1. El sistema muestra únicamente factores relevantes, con su progreso (subfactores calificados / total) y su PM.
 2. El evaluador selecciona un factor.
-3. Visualiza sus subfactores.
-4. Asigna una calificación de 1 a 4 a cada uno.
-5. Presiona Guardar.
-6. El sistema calcula PM.
-7. Determina la clasificación FODA provisional.
-8. Muestra la PM en el selector.
+3. Visualiza sus subfactores, todos "sin calificar".
+4. Califica cada uno con un clic en 4 botones con etiqueta (No cumple / Desconozco / Cumple parcialmente / Cumple).
+5. Cada calificación se guarda automáticamente.
+6. Al completar el factor, el sistema calcula su PM y su clasificación FODA.
+7. El sistema indica qué factores relevantes faltan por completar.
 
 **Flujos alternativos / excepciones**
 1. No se permiten valores fuera de 1–4.
 2. Si falta una calificación, la PM no se considera válida.
 3. Un factor irrelevante no aparece para ser calificado.
+4. Cambiar de factor no pierde las calificaciones ya hechas.
 
 **Criterios de aceptación**
 - **CA-01:** Solo aparecen factores relevantes.
-- **CA-02:** Cada subfactor posee un slider de 1–4.
-- **CA-03:** Guardar calcula PM.
+- **CA-02:** Cada subfactor se califica con un clic en 4 botones con etiqueta; no hay sliders.
+- **CA-03:** No existe botón "Guardar" por factor: el guardado es automático.
 - **CA-04:** PM solo es válida cuando todos los subfactores están calificados.
-- **CA-05:** Se genera clasificación FODA provisional.
-- **CA-06:** El proceso proporciona retroalimentación inmediata.
+- **CA-05:** Se genera la clasificación FODA del factor al completarlo.
+- **CA-06:** El proceso proporciona retroalimentación inmediata y muestra el progreso.
 
-**Reglas de negocio:** RN-01, RN-02.
+**Reglas de negocio:** RN-01, RN-02, RN-12, RN-13.
 
 **Requerimientos relacionados:** RF-PUB-04; RNF-01, RNF-06, RNF-07.
 
@@ -429,32 +432,32 @@ Documento de historias de usuario del sistema. Cada historia incluye su descripc
 
 **Descripción:** El sistema consolida los resultados obtenidos durante la evaluación y genera el dictamen matemático final.
 
-**Precondiciones:** Deben existir factores evaluados con PM válida para poder generar el dictamen.
+**Precondiciones:** Todos los factores relevantes deben estar evaluados (PM válida) para poder generar el dictamen.
 
 **Flujo principal**
-1. El sistema muestra todos los factores y sus PM.
+1. El sistema muestra los factores relevantes con su IR y su PM.
 2. Muestra el ámbito utilizado.
-3. Clasifica cada factor en la matriz FODA.
+3. Clasifica cada factor en la matriz FODA (cuatro cuadrantes).
 4. El evaluador solicita el dictamen.
-5. El motor matemático genera A, B o C.
-6. El sistema presenta la explicación correspondiente.
-7. Si corresponde, posteriormente se muestra información generada por IA.
+5. El motor matemático genera A (Adoptar), B (Es posible adoptar, con matices) o C (Analizar y posponer la adopción).
+6. El sistema presenta el texto metodológico y una recomendación personalizada que nombra los factores causantes con su IR, PM y FODA, y los subfactores que no cumplen.
+7. Si la IA está activada, se muestran por separado el resumen ejecutivo y, si el dictamen es B o C, el plan de mitigación.
 
 **Flujos alternativos / excepciones**
-1. Si no existe ninguna PM, no se genera dictamen.
+1. Mientras falte algún factor relevante por evaluar, el botón de dictamen está bloqueado y se indica qué falta.
 2. Los factores irrelevantes no participan.
 3. El dictamen matemático no depende de la IA.
 
 **Criterios de aceptación**
 - **CA-01:** Se muestra la matriz FODA completa.
-- **CA-02:** Se diferencian visualmente resultados positivos y negativos.
-- **CA-03:** Se genera un dictamen A/B/C según las reglas metodológicas.
-- **CA-04:** Se muestra una explicación del resultado.
-- **CA-05:** No se genera dictamen si no existe ninguna PM.
+- **CA-02:** Se diferencian resultados positivos y negativos con color y texto.
+- **CA-03:** Se genera un dictamen A/B/C según las reglas metodológicas (C prevalece sobre B).
+- **CA-04:** La recomendación nombra los factores que causan el dictamen (mejora pedida por la especialista, tesis pág. 107).
+- **CA-05:** No se genera dictamen mientras falte algún factor relevante por evaluar.
 - **CA-06:** El cálculo matemático no depende del servicio de IA.
 - **CA-07:** El progreso puede mantenerse durante la sesión del navegador.
 
-**Reglas de negocio:** RN-01, RN-03, RN-04.
+**Reglas de negocio:** RN-01, RN-03, RN-04, RN-13, RN-14.
 
 **Requerimientos relacionados:** RF-PUB-05, RF-PUB-06, RF-PUB-07; RNF-01, RNF-06, RNF-08.
 
@@ -506,40 +509,39 @@ Documento de historias de usuario del sistema. Cada historia incluye su descripc
 
 **Historia de usuario:** Como evaluador, quiero recibir sugerencias de IA para la Importancia del Decisor y las calificaciones de subfactores, para disponer de información de apoyo durante la evaluación.
 
-**Descripción:** La IA puede sugerir valores para ID y para los subfactores cuando el evaluador proporciona información contextual suficiente. Las sugerencias son orientativas y pueden modificarse.
+**Descripción:** La IA puede sugerir valores para ID y para los subfactores cuando el evaluador activa la asistencia y proporciona información contextual suficiente. **La IA solo sugiere:** el evaluador acepta, cambia o ignora cada sugerencia, y la IA nunca rellena valores por su cuenta.
 
-**Precondiciones:** Debe existir descripción de la organización o enlace al repositorio para habilitar la IA.
+**Precondiciones:** El interruptor "Activar asistencia IA" del registro está encendido, lo que exige descripción de la organización o enlace al repositorio.
 
 **Flujo principal**
-1. El evaluador proporciona descripción o repositorio.
-2. El sistema habilita la IA.
-3. El evaluador solicita sugerencias.
-4. La IA devuelve ID para los 18 factores con justificación.
-5. Los valores se cargan en los sliders.
-6. El evaluador puede modificarlos.
-7. En los pasos de subfactores puede solicitar nuevas sugerencias.
-8. Guarda los valores finales.
+1. En el registro, el evaluador proporciona descripción o repositorio y enciende "Activar asistencia IA".
+2. En el Paso 1-2, el evaluador solicita sugerencias.
+3. La IA devuelve una ID sugerida para cada factor, con justificación breve.
+4. Cada sugerencia se muestra junto a su control, diferenciada visualmente, con Aceptar / Cambiar / Ignorar; el control sigue "sin calificar" hasta que el evaluador decide.
+5. En el Paso 3-4, el evaluador puede solicitar sugerencias de calificación (1 a 4, con justificación) para los subfactores de un factor, con las mismas acciones.
+6. El sistema guarda el valor elegido por el evaluador, la sugerencia, su justificación y si se aceptó sin cambios.
 
 **Flujos alternativos / excepciones**
-1. Si no hay descripción ni repositorio, la IA permanece deshabilitada.
-2. Si la IA falla, el evaluador puede continuar manualmente.
-3. Si supera los 30 segundos, se activa el mecanismo de degradación.
+1. Si no hay descripción ni repositorio, el interruptor no puede encenderse.
+2. Con el interruptor apagado, el sistema funciona completo en modo manual.
+3. Si la IA falla o supera los 30 segundos, se informa al evaluador y continúa en modo manual.
 4. Si la respuesta no cumple el JSON esperado, se descarta.
-5. Modificar manualmente una sugerencia hace que deje de identificarse como sugerencia aceptada.
+5. Cambiar una sugerencia antes de aceptarla hace que no se registre como aceptada sin cambios.
 
 **Criterios de aceptación**
-- **CA-01:** La IA solo se habilita cuando existe descripción o repositorio.
-- **CA-02:** Se generan sugerencias de ID para los 18 factores.
-- **CA-03:** Cada sugerencia incluye justificación.
-- **CA-04:** Las sugerencias se distinguen visualmente de los valores manuales.
-- **CA-05:** El evaluador puede modificar cualquier sugerencia.
-- **CA-06:** Se generan sugerencias para subfactores cuando se solicita.
-- **CA-07:** Se persiste el valor final guardado por el evaluador.
-- **CA-08:** Un error o timeout de IA no interrumpe la evaluación.
+- **CA-01:** El interruptor solo se habilita cuando existe descripción o repositorio.
+- **CA-02:** Se generan sugerencias de ID para los factores, cada una con justificación.
+- **CA-03:** Ninguna sugerencia se aplica sin una acción explícita del evaluador.
+- **CA-04:** Las sugerencias se distinguen visualmente de los valores elegidos por el evaluador.
+- **CA-05:** El evaluador puede aceptar, cambiar o ignorar cada sugerencia.
+- **CA-06:** Se generan sugerencias para subfactores cuando se solicitan.
+- **CA-07:** Se persisten el valor elegido, la sugerencia, la justificación y si se aceptó sin cambios.
+- **CA-08:** Un error o timeout de IA no interrumpe la evaluación ni cambia el dictamen.
+- **CA-09:** Las pruebas automáticas usan un proveedor de IA falso (mock), sin llamadas reales.
 
-**Reglas de negocio:** RN-05 — Las sugerencias de IA son orientativas.
+**Reglas de negocio:** RN-05 — Las sugerencias de IA son orientativas; RN-12; RN-14.
 
-**Requerimientos relacionados:** RF-IA-01, RF-IA-02, RF-IA-03, RF-IA-05, RF-IA-06; RNF-03, RNF-05, RNF-13, RNF-16, RNF-17, RNF-18, RNF-19.
+**Requerimientos relacionados:** RF-IA-01, RF-IA-02, RF-IA-03, RF-IA-05, RF-IA-06, RF-IA-07; RNF-03, RNF-05, RNF-13, RNF-16, RNF-17, RNF-18, RNF-19.
 
 ---
 
@@ -550,16 +552,16 @@ Documento de historias de usuario del sistema. Cada historia incluye su descripc
 
 **Historia de usuario:** Como evaluador, quiero obtener un resumen ejecutivo y, cuando corresponda, un plan de mitigación generado por IA, para complementar la interpretación del resultado de la evaluación.
 
-**Descripción:** Después de obtener el dictamen matemático, el sistema puede enviar los resultados de la matriz FODA a la IA para generar un resumen ejecutivo y, para dictámenes A o B, un plan de mitigación relacionado con los factores negativos.
+**Descripción:** Después de obtener el dictamen matemático, el sistema puede enviar los resultados de la matriz FODA a la IA para generar un resumen ejecutivo y, para dictámenes B o C, un plan de mitigación relacionado con los factores negativos. Complementa la recomendación personalizada; el dictamen matemático no cambia.
 
 **Precondiciones:** Debe existir un dictamen matemático generado. La IA debe estar habilitada para generar el contenido correspondiente.
 
 **Flujo principal**
 1. El motor genera el dictamen matemático.
 2. El sistema comprueba si la IA está habilitada.
-3. Envía la matriz FODA y el dictamen al servicio de IA.
+3. Envía la matriz FODA, los factores que causan el dictamen y el dictamen al servicio de IA.
 4. Recibe el resumen ejecutivo.
-5. Si el dictamen es A o B, recibe también el plan de mitigación.
+5. Si el dictamen es B o C, recibe también el plan de mitigación.
 6. Valida la respuesta.
 7. Muestra la información diferenciada del resultado matemático.
 8. Registra la asistencia realizada.
@@ -568,17 +570,17 @@ Documento de historias de usuario del sistema. Cada historia incluye su descripc
 1. Si la IA no está disponible, el dictamen matemático permanece disponible.
 2. Si se produce timeout, se informa al evaluador y se mantiene el resultado matemático.
 3. Si la respuesta no cumple el formato esperado, se descarta.
-4. Si el dictamen no es A o B, no se genera plan de mitigación.
+4. Si el dictamen es A, no se genera plan de mitigación.
 
 **Criterios de aceptación**
 - **CA-01:** El resumen ejecutivo se genera después del dictamen cuando la IA está habilitada.
 - **CA-02:** El resumen se presenta separado del dictamen matemático.
-- **CA-03:** Para dictámenes A o B se genera un plan de mitigación.
+- **CA-03:** Para dictámenes B o C se genera un plan de mitigación.
 - **CA-04:** El plan contiene acciones relacionadas con factores negativos.
 - **CA-05:** Un error de IA no modifica el dictamen matemático.
 - **CA-06:** Las respuestas son validadas antes de mostrarse.
 - **CA-07:** La interacción con IA queda registrada en AIAssistanceLog.
 
-**Reglas de negocio:** RN-03, RN-04, RN-05.
+**Reglas de negocio:** RN-03, RN-04, RN-05, RN-14.
 
 **Requerimientos relacionados:** RF-PUB-05, RF-IA-04, RF-IA-05, RF-IA-06; RNF-03, RNF-05, RNF-13, RNF-19.

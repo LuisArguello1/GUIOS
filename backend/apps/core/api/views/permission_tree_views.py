@@ -27,16 +27,16 @@ class PermissionTreeViewSet(viewsets.ViewSet):
     [
       {
         "id": 1,
-        "name": "Atención",
+        "name": "Sistema",
         "order": 20,
         "modules": [
           {
             "id": 3,
-            "label": "Punto de Venta (POS)",
-            "path": "/pos",
+            "label": "Usuarios",
+            "path": "/dashboard/users",
             "permissions": [
-              {"id": 1, "codename": "pos.view",        "label": "Ver módulo POS",  "order": 1},
-              {"id": 2, "codename": "pos.create_sale", "label": "Crear ventas",    "order": 2},
+              {"id": 1, "codename": "users.view",   "label": "Ver usuarios",   "order": 1},
+              {"id": 2, "codename": "users.create", "label": "Crear usuarios", "order": 2},
               ...
             ]
           },

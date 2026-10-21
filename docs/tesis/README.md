@@ -1,3 +1,5 @@
+> **⚠️ Resumen NO normativo.** Este archivo es un resumen de la tesis escrito a mano y contiene errores conocidos. **No lo uses para programar ni para tomar decisiones.** Las fuentes válidas son, en este orden: la tesis original (Rea Sánchez, 2022), `docs/REQUISITOS.md`, `docs/catalogo_guios.json` y `docs/ANALISIS_GUIOS_ORIGINAL.md` (ver hallazgo R-05).
+
 # Factores para la Adopción de Soluciones Basadas en Software Libre y Fuentes Abiertas
 
 **Tesis Doctoral**  
