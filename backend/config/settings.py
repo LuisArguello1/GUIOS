@@ -209,16 +209,25 @@ AUTH_USER_MODEL = 'authentication.CustomUser'
 
 # Cache (Redis)
 REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': os.getenv('REDIS_CACHE_URL', REDIS_URL),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        },
-        'KEY_PREFIX': 'guios_cache',
+if os.getenv('REDIS_URL') or os.getenv('REDIS_CACHE_URL'):
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': os.getenv('REDIS_CACHE_URL', REDIS_URL),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            },
+            'KEY_PREFIX': 'guios_cache',
+        }
     }
-}
+else:
+    # Desarrollo local sin Redis: cache en memoria (se pierde al reiniciar el servidor)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'KEY_PREFIX': 'guios_cache',
+        }
+    }
 
 # Usar Redis para el almacenamiento de sesiones
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
