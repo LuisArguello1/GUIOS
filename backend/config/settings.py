@@ -148,6 +148,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+# Permite ejecutar `python backend/manage.py test` desde la raíz del repositorio.
+TEST_RUNNER = 'config.test_runner.BackendDiscoverRunner'
 ASGI_APPLICATION = 'config.asgi.application'
 
 # Database

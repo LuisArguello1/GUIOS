@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useAuthStore from '../../app/useAuthStore';
 import useThemeStore from '../../app/useThemeStore';
-import { UserCog, Users, MonitorDot, LogOut, Sun, Moon, ArrowRight } from 'lucide-react';
+import { UserCog, LogOut, Sun, Moon, ArrowRight } from 'lucide-react';
 import authService from '../../api/authService';
 import { getImageUrl } from '../../utils/imageUtils';
 import isotipo from '../../assets/img/Isotipo.webp';
@@ -22,10 +22,6 @@ const getRoleData = (name: string) => {
     const r = (name || '').toLowerCase();
     if (r.includes('admin') || r.includes('gerencia') || r.includes('administrador'))
         return { Icon: UserCog, description: 'Administración y gestión global del sistema' };
-    if (r.includes('atencion') || r.includes('modulo'))
-        return { Icon: Users, description: 'Atención directa y gestión de turnos' };
-    if (r.includes('pantalla') || r.includes('visor'))
-        return { Icon: MonitorDot, description: 'Pantalla pública y visualizador de turnos' };
     return { Icon: UserCog, description: 'Acceso a módulos autorizados' };
 };
 

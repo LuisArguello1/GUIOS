@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend-check:
-    name: Backend Validation (Django System Check)
+    name: Backend Validation (Check, Migrations and Tests)
     runs-on: ubuntu-latest
 
     steps:
@@ -37,6 +37,20 @@ jobs:
           DEBUG: "True"
         run: |
           python backend/manage.py check
+
+      - name: Verify no pending migrations
+        env:
+          SECRET_KEY: "ci-secret-key-for-django-check-only"
+          DEBUG: "True"
+        run: |
+          python backend/manage.py makemigrations --check --dry-run
+
+      - name: Run backend tests
+        env:
+          SECRET_KEY: "ci-secret-key-for-django-check-only"
+          DEBUG: "True"
+        run: |
+          python backend/manage.py test
 
   frontend-check:
     name: Frontend Validation (ESLint, TypeScript and Build)
