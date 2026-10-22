@@ -44,6 +44,18 @@ python3.12 -m venv venv && ./venv/bin/pip install -r requirements.txt   # Window
 cd frontend && npm ci && npm run lint && npm run build
 ```
 
+Cobertura del motor (debe ser 100 %):
+
+```sh
+./venv/bin/coverage run --branch --include="*/guios/services/engine.py" backend/manage.py test apps.guios.tests.test_engine
+./venv/bin/coverage report -m --fail-under=100
+```
+
+```bat
+venv\Scripts\coverage run --branch --include="*/guios/services/engine.py" backend\manage.py test apps.guios.tests.test_engine
+venv\Scripts\coverage report -m --fail-under=100
+```
+
 `npm install`/`npm ci` activa el hook `.githooks/pre-push`, que corre check, migraciones, tests, lint y build.
 
 ## Estructura del backend

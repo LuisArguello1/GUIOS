@@ -86,3 +86,8 @@ logs/
 .scripts
 .nginx
 run_production.py 
+
+# Cobertura de pruebas
+.coverage
+.coverage.*
+htmlcov/
