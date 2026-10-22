@@ -40,7 +40,7 @@ class SubfactorAdmin(admin.ModelAdmin):
     list_display = ('id', 'code', 'factor', 'description_short', 'order', 'is_base', 'is_active')
     list_filter = ('factor__dimension', 'factor', 'is_active', 'is_base')
     search_fields = ('code', 'description', 'factor__name')
-    ordering = ('factor__order', 'order', 'id')
+    ordering = ('factor__dimension__order', 'factor__order', 'order', 'id')
 
     def description_short(self, obj):
         return obj.description[:60] + ('...' if len(obj.description) > 60 else '')
