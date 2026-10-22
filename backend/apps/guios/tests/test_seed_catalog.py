@@ -94,6 +94,16 @@ class SeedCatalogTests(TestCase):
         self.assertEqual(Subfactor.objects.filter(factor__code='ORG-ACT').count(), 2)
         self.assertEqual(Subfactor.objects.filter(factor__code='ORG-APO').count(), 1)
 
+    def test_default_ordering_groups_by_dimension(self):
+        run_seed()
+        factor_dimensions = [f.dimension.code for f in Factor.objects.select_related('dimension')]
+        self.assertEqual(factor_dimensions, ['TEC'] * 9 + ['ORG'] * 8 + ['ECO'])
+        subfactor_dimensions = [
+            s.factor.dimension.code for s in Subfactor.objects.select_related('factor__dimension')
+        ]
+        self.assertEqual(subfactor_dimensions, ['TEC'] * 40 + ['ORG'] * 19 + ['ECO'] * 2)
+        self.assertEqual(Subfactor.objects.first().code, 'TEC-COM-01')
+
     def test_uses_texto_mostrar(self):
         run_seed()
         subfactor = Subfactor.objects.get(code='ECO-TCO-02')

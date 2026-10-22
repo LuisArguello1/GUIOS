@@ -50,7 +50,7 @@ class Subfactor(models.Model):
 
     class Meta:
         db_table = "guios_subfactor"
-        ordering = ["factor__order", "order", "id"]
+        ordering = ["factor__dimension__order", "factor__order", "order", "id"]
         verbose_name = "Subfactor"
         verbose_name_plural = "Subfactores"
 
