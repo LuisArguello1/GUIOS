@@ -263,7 +263,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 ## Módulo de evaluación GUIOS
 
-> **Nota (Paso 1 del plan, `docs/ANALISIS_GUIOS_ORIGINAL.md` §8):** esta sección describe el estado **objetivo** acordado por el equipo. Los cambios respecto a la migración `0001` (renombre a `suggested_importance`, `PROTECT` en dimensión→factor y factor→subfactor, valores nulos para "sin calificar" y `factor_name_snapshot`) se aplican en la migración `0002` (Paso 2).
+> **Nota (Paso 2 del plan, `docs/ANALISIS_GUIOS_ORIGINAL.md` §8):** los modelos de esta sección ya coinciden con el código. La migración `0002_suggested_importance_protect_unrated` aplicó los cambios respecto a la `0001`: renombre a `suggested_importance` (con `RenameField`), `PROTECT` en dimensión→factor y factor→subfactor, valores nulos para "sin calificar", `factor_name_snapshot` y las etiquetas A/B/C de la tesis. "Implementado (modelo)" significa que existen el modelo y su migración; la lógica (motor, API, pantallas) llega en los pasos siguientes.
 
 ---
 
@@ -271,7 +271,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_dimension`
 - **Ubicación:** `apps.guios.models.dimension.Dimension`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Agrupador de primer nivel del catálogo GUIOS: Tecnológica, Organizacional, Económica. El catálogo base proviene de la tesis doctoral. Cubre RF-ADM-31 (CRUD de dimensiones).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -292,7 +292,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_factor`
 - **Ubicación:** `apps.guios.models.factor.Factor`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Criterio de evaluación de segundo nivel. Cada factor tiene una Importancia Sugerida (IS) definida por la metodología (Tabla 5.3 de la tesis). Cubre RF-ADM-32 (CRUD de factores), RF-PUB-02 (Paso 1-2) y RN-06 (ámbito de Soporte).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -301,7 +301,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 | `dimension` | `ForeignKey(Dimension)` | No (PROTECT) | Dimensión a la que pertenece. PROTECT impide borrar una dimensión con factores (RF-ADM-31). |
 | `name` | `CharField(200)` | No | Nombre del factor. |
 | `suggested_importance` | `PositiveSmallIntegerField` | No | IS de la guía (Tabla 5.3). Valores: 1, 2, 3, 4. Se muestra al evaluador como referencia. |
-| `scope` | `CharField(10)` | No | Ámbito FODA: `internal`, `external` o `both`. |
+| `scope` | `CharField(10)` | No (Default: `internal`) | Ámbito FODA: `internal`, `external` o `both`. |
 | `scope_configurable` | `BooleanField` | No (Default: False) | `True` únicamente para el factor "Soporte" (RF-PUB-02, RN-06). |
 | `order` | `PositiveSmallIntegerField` | No (Default: 0) | Orden dentro de la dimensión. |
 | `is_base` | `BooleanField` | No (Default: False) | Pertenece al catálogo base de la tesis. No eliminable si `True`. |
@@ -320,7 +320,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_subfactor`
 - **Ubicación:** `apps.guios.models.subfactor.Subfactor`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Criterio de tercer nivel que el evaluador califica individualmente. Texto redactado como afirmación verificable. Cubre RF-ADM-33 (CRUD) y RF-PUB-04 (Paso 3-4).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -342,7 +342,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_evaluation`
 - **Ubicación:** `apps.guios.models.evaluation.Evaluation`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Registro principal de una sesión de evaluación. Actúa como cabecera de todos los registros de detalle. Cubre RF-PUB-01 (datos del modal de inicio), RF-PUB-06 (persistencia), RF-ADM-34 y 35 (historial).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -368,7 +368,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_evaluationfactor`
 - **Ubicación:** `apps.guios.models.evaluation_factor.EvaluationFactor`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Configuración asignada por el evaluador a cada factor en el Paso 1-2. Incluye snapshot del IS para proteger el historial si el catálogo cambia (RN-08). Cubre RF-PUB-02, RF-PUB-03, RF-IA-02, RN-01, RN-08.
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -394,7 +394,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_evaluationsubfactor`
 - **Ubicación:** `apps.guios.models.evaluation_subfactor.EvaluationSubfactor`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Calificación asignada a cada subfactor en el Paso 3-4. Incluye snapshot del texto del subfactor para proteger el historial (RN-08). Cubre RF-PUB-04, RF-IA-03, RN-08.
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -417,7 +417,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_evaluationresult`
 - **Ubicación:** `apps.guios.models.evaluation_result.EvaluationResult`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Resultados calculados por el motor matemático para cada factor relevante: Ponderación Media (PM) y clasificación FODA. Cubre RF-PUB-05 (Paso 5-6), RNF-08 (determinismo).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -449,7 +449,7 @@ scope_used = 'external' y meets_threshold = False ->  threat      (Amenaza)
 
 - **Tabla en BD:** `guios_evaluationverdict`
 - **Ubicación:** `apps.guios.models.evaluation_verdict.EvaluationVerdict`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Dictamen final emitido por el motor matemático. Relación OneToOne con Evaluation. Almacena opcionalmente el resumen ejecutivo y plan de mitigación de la IA. Cubre RF-PUB-05, RF-IA-04, RN-03 y RN-04.
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -458,8 +458,8 @@ scope_used = 'external' y meets_threshold = False ->  threat      (Amenaza)
 | `evaluation` | `OneToOneField(Evaluation)` | No (CASCADE) | Evaluación a la que corresponde el dictamen. |
 | `recommendation` | `CharField(1)` | No | Tipo de recomendación según la tesis (págs. 104-106): `A` Adoptar, `B` Es posible adoptar con matices, `C` Analizar y posponer la adopción. |
 | `explanation_text` | `TextField` | No | Texto explicativo del dictamen. Generado por el motor matemático, no por la IA. |
-| `ai_executive_summary` | `TextField` | Sí (Blank) | Resumen ejecutivo generado por el servicio de IA. `NULL` si IA no fue invocada. (RF-IA-04) |
-| `ai_mitigation_plan` | `TextField` | Sí (Blank) | Plan de mitigación de la IA para dictámenes B o C. `NULL` si no aplica. (RF-IA-04) |
+| `ai_executive_summary` | `TextField` | No (Blank, Default: `""`) | Resumen ejecutivo generado por el servicio de IA. Vacío (`""`) si la IA no fue invocada. (RF-IA-04) |
+| `ai_mitigation_plan` | `TextField` | No (Blank, Default: `""`) | Plan de mitigación de la IA para dictámenes B o C. Vacío (`""`) si no aplica. (RF-IA-04) |
 | `calculated_at` | `DateTimeField` | No (auto_now_add) | Fecha y hora de emisión del dictamen. |
 
 **Lógica del dictamen (motor matemático):**
@@ -485,7 +485,7 @@ Recomendación A:  Todos los EvaluationResult tienen foda_classification IN ('st
 
 - **Tabla en BD:** `guios_aiassistancelog`
 - **Ubicación:** `apps.guios.models.ai_log.AIAssistanceLog`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Registro de cada llamada al servicio de IA durante una evaluación. Permite trazabilidad completa de las interacciones con el servicio externo. Cubre RF-IA-05 (errores/timeout), RF-IA-06 (formato JSON), RNF-03 (timeout), RNF-19 (independencia).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -516,18 +516,18 @@ Recomendación A:  Todos los EvaluationResult tienen foda_classification IN ('st
 | 7 | `MenuModule` | `core_menumodule` | Implementado | RF-ADM-15, 16, 17, 18, 24 |
 | 8 | `ModulePermission` | `core_modulepermission` | Implementado | RF-ADM-15, 23, RN-09 |
 | 9 | `Organization` | `core_organization` | Implementado | RF-ADM-22, RN-10 |
-| 10 | `Dimension` | `guios_dimension` | Pendiente | RF-ADM-31 |
-| 11 | `Factor` | `guios_factor` | Pendiente | RF-ADM-32, RF-PUB-02, RN-06, RN-07 |
-| 12 | `Subfactor` | `guios_subfactor` | Pendiente | RF-ADM-33, RF-PUB-04, RN-07 |
-| 13 | `Evaluation` | `guios_evaluation` | Pendiente | RF-PUB-01, 06, RF-ADM-34, 35 |
-| 14 | `EvaluationFactor` | `guios_evaluationfactor` | Pendiente | RF-PUB-02, 03, RF-IA-02, RN-01, RN-05, RN-06, RN-08 |
-| 15 | `EvaluationSubfactor` | `guios_evaluationsubfactor` | Pendiente | RF-PUB-04, RF-IA-03, RN-02, RN-05, RN-08 |
-| 16 | `EvaluationResult` | `guios_evaluationresult` | Pendiente | RF-PUB-05, RN-02, RNF-08 |
-| 17 | `EvaluationVerdict` | `guios_evaluationverdict` | Pendiente | RF-PUB-05, RF-IA-04, RN-03, RN-04 |
-| 18 | `AIAssistanceLog` | `guios_aiassistancelog` | Pendiente | RF-IA-05, RF-IA-06, RNF-03, RNF-19 |
+| 10 | `Dimension` | `guios_dimension` | Implementado (modelo) | RF-ADM-31 |
+| 11 | `Factor` | `guios_factor` | Implementado (modelo) | RF-ADM-32, RF-PUB-02, RN-06, RN-07 |
+| 12 | `Subfactor` | `guios_subfactor` | Implementado (modelo) | RF-ADM-33, RF-PUB-04, RN-07 |
+| 13 | `Evaluation` | `guios_evaluation` | Implementado (modelo) | RF-PUB-01, 06, RF-ADM-34, 35 |
+| 14 | `EvaluationFactor` | `guios_evaluationfactor` | Implementado (modelo) | RF-PUB-02, 03, RF-IA-02, RN-01, RN-05, RN-06, RN-08 |
+| 15 | `EvaluationSubfactor` | `guios_evaluationsubfactor` | Implementado (modelo) | RF-PUB-04, RF-IA-03, RN-02, RN-05, RN-08 |
+| 16 | `EvaluationResult` | `guios_evaluationresult` | Implementado (modelo) | RF-PUB-05, RN-02, RNF-08 |
+| 17 | `EvaluationVerdict` | `guios_evaluationverdict` | Implementado (modelo) | RF-PUB-05, RF-IA-04, RN-03, RN-04 |
+| 18 | `AIAssistanceLog` | `guios_aiassistancelog` | Implementado (modelo) | RF-IA-05, RF-IA-06, RNF-03, RNF-19 |
 
 ---
 
 *Documento elaborado en el marco del Sprint 0 del proyecto GUIOS PRO.*
 *Los modelos de la columna "Implementado" provienen del módulo de infraestructura del backend Django.*
-*Los modelos "Pendiente" corresponden al dominio de evaluación a desarrollar en los Sprints 1-4.*
+*Los modelos "Implementado (modelo)" corresponden al dominio de evaluación: su lógica se desarrolla en los Sprints 1-4.*

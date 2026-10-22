@@ -12,10 +12,8 @@ class ModulePermission(models.Model):
 
     Formato del codename: '{modulo}.{accion}'
     Ejemplos:
-        pos.create_sale
-        pos.cancel_sale
-        cash.open
-        inventory.adjust
+        catalog.create_factor
+        evaluations.export
     """
     module = models.ForeignKey(
         MenuModule,
@@ -27,12 +25,12 @@ class ModulePermission(models.Model):
         max_length=120,
         unique=True,
         verbose_name=_('Codename'),
-        help_text=_("Identificador único. Formato: 'modulo.accion'. Ej: pos.cancel_sale"),
+        help_text=_("Identificador único. Formato: 'modulo.accion'. Ej: catalog.create_factor"),
     )
     label = models.CharField(
         max_length=150,
         verbose_name=_('Etiqueta'),
-        help_text=_('Nombre legible para mostrar en UI. Ej: Anular ventas'),
+        help_text=_('Nombre legible para mostrar en UI. Ej: Crear factores'),
     )
     description = models.TextField(
         blank=True,
