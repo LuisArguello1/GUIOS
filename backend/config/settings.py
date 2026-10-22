@@ -94,6 +94,7 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'django_filters',
     'drf_spectacular',
+    'drf_spectacular_sidecar',  # Swagger UI y ReDoc servidos desde estáticos propios (sin CDN)
 ]
 
 LOCAL_APPS = [
@@ -268,6 +269,17 @@ REST_FRAMEWORK = {
         'guios_public': os.getenv('GUIOS_PUBLIC_RATE', '600/minute'),
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# Documentación de la API (drf-spectacular). Los archivos de Swagger UI y ReDoc
+# vienen de drf-spectacular-sidecar para que la CSP no tenga que permitir un CDN.
+# Pendiente si se despliega: restringir /api/docs/ y /api/redoc/ al staff
+# (SERVE_PERMISSIONS); hoy la documentación es pública por decisión del equipo.
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'GUIOS PRO API',
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
 }
 
 # GUIOS: límite de creación de evaluaciones públicas por IP (django-ratelimit)

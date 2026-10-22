@@ -8,7 +8,7 @@ from django.http import FileResponse, HttpResponse
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
-    SpectacularSwaggerView,
+    SpectacularSwaggerSplitView,
 )
 
 def serve_spa(request, path=""):
@@ -36,7 +36,7 @@ urlpatterns = [
     # Swagger UI
     path(
         "api/docs/",
-        SpectacularSwaggerView.as_view(url_name="schema"),
+        SpectacularSwaggerSplitView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
     # ReDoc
