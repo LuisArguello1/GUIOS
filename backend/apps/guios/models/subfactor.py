@@ -9,7 +9,7 @@ class Subfactor(models.Model):
     """
     factor = models.ForeignKey(
         Factor,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='subfactors',
         verbose_name="Factor"
     )

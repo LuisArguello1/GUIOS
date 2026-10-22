@@ -6,7 +6,7 @@ from .dimension import Dimension
 class Factor(models.Model):
     """
     Criterio de evaluación de segundo nivel.
-    Cada factor tiene una Importancia Sistémica (IS) definida por la metodología.
+    Cada factor tiene una Importancia Sugerida (IS) definida por la metodología (Tabla 5.3).
     """
     SCOPE_INTERNAL = 'internal'
     SCOPE_EXTERNAL = 'external'
@@ -20,7 +20,7 @@ class Factor(models.Model):
 
     dimension = models.ForeignKey(
         Dimension,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='factors',
         verbose_name="Dimensión"
     )
@@ -28,9 +28,9 @@ class Factor(models.Model):
         max_length=200,
         verbose_name="Nombre del factor"
     )
-    systemic_importance = models.PositiveSmallIntegerField(
+    suggested_importance = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(4)],
-        verbose_name="Importancia Sistémica (IS)",
+        verbose_name="Importancia Sugerida (IS)",
         help_text="Valor fijo definido por la metodología (1: Irrelevante, 2: Opcional, 3: Importante, 4: Fundamental)."
     )
     scope = models.CharField(

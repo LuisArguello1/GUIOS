@@ -33,10 +33,12 @@ class EvaluationSubfactor(models.Model):
         help_text="Copia inmutable del texto del subfactor al momento de la evaluación (RN-08)."
     )
     rating = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(4)],
         choices=RATING_CHOICES,
         verbose_name="Calificación del evaluador",
-        help_text="1: No cumple, 2: Desconozco, 3: Cumple parcialmente, 4: Cumple."
+        help_text="1: No cumple, 2: Desconozco, 3: Cumple parcialmente, 4: Cumple. Nulo = sin calificar (RN-12)."
     )
     ai_suggested_rating = models.PositiveSmallIntegerField(
         null=True,

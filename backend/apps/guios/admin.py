@@ -28,7 +28,7 @@ class SubfactorInline(admin.TabularInline):
 
 @admin.register(Factor)
 class FactorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'dimension', 'systemic_importance', 'scope', 'scope_configurable', 'order', 'is_active')
+    list_display = ('id', 'name', 'dimension', 'suggested_importance', 'scope', 'scope_configurable', 'order', 'is_active')
     list_filter = ('dimension', 'scope', 'scope_configurable', 'is_active', 'is_base')
     search_fields = ('name', 'dimension__name')
     ordering = ('dimension__order', 'order', 'id')
@@ -50,7 +50,7 @@ class SubfactorAdmin(admin.ModelAdmin):
 class EvaluationFactorInline(admin.TabularInline):
     model = EvaluationFactor
     extra = 0
-    readonly_fields = ('systemic_importance_snapshot', 'relative_importance', 'is_relevant')
+    readonly_fields = ('suggested_importance_snapshot', 'factor_name_snapshot', 'relative_importance', 'is_relevant')
 
 
 class EvaluationResultInline(admin.TabularInline):
@@ -77,7 +77,7 @@ class EvaluationAdmin(admin.ModelAdmin):
 
 @admin.register(EvaluationFactor)
 class EvaluationFactorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'evaluation', 'factor', 'systemic_importance_snapshot', 'decisor_importance', 'relative_importance', 'is_relevant', 'scope_used')
+    list_display = ('id', 'evaluation', 'factor', 'suggested_importance_snapshot', 'decisor_importance', 'relative_importance', 'is_relevant', 'scope_used')
     list_filter = ('is_relevant', 'scope_used', 'relative_importance')
     search_fields = ('evaluation__software_name', 'factor__name')
 
