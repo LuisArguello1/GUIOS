@@ -49,8 +49,8 @@ Organization        (Singleton)
 [Dominio de evaluación]
 Dimension (1) ------- (N) Factor
 Factor (1) ---------- (N) Subfactor
-Evaluation (1) ------ (N) EvaluationFactor    [1 por cada Factor del catálogo activo]
-Evaluation (1) ------ (N) EvaluationSubfactor [1 por cada Subfactor calificado]
+Evaluation (1) ------ (N) EvaluationFactor    [1 por cada Factor evaluable al crear la evaluación]
+Evaluation (1) ------ (N) EvaluationSubfactor [1 por cada Subfactor activo al crear la evaluación]
 Evaluation (1) ------ (N) EvaluationResult    [1 por cada Factor relevante calificado]
 Evaluation (1) ------ (1) EvaluationVerdict
 Evaluation (1) ------ (N) AIAssistanceLog
@@ -360,11 +360,11 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 | `org_sector` | `CharField(150)` | Sí (Blank) | Sector o rubro de la organización. RF-PUB-01. |
 | `org_description` | `TextField` | Sí (Blank) | Descripción de la organización y sus necesidades de TI. Insumo principal para la IA. RF-PUB-01, RF-IA-01. |
 | `ai_enabled` | `BooleanField` | No (Default: False) | IA fue activada en esta evaluación. RF-IA-01. |
-| `status` | `CharField(20)` | No (Default: `in_progress`) | Estado: `in_progress` o `completed`. RF-ADM-34. |
+| `status` | `CharField(20)` | No (Default: `in_progress`) | Estado: `in_progress` o `completed`. Con `completed` (dictamen emitido) la evaluación queda bloqueada: no admite cambios. RF-ADM-34. |
 | `created_by` | `ForeignKey(CustomUser)` | Sí (SET_NULL) | Usuario del panel que inició la evaluación. `NULL` para evaluaciones públicas anónimas. |
 | `started_at` | `DateTimeField` | No (auto_now_add) | Fecha y hora de inicio. |
 | `completed_at` | `DateTimeField` | Sí | Fecha y hora en que se emitió el dictamen. |
-| `session_token` | `CharField(64)` | Sí (Unique, Index) | Token de sesión anónima del navegador. Identifica evaluaciones públicas sin usuario. RF-PUB-06. |
+| `session_token` | `CharField(64)` | Sí (Unique, Index) | SHA-256 del token de sesión anónima. El token en claro se entrega una sola vez al crear la evaluación y se envía en la cabecera `X-Evaluation-Token`; en la base solo queda su hash. RF-PUB-06. |
 
 ---
 
@@ -399,7 +399,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 - **Tabla en BD:** `guios_evaluationsubfactor`
 - **Ubicación:** `apps.guios.models.evaluation_subfactor.EvaluationSubfactor`
 - **Estado:** Implementado (modelo)
-- **Descripción:** Calificación asignada a cada subfactor en el Paso 3-4. Incluye snapshot del texto del subfactor para proteger el historial (RN-08). Cubre RF-PUB-04, RF-IA-03, RN-08.
+- **Descripción:** Calificación asignada a cada subfactor en el Paso 3-4. Se crea "sin calificar" para cada subfactor activo al iniciar la evaluación. Incluye snapshot del texto del subfactor para proteger el historial (RN-08). Cubre RF-PUB-04, RF-IA-03, RN-08.
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
 | :--- | :--- | :--- | :--- |

@@ -453,6 +453,15 @@ El detalle completo está en [`docs/catalogo_guios.json`](catalogo_guios.json). 
 - **Paso 5:** el catálogo que se usa para evaluar (*selector* del catálogo activo y creación de la evaluación) excluye los factores que no tienen subfactores activos. Prueba: un factor activo sin subfactores activos no aparece ni se copia a la evaluación.
 - **Paso 7:** el CRUD no permite dejar un factor activo sin subfactores activos (ni activar un factor sin ellos, ni desactivar o borrar el último subfactor activo de un factor activo). Prueba de API para cada caso.
 
+**API pública (Paso 5, decisiones del equipo).**
+- Rutas bajo `/api/v1/guios/public/`, sin autenticación (`authentication_classes = []`, nunca responden 401). La sesión anónima usa el token de la cabecera `X-Evaluation-Token`; en la base solo se guarda su SHA-256.
+- **Evaluación con dictamen = bloqueada.** Con el estado `completed`, los cambios y un nuevo dictamen responden **409**. El dictamen se genera en una sola transacción (resultados, dictamen, estado y auditoría).
+- Límites por IP, configurables en el `.env`: `GUIOS_EVALUATION_CREATE_RATE` (crear evaluaciones, por defecto `100/h`, django-ratelimit) y `GUIOS_PUBLIC_RATE` (resto de la API pública, por defecto `600/minute`, throttle `guios_public`).
+
+**Botón "Duplicar" (Paso 6).** Como la evaluación con dictamen queda bloqueada, el resultado ofrece **Duplicar**: crea una evaluación nueva (con su propio token) copiando el registro (software y organización), las ID, los ámbitos y las calificaciones, para corregir sin perder el trabajo. Necesita un *endpoint* público `POST evaluations/{uuid}/duplicate/` con el token de la original. La copia toma las instantáneas de la evaluación original, no del catálogo vivo. Prueba: la copia queda `in_progress`, con los mismos valores, y la original no cambia.
+
+**Subfactores con evaluaciones (Paso 7).** Las evaluaciones agrupan sus subfactores por el factor del catálogo. El CRUD no debe permitir mover a otro factor un subfactor que ya tiene evaluaciones.
+
 **Sanitización (pasos 5 y 7).** `XSSSanitizationMiddleware` (`apps/core`) pasa cada texto JSON por `nh3.clean(tags=set())`, que quita las etiquetas y además convierte `&`, `<` y `>` en entidades: "B&R" se guarda como "B&amp;R" y "a < b" como "a &lt; b". Eso daña nombres de software, organizaciones y textos del catálogo.
 - **Decidido (sin tocar `apps/core`):** en los *serializers* de `apps/guios` usar un campo de texto propio (p. ej. `PlainTextField`) que aplique `html.unescape()` al recibir el valor. El middleware sigue quitando las etiquetas (la protección XSS se mantiene) y GUIOS guarda el texto que escribió el usuario. React escapa al mostrar; las salidas que no pasan por React (exportación PDF/CSV del Paso 7, *prompts* de IA del Paso 9) deben escapar o tratar el texto como datos.
 - **Alternativa descartada (tocaba `apps/core`):** que el middleware solo quite etiquetas y no escape `&`, `<` y `>` (o excluir las rutas de GUIOS) y validar en los *serializers*.

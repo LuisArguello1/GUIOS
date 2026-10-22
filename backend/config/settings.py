@@ -264,9 +264,14 @@ REST_FRAMEWORK = {
         'login': '5/minute',            # Por IP
         'password_reset': '5/minute',   # Por IP
         'refresh': '20/minute',         # Por IP
+        # API pública de GUIOS (guardado automático; varios equipos pueden compartir IP)
+        'guios_public': os.getenv('GUIOS_PUBLIC_RATE', '600/minute'),
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+# GUIOS: límite de creación de evaluaciones públicas por IP (django-ratelimit)
+GUIOS_EVALUATION_CREATE_RATE = os.getenv('GUIOS_EVALUATION_CREATE_RATE', '100/h')
 
 # JWT Configuration
 SIMPLE_JWT = {
