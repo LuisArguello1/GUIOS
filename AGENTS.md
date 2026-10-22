@@ -40,10 +40,11 @@ python3.12 -m venv venv && ./venv/bin/pip install -r requirements.txt   # Window
 ./venv/bin/python backend/manage.py check
 ./venv/bin/python backend/manage.py makemigrations --check --dry-run
 ./venv/bin/python backend/manage.py test            # desde la raíz; no necesita Redis
+./venv/bin/python backend/manage.py seed_guios_catalog [--dry-run]   # catálogo base (tras migrate)
 cd frontend && npm ci && npm run lint && npm run build
 ```
 
-`npm install`/`npm ci` activa el hook `.githooks/pre-push`, que corre todo lo anterior.
+`npm install`/`npm ci` activa el hook `.githooks/pre-push`, que corre check, migraciones, tests, lint y build.
 
 ## Estructura del backend
 

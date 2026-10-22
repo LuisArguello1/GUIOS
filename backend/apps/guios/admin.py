@@ -14,32 +14,32 @@ from .models import (
 
 @admin.register(Dimension)
 class DimensionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'order', 'is_base', 'created_at')
+    list_display = ('id', 'code', 'name', 'order', 'is_base', 'created_at')
     list_filter = ('is_base',)
-    search_fields = ('name', 'description')
+    search_fields = ('code', 'name', 'description')
     ordering = ('order', 'id')
 
 
 class SubfactorInline(admin.TabularInline):
     model = Subfactor
     extra = 1
-    fields = ('description', 'order', 'is_base', 'is_active')
+    fields = ('code', 'description', 'order', 'is_base', 'is_active')
 
 
 @admin.register(Factor)
 class FactorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'dimension', 'suggested_importance', 'scope', 'scope_configurable', 'order', 'is_active')
+    list_display = ('id', 'code', 'name', 'dimension', 'suggested_importance', 'scope', 'scope_configurable', 'order', 'is_active')
     list_filter = ('dimension', 'scope', 'scope_configurable', 'is_active', 'is_base')
-    search_fields = ('name', 'dimension__name')
+    search_fields = ('code', 'name', 'dimension__name')
     ordering = ('dimension__order', 'order', 'id')
     inlines = [SubfactorInline]
 
 
 @admin.register(Subfactor)
 class SubfactorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'factor', 'description_short', 'order', 'is_base', 'is_active')
+    list_display = ('id', 'code', 'factor', 'description_short', 'order', 'is_base', 'is_active')
     list_filter = ('factor__dimension', 'factor', 'is_active', 'is_base')
-    search_fields = ('description', 'factor__name')
+    search_fields = ('code', 'description', 'factor__name')
     ordering = ('factor__order', 'order', 'id')
 
     def description_short(self, obj):
