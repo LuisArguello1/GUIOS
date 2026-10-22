@@ -182,6 +182,7 @@ class CreateEvaluationTests(PublicApiTestBase):
         self.assertEqual(usability['name'], 'Usabilidad')
         self.assertEqual(usability['suggested_importance'], 2)
         self.assertEqual(len(usability['subfactors']), 4)
+        self.assertTrue(usability['description'])
         self.assertNotEqual(usability['subfactors'][0]['description'], 'Texto editado')
 
         response = self.patch_factor(uuid, token, 'TEC-USA', decisor_importance=1)
@@ -518,6 +519,68 @@ class VerdictTests(PublicApiTestBase):
         self.assertNotIn('No se sabe:', verdict['explanation_text'])
 
 
+class DuplicateTests(PublicApiTestBase):
+
+    def duplicate(self, uuid, token):
+        return self.client.post(f'{BASE}/evaluations/{uuid}/duplicate/', **self.headers(token))
+
+    def test_duplicate_closed_evaluation_copies_everything(self):
+        uuid, token = self.create(software_name='B&R Suite')
+        self.fill_unemi(uuid, token)
+        self.assertEqual(self.post_verdict(uuid, token).status_code, 201)
+        Factor.objects.filter(code='TEC-USA').update(name='Usabilidad (editado)', suggested_importance=4)
+
+        response = self.duplicate(uuid, token)
+        self.assertEqual(response.status_code, 201, response.data)
+        copy_uuid, copy_token = response.data['uuid'], response.data['session_token']
+        self.assertNotEqual(copy_uuid, uuid)
+        self.assertNotEqual(copy_token, token)
+        self.assertEqual(response.data['status'], 'in_progress')
+        self.assertIsNone(response.data['verdict'])
+        self.assertEqual(response.data['software_name'], 'B&R Suite')
+
+        original = Evaluation.objects.get(uuid=uuid)
+        copy = Evaluation.objects.get(uuid=copy_uuid)
+
+        def factor_values(evaluation):
+            return list(EvaluationFactor.objects.filter(evaluation=evaluation).order_by('factor_id').values_list(
+                'factor_id', 'suggested_importance_snapshot', 'factor_name_snapshot',
+                'decisor_importance', 'relative_importance', 'is_relevant', 'scope_used'))
+
+        def subfactor_values(evaluation):
+            return list(EvaluationSubfactor.objects.filter(evaluation=evaluation).order_by('subfactor_id').values_list(
+                'subfactor_id', 'description_snapshot', 'rating'))
+
+        self.assertEqual(factor_values(copy), factor_values(original))
+        self.assertEqual(subfactor_values(copy), subfactor_values(original))
+        self.assertEqual(
+            EvaluationFactor.objects.get(evaluation=copy, factor__code='TEC-USA').factor_name_snapshot, 'Usabilidad')
+
+        # La copia se puede corregir y cerrar; la original sigue igual y cerrada.
+        self.assertEqual(self.patch_rating(copy_uuid, copy_token, 'TEC-PER-01', 4).status_code, 200)
+        summary = self.get(copy_uuid, 'summary/', token=copy_token).data
+        self.assertTrue(summary['is_complete'])
+        self.assertEqual(self.post_verdict(copy_uuid, copy_token).status_code, 201)
+        original.refresh_from_db()
+        self.assertEqual(original.status, Evaluation.STATUS_COMPLETED)
+        self.assertEqual(
+            EvaluationSubfactor.objects.get(evaluation=original, subfactor__code='TEC-PER-01').rating, 1)
+        self.assertEqual(EvaluationVerdict.objects.count(), 2)
+
+    def test_duplicate_requires_the_original_token(self):
+        uuid, _ = self.create()
+        _, other_token = self.create()
+        self.assertEqual(self.client.post(f'{BASE}/evaluations/{uuid}/duplicate/').status_code, 403)
+        self.assertEqual(self.duplicate(uuid, other_token).status_code, 404)
+        self.assertEqual(Evaluation.objects.count(), 2)
+
+    @override_settings(GUIOS_EVALUATION_CREATE_RATE='2/h')
+    def test_duplicate_counts_for_the_creation_limit(self):
+        uuid, token = self.create()
+        self.assertEqual(self.duplicate(uuid, token).status_code, 201)
+        self.assertEqual(self.duplicate(uuid, token).status_code, 429)
+
+
 class SchemaTests(PublicApiTestBase):
 
     def test_schema_documents_public_endpoints(self):
@@ -533,6 +596,7 @@ class SchemaTests(PublicApiTestBase):
             '/api/v1/guios/public/evaluations/{evaluation_uuid}/factors/{factor_id}/',
             '/api/v1/guios/public/evaluations/{evaluation_uuid}/subfactors/{subfactor_id}/',
             '/api/v1/guios/public/evaluations/{evaluation_uuid}/verdict/',
+            '/api/v1/guios/public/evaluations/{evaluation_uuid}/duplicate/',
         ):
             self.assertIn(path, paths)
         patch = paths['/api/v1/guios/public/evaluations/{evaluation_uuid}/factors/{factor_id}/']['patch']

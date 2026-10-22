@@ -143,6 +143,7 @@ class EvaluationFactorStateSerializer(serializers.Serializer):
     code = serializers.CharField(source='factor.code', allow_null=True)
     dimension = serializers.CharField(source='factor.dimension.name')
     name = serializers.CharField(source='factor_name_snapshot')
+    description = serializers.CharField(source='factor.description', help_text="Descripción del factor (catálogo vigente, solo como ayuda).")
     suggested_importance = serializers.IntegerField(source='suggested_importance_snapshot')
     decisor_importance = serializers.IntegerField(allow_null=True)
     relative_importance = serializers.IntegerField(allow_null=True)

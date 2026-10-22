@@ -54,6 +54,16 @@ export const ENDPOINTS = {
         },
         DASHBOARD: '/core/dashboard/',
     },
+    GUIOS_PUBLIC: {
+        CATALOG: '/guios/public/catalog/',
+        EVALUATIONS: '/guios/public/evaluations/',
+        EVALUATION: (uuid: string) => `/guios/public/evaluations/${uuid}/`,
+        SUMMARY: (uuid: string) => `/guios/public/evaluations/${uuid}/summary/`,
+        FACTOR: (uuid: string, factorId: number) => `/guios/public/evaluations/${uuid}/factors/${factorId}/`,
+        SUBFACTOR: (uuid: string, subfactorId: number) => `/guios/public/evaluations/${uuid}/subfactors/${subfactorId}/`,
+        VERDICT: (uuid: string) => `/guios/public/evaluations/${uuid}/verdict/`,
+        DUPLICATE: (uuid: string) => `/guios/public/evaluations/${uuid}/duplicate/`,
+    },
 };
 
 export default ENDPOINTS;
