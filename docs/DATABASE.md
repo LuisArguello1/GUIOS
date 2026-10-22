@@ -263,7 +263,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 ## Módulo de evaluación GUIOS
 
-> **Nota (Paso 2 del plan, `docs/ANALISIS_GUIOS_ORIGINAL.md` §8):** los modelos de esta sección ya coinciden con el código. La migración `0002_suggested_importance_protect_unrated` aplicó los cambios respecto a la `0001`: renombre a `suggested_importance` (con `RenameField`), `PROTECT` en dimensión→factor y factor→subfactor, valores nulos para "sin calificar", `factor_name_snapshot` y las etiquetas A/B/C de la tesis. "Implementado (modelo)" significa que existen el modelo y su migración; la lógica (motor, API, pantallas) llega en los pasos siguientes.
+> **Nota (Paso 2 del plan, `docs/ANALISIS_GUIOS_ORIGINAL.md` §8):** los modelos de esta sección ya coinciden con el código. La migración `0002_suggested_importance_protect_unrated` aplicó los cambios respecto a la `0001`: renombre a `suggested_importance` (con `RenameField`), `PROTECT` en dimensión→factor y factor→subfactor, valores nulos para "sin calificar", `factor_name_snapshot` y las etiquetas A/B/C de la tesis. La migración `0003_catalog_code` (Paso 3) agregó `code` a `Dimension`, `Factor` y `Subfactor` y `description` a `Factor`; el catálogo base se carga con `python backend/manage.py seed_guios_catalog`. "Implementado (modelo)" significa que existen el modelo y su migración; la lógica (motor, API, pantallas) llega en los pasos siguientes.
 
 ---
 
@@ -277,6 +277,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
 | :--- | :--- | :--- | :--- |
 | `id` | `BigAutoField` | No (PK) | Identificador único autoincremental. |
+| `code` | `CharField(20)` | Sí (Unique) | Clave estable del catálogo base (`codigo` en `docs/catalogo_guios.json`, p. ej. `TEC`). La usa `seed_guios_catalog`. Nulo en registros creados desde la interfaz. |
 | `name` | `CharField(150)` | No (Unique) | Nombre de la dimensión. |
 | `description` | `TextField` | Sí (Blank) | Descripción del alcance de la dimensión. |
 | `order` | `PositiveSmallIntegerField` | No (Default: 0) | Orden de presentación en la evaluación. |
@@ -298,8 +299,10 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
 | :--- | :--- | :--- | :--- |
 | `id` | `BigAutoField` | No (PK) | Identificador único autoincremental. |
+| `code` | `CharField(20)` | Sí (Unique) | Clave estable del catálogo base (`codigo` en `docs/catalogo_guios.json`, p. ej. `ORG-SOP`). La usa `seed_guios_catalog`. Nulo en registros creados desde la interfaz. |
 | `dimension` | `ForeignKey(Dimension)` | No (PROTECT) | Dimensión a la que pertenece. PROTECT impide borrar una dimensión con factores (RF-ADM-31). |
 | `name` | `CharField(200)` | No | Nombre del factor. |
+| `description` | `TextField` | Sí (Blank) | Descripción del factor (Tabla 5.1 de la tesis). |
 | `suggested_importance` | `PositiveSmallIntegerField` | No | IS de la guía (Tabla 5.3). Valores: 1, 2, 3, 4. Se muestra al evaluador como referencia. |
 | `scope` | `CharField(10)` | No (Default: `internal`) | Ámbito FODA: `internal`, `external` o `both`. |
 | `scope_configurable` | `BooleanField` | No (Default: False) | `True` únicamente para el factor "Soporte" (RF-PUB-02, RN-06). |
@@ -326,6 +329,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
 | :--- | :--- | :--- | :--- |
 | `id` | `BigAutoField` | No (PK) | Identificador único autoincremental. |
+| `code` | `CharField(20)` | Sí (Unique) | Clave estable del catálogo base (`codigo` en `docs/catalogo_guios.json`, p. ej. `ORG-ACT-02`). La usa `seed_guios_catalog`. Nulo en registros creados desde la interfaz. |
 | `factor` | `ForeignKey(Factor)` | No (PROTECT) | Factor al que pertenece. PROTECT impide borrar un factor con subfactores (RF-ADM-32). |
 | `description` | `TextField` | No | Texto del criterio redactado como afirmación verificable. |
 | `order` | `PositiveSmallIntegerField` | No (Default: 0) | Orden dentro del factor. |

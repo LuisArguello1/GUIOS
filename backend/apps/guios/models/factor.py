@@ -18,6 +18,14 @@ class Factor(models.Model):
         (SCOPE_BOTH, 'Ambos'),
     )
 
+    code = models.CharField(
+        max_length=20,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name="Código",
+        help_text="Clave estable del catálogo base (docs/catalogo_guios.json, p. ej. ORG-SOP). Nulo en registros creados desde la interfaz."
+    )
     dimension = models.ForeignKey(
         Dimension,
         on_delete=models.PROTECT,
@@ -27,6 +35,11 @@ class Factor(models.Model):
     name = models.CharField(
         max_length=200,
         verbose_name="Nombre del factor"
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name="Descripción",
+        help_text="Descripción del factor (Tabla 5.1 de la tesis)."
     )
     suggested_importance = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(4)],
