@@ -66,6 +66,23 @@ class EvaluationAccessMixin:
         return data
 
 
+CREATE_RATE_LIMITED = {429: OpenApiResponse(description="Demasiadas evaluaciones desde esta IP.")}
+
+
+def create_rate_limited(request):
+    """Crear y duplicar comparten el límite por IP (GUIOS_EVALUATION_CREATE_RATE)."""
+    if is_ratelimited(
+        request, group='guios:create_evaluation', key='ip',
+        rate=settings.GUIOS_EVALUATION_CREATE_RATE, method='POST', increment=True,
+    ):
+        return Response(
+            {'detail': "Se alcanzó el límite de evaluaciones nuevas desde esta red. Intente más tarde.",
+             'code': 'rate_limited'},
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+    return None
+
+
 class EvaluationCreateView(EvaluationAccessMixin, PublicGuiosView):
     @extend_schema(
         tags=TAGS,
@@ -76,18 +93,12 @@ class EvaluationCreateView(EvaluationAccessMixin, PublicGuiosView):
             "solo se entrega aquí. Límite por IP: GUIOS_EVALUATION_CREATE_RATE."
         ),
         request=EvaluationCreateSerializer,
-        responses={201: EvaluationCreatedSerializer, 429: OpenApiResponse(description="Demasiadas evaluaciones desde esta IP.")},
+        responses={201: EvaluationCreatedSerializer, **CREATE_RATE_LIMITED},
     )
     def post(self, request):
-        if is_ratelimited(
-            request, group='guios:create_evaluation', key='ip',
-            rate=settings.GUIOS_EVALUATION_CREATE_RATE, method='POST', increment=True,
-        ):
-            return Response(
-                {'detail': "Se alcanzó el límite de evaluaciones nuevas desde esta red. Intente más tarde.",
-                 'code': 'rate_limited'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
+        limited = create_rate_limited(request)
+        if limited:
+            return limited
         serializer = EvaluationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         evaluation, token = evaluation_service.create_evaluation(**serializer.validated_data)
@@ -195,3 +206,24 @@ class EvaluationVerdictView(EvaluationAccessMixin, PublicGuiosView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class EvaluationDuplicateView(EvaluationAccessMixin, PublicGuiosView):
+    @extend_schema(
+        tags=TAGS, summary="Duplicar una evaluación",
+        description=(
+            "Crea una evaluación nueva en progreso, con su propio session_token, copiando el registro, "
+            "las ID, los ámbitos y las calificaciones de la original (con sus instantáneas). Sirve para "
+            "corregir una evaluación cerrada sin perder el trabajo. La original no cambia."
+        ),
+        parameters=[TOKEN_PARAMETER], request=None,
+        responses={201: EvaluationCreatedSerializer, **ERRORS, **CREATE_RATE_LIMITED},
+    )
+    def post(self, request, evaluation_uuid):
+        original = self.get_evaluation(request, evaluation_uuid)
+        limited = create_rate_limited(request)
+        if limited:
+            return limited
+        evaluation, token = evaluation_service.duplicate_evaluation(original)
+        data = self.state_data(evaluation, EvaluationCreatedSerializer, session_token=token)
+        return Response(data, status=status.HTTP_201_CREATED)

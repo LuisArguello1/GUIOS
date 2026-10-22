@@ -78,6 +78,50 @@ def create_evaluation(**data) -> tuple[Evaluation, str]:
     return evaluation, token
 
 
+REGISTRATION_FIELDS = (
+    'software_name', 'software_version', 'software_repo_url',
+    'org_name', 'org_sector', 'org_description',
+)
+
+
+@transaction.atomic
+def duplicate_evaluation(original: Evaluation) -> tuple[Evaluation, str]:
+    """
+    Copia una evaluación (normalmente cerrada) en una nueva "en progreso", con su
+    propio token: registro, instantáneas, ID, IR, relevancia, ámbitos y
+    calificaciones. Las instantáneas son las de la original, no las del catálogo
+    vivo. La original no cambia. No copia sugerencias de IA ni el dictamen.
+    """
+    token = secrets.token_urlsafe(32)
+    copy = Evaluation.objects.create(
+        session_token=hash_session_token(token),
+        **{field: getattr(original, field) for field in REGISTRATION_FIELDS},
+    )
+    EvaluationFactor.objects.bulk_create([
+        EvaluationFactor(
+            evaluation=copy,
+            factor_id=item.factor_id,
+            suggested_importance_snapshot=item.suggested_importance_snapshot,
+            factor_name_snapshot=item.factor_name_snapshot,
+            decisor_importance=item.decisor_importance,
+            relative_importance=item.relative_importance,
+            is_relevant=item.is_relevant,
+            scope_used=item.scope_used,
+        )
+        for item in EvaluationFactor.objects.filter(evaluation=original).order_by('pk')
+    ])
+    EvaluationSubfactor.objects.bulk_create([
+        EvaluationSubfactor(
+            evaluation=copy,
+            subfactor_id=item.subfactor_id,
+            description_snapshot=item.description_snapshot,
+            rating=item.rating,
+        )
+        for item in EvaluationSubfactor.objects.filter(evaluation=original).order_by('pk')
+    ])
+    return copy, token
+
+
 def set_decisor_importance(evaluation: Evaluation, item: EvaluationFactor, value) -> None:
     """Guarda la ID (1-4 o None = sin calificar) y recalcula IR y relevancia."""
     _ensure_open(evaluation)
