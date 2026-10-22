@@ -460,6 +460,13 @@ El detalle completo está en [`docs/catalogo_guios.json`](catalogo_guios.json). 
 
 **Botón "Duplicar" (Paso 6).** Como la evaluación con dictamen queda bloqueada, el resultado ofrece **Duplicar**: crea una evaluación nueva (con su propio token) copiando el registro (software y organización), las ID, los ámbitos y las calificaciones, para corregir sin perder el trabajo. Necesita un *endpoint* público `POST evaluations/{uuid}/duplicate/` con el token de la original. La copia toma las instantáneas de la evaluación original, no del catálogo vivo. Prueba: la copia queda `in_progress`, con los mismos valores, y la original no cambia.
 
+**Frontend público (Paso 6, decisiones del equipo).**
+- `/` muestra el registro público, la lista "Continuar una evaluación" (evaluaciones guardadas en este navegador, con su token en `localStorage`) y el enlace "¿Eres administrador? Inicia sesión". Rutas: `/evaluacion/:uuid` (estación) y `/evaluacion/:uuid/resultados`.
+- La API pública usa su propio cliente (`api/publicAxios.ts`): sin cookies del panel y sin el interceptor que refresca el token o redirige al login. La cabecera pide `/core/organization/` con ese cliente; si falla, usa nombre y logo por defecto.
+- Pruebas del frontend con Vitest y Testing Library (`npm test`, en el CI y en el hook) y lista manual en `docs/PRUEBAS_MANUALES.md`. Playwright se decide en el Paso 11.
+
+**Documentación de la API.** Swagger (`/api/docs/`) y ReDoc (`/api/redoc/`) se sirven con drf-spectacular-sidecar y una CSP propia solo para esas rutas. **Pendiente si se despliega:** restringir la documentación al staff (`SERVE_PERMISSIONS`); hoy es pública por decisión del equipo.
+
 **Subfactores con evaluaciones (Paso 7).** Las evaluaciones agrupan sus subfactores por el factor del catálogo. El CRUD no debe permitir mover a otro factor un subfactor que ya tiene evaluaciones.
 
 **Sanitización (pasos 5 y 7).** `XSSSanitizationMiddleware` (`apps/core`) pasa cada texto JSON por `nh3.clean(tags=set())`, que quita las etiquetas y además convierte `&`, `<` y `>` en entidades: "B&R" se guarda como "B&amp;R" y "a < b" como "a &lt; b". Eso daña nombres de software, organizaciones y textos del catálogo.

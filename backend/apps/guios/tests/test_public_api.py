@@ -182,6 +182,7 @@ class CreateEvaluationTests(PublicApiTestBase):
         self.assertEqual(usability['name'], 'Usabilidad')
         self.assertEqual(usability['suggested_importance'], 2)
         self.assertEqual(len(usability['subfactors']), 4)
+        self.assertTrue(usability['description'])
         self.assertNotEqual(usability['subfactors'][0]['description'], 'Texto editado')
 
         response = self.patch_factor(uuid, token, 'TEC-USA', decisor_importance=1)
