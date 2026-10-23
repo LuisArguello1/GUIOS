@@ -3,11 +3,14 @@ import type { FormEvent } from 'react';
 import { ArrowRight } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
+import Toggle from '../../../components/ui/Toggle';
 import type { RegistrationPayload } from '../../../api/guiosPublicService';
 
 interface RegistrationFormProps {
     onSubmit: (payload: RegistrationPayload) => Promise<Record<string, string> | void>;
     isSubmitting: boolean;
+    /** El servidor tiene IA configurada (ai/status). Si no, el interruptor no aparece. */
+    aiAvailable?: boolean;
 }
 
 const EMPTY = {
@@ -16,9 +19,12 @@ const EMPTY = {
 };
 
 /** Registro del software candidato y de la organización (RF-PUB-01). */
-const RegistrationForm = ({ onSubmit, isSubmitting }: RegistrationFormProps) => {
+const RegistrationForm = ({ onSubmit, isSubmitting, aiAvailable = false }: RegistrationFormProps) => {
     const [values, setValues] = useState(EMPTY);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [aiEnabled, setAiEnabled] = useState(false);
+    // RF-IA-01: la IA necesita contexto (descripción o repositorio).
+    const canEnableAi = Boolean(values.org_description.trim() || values.software_repo_url.trim());
 
     const change = (field: keyof typeof EMPTY) => (event: { target: { value: string } }) =>
         setValues((current) => ({ ...current, [field]: event.target.value }));
@@ -35,6 +41,7 @@ const RegistrationForm = ({ onSubmit, isSubmitting }: RegistrationFormProps) => 
             software_name: values.software_name.trim(),
             org_name: values.org_name.trim(),
             software_repo_url: values.software_repo_url.trim() || null,
+            ...(aiAvailable ? { ai_enabled: aiEnabled && canEnableAi } : {}),
         });
         if (serverErrors) setErrors(serverErrors);
     };
@@ -56,6 +63,24 @@ const RegistrationForm = ({ onSubmit, isSubmitting }: RegistrationFormProps) => 
             <Input isTextArea label="Descripción de la organización y de su necesidad" rows={3}
                 value={values.org_description} onChange={change('org_description')} error={errors.org_description}
                 maxLength={5000} placeholder="¿Qué se quiere reemplazar o resolver con este software?" />
+            {aiAvailable && (
+                <div className="space-y-1">
+                    <Toggle
+                        label="Activar asistencia IA"
+                        description="La IA sugiere valores con su justificación; usted decide cada uno. El dictamen lo calcula solo el motor de GUIOS."
+                        checked={aiEnabled && canEnableAi}
+                        onChange={setAiEnabled}
+                        disabled={!canEnableAi}
+                        describedBy={canEnableAi ? undefined : 'ai-toggle-reason'}
+                    />
+                    {!canEnableAi && (
+                        <p id="ai-toggle-reason" className="text-xs text-[var(--color-text-secondary)]">
+                            Para activarla, escriba la descripción de la organización o el enlace al repositorio del software.
+                        </p>
+                    )}
+                    {errors.ai_enabled && <p className="text-xs text-[var(--color-danger-text)]">{errors.ai_enabled}</p>}
+                </div>
+            )}
             <p className="text-xs text-[var(--color-text-tertiary)]">
                 * Obligatorio. No necesita cuenta: la evaluación se guarda en este navegador y puede retomarla después.
             </p>

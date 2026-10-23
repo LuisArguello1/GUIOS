@@ -1,4 +1,4 @@
-# Pruebas manuales — evaluación pública (Paso 6) y panel (Paso 8)
+# Pruebas manuales — evaluación pública (Paso 6), panel (Paso 8) e IA (Paso 10)
 
 Complementan las pruebas automáticas (`python backend/manage.py test` y `npm test`). Se hacen
 contra el backend real, con el catálogo cargado (`seed_guios_catalog`), en
@@ -110,3 +110,22 @@ Dashboard, Catálogo y Evaluaciones asignados al rol). Al menos una evaluación 
 - [ ] Con el rol "Lector GUIOS": no aparecen crear, editar, activar, eliminar, "Exportar CSV" ni "PDF".
 - [ ] Auditoría: aparecen los cambios del catálogo con el usuario y las exportaciones (acción EXPORT).
 - [ ] Modo oscuro y ancho de teléfono en las tres pantallas.
+
+## 9. Asistencia de IA (Paso 10)
+
+Requiere `ANTHROPIC_API_KEY` en el `.env` (cada prueba consume la API).
+
+- [ ] Sin clave: el registro no muestra "Activar asistencia IA" y la estación, los resultados y el
+      panel no muestran ningún control de IA. El caso UNEMI completo sigue dando C.
+- [ ] Con clave: el interruptor está deshabilitado y dice el motivo hasta escribir la descripción o el
+      repositorio; luego se puede activar.
+- [ ] Estación: "Sugerir con IA" muestra una sugerencia por factor, con borde punteado y justificación;
+      la ID sigue sin calificar. Aceptar guarda el valor; Cambiar cierra la sugerencia y lleva el foco
+      a la escala; Ignorar la oculta sin guardar.
+- [ ] "Sugerir calificaciones con IA" solo aparece en factores relevantes. "Aceptar todas las de este
+      factor" pide confirmación y no cambia las calificaciones ya elegidas.
+- [ ] Con una clave inválida o sin red: aparece un aviso claro y se puede seguir calificando a mano.
+- [ ] Resultados: "Generar resumen con IA" muestra el resumen (y el plan en B o C) aparte del dictamen,
+      con "Generado por IA · orientativo". "Regenerar" pide confirmación. El dictamen no cambia.
+- [ ] Panel: el detalle muestra el informe de la IA y la tabla "Asistencia de IA" con las sugerencias
+      aceptadas; el PDF incluye el resumen y el plan.

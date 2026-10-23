@@ -1,5 +1,8 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { clsx } from 'clsx';
+import { CheckCheck, Sparkles } from 'lucide-react';
+import Button from '../../../components/ui/Button';
+import ConfirmModal from '../../../components/ui/ConfirmModal';
 import type {
     EvaluationFactorState,
     FactorSummary,
@@ -7,9 +10,20 @@ import type {
     Rating,
     Scope,
 } from '../../../api/guiosPublicService';
+import { focusScale } from '../focusScale';
 import { FODA_INFO, IMPORTANCE_OPTIONS, SCOPE_OPTIONS, importanceLabel, scopeLabel } from '../labels';
+import AiSuggestion, { AiSuggestedTag } from './AiSuggestion';
 import ScaleButtons from './ScaleButtons';
 import SubfactorRow from './SubfactorRow';
+
+/** Controles de IA del factor; sin este objeto no aparece ningún control de IA. */
+export interface FactorAiProps {
+    dismissed: string[];
+    busyRatings: boolean;
+    onDismiss: (key: string) => void;
+    onSuggestRatings: (factorId: number) => void;
+    onAcceptAll: (factorId: number) => void;
+}
 
 interface FactorCardProps {
     factor: EvaluationFactorState;
@@ -18,6 +32,7 @@ interface FactorCardProps {
     onDecisorImportance: (factorId: number, value: Importance | null) => void;
     onScope: (factorId: number, value: Scope | null) => void;
     onRating: (subfactorId: number, value: Rating | null) => void;
+    ai?: FactorAiProps;
 }
 
 const Badge = ({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'primary' | 'warning' | 'success' | 'danger' }) => (
@@ -36,11 +51,16 @@ const Badge = ({ children, tone = 'neutral' }: { children: React.ReactNode; tone
 );
 
 /** Un factor en la estación: IS de referencia, ID, ámbito (Soporte) y subfactores. */
-const FactorCard = ({ factor, summary, readOnly, onDecisorImportance, onScope, onRating }: FactorCardProps) => {
+const FactorCard = ({ factor, summary, readOnly, onDecisorImportance, onScope, onRating, ai }: FactorCardProps) => {
+    const [confirmAll, setConfirmAll] = useState(false);
     const ir = summary?.relative_importance ?? null;
     const relevant = summary?.is_relevant ?? null;
     const rated = factor.subfactors.filter((sub) => sub.rating !== null).length;
     const foda = summary?.foda ?? null;
+    const idKey = `factor:${factor.factor_id}`;
+    const idScaleId = `id-scale-${factor.factor_id}`;
+    const suggestedId = factor.ai_suggested_id;
+    const pendingSuggestions = factor.subfactors.filter((sub) => sub.rating === null && sub.ai_suggested_rating !== null);
 
     return (
         <section
@@ -69,13 +89,33 @@ const FactorCard = ({ factor, summary, readOnly, onDecisorImportance, onScope, o
                 <p className="text-xs font-bold text-[var(--color-text-secondary)]">
                     Importancia para su organización (ID)
                 </p>
-                <ScaleButtons
-                    label={`Importancia del decisor para ${factor.name}`}
-                    options={IMPORTANCE_OPTIONS}
-                    value={factor.decisor_importance}
-                    onChange={(value) => onDecisorImportance(factor.factor_id, value)}
-                    disabled={readOnly}
-                />
+                <div id={idScaleId}>
+                    <ScaleButtons
+                        label={`Importancia del decisor para ${factor.name}`}
+                        options={IMPORTANCE_OPTIONS}
+                        value={factor.decisor_importance}
+                        onChange={(value) => onDecisorImportance(factor.factor_id, value)}
+                        disabled={readOnly}
+                    />
+                </div>
+                {ai && suggestedId !== null && (factor.decisor_importance === null ? (
+                    !ai.dismissed.includes(idKey) && (
+                        <AiSuggestion
+                            subject={`la importancia de ${factor.name}`}
+                            valueLabel={`${suggestedId} · ${importanceLabel(suggestedId)}`}
+                            justification={factor.ai_id_justification}
+                            onAccept={() => onDecisorImportance(factor.factor_id, suggestedId)}
+                            onChange={() => { ai.onDismiss(idKey); focusScale(idScaleId); }}
+                            onIgnore={() => ai.onDismiss(idKey)}
+                            disabled={readOnly}
+                        />
+                    )
+                ) : (
+                    <AiSuggestedTag
+                        valueLabel={`${suggestedId} · ${importanceLabel(suggestedId)}`}
+                        accepted={factor.decisor_importance === suggestedId}
+                    />
+                ))}
                 {factor.decisor_importance !== null && ir !== null && (
                     <p className="text-xs text-[var(--color-text-secondary)]">
                         IR = ⌊(IS {factor.suggested_importance} + ID {factor.decisor_importance}) ÷ 2⌋ ={' '}
@@ -119,6 +159,24 @@ const FactorCard = ({ factor, summary, readOnly, onDecisorImportance, onScope, o
                             </Badge>
                         )}
                     </div>
+                    {ai && !readOnly && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                icon={Sparkles}
+                                isLoading={ai.busyRatings}
+                                onClick={() => ai.onSuggestRatings(factor.factor_id)}
+                            >
+                                {ai.busyRatings ? 'La IA está sugiriendo…' : 'Sugerir calificaciones con IA'}
+                            </Button>
+                            {pendingSuggestions.length > 0 && (
+                                <Button size="sm" variant="ghost" icon={CheckCheck} onClick={() => setConfirmAll(true)}>
+                                    Aceptar todas las de este factor
+                                </Button>
+                            )}
+                        </div>
+                    )}
                     <ol className="mt-2">
                         {factor.subfactors.map((subfactor, index) => (
                             <SubfactorRow
@@ -127,10 +185,26 @@ const FactorCard = ({ factor, summary, readOnly, onDecisorImportance, onScope, o
                                 index={index}
                                 readOnly={readOnly}
                                 onChange={onRating}
+                                ai={ai && {
+                                    dismissed: ai.dismissed.includes(`subfactor:${subfactor.subfactor_id}`),
+                                    onDismiss: ai.onDismiss,
+                                }}
                             />
                         ))}
                     </ol>
                 </div>
+            )}
+            {ai && (
+                <ConfirmModal
+                    isOpen={confirmAll}
+                    onClose={() => setConfirmAll(false)}
+                    onConfirm={() => { ai.onAcceptAll(factor.factor_id); setConfirmAll(false); }}
+                    variant="info"
+                    title="Aceptar las sugerencias de la IA"
+                    message={`Se guardarán ${pendingSuggestions.length} calificaciones sugeridas por la IA en los subfactores de ${factor.name} que siguen sin calificar. Las calificaciones que usted ya eligió no cambian.`}
+                    confirmText="Aceptar todas"
+                    cancelText="Cancelar"
+                />
             )}
         </section>
     );

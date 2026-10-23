@@ -81,4 +81,42 @@ describe('Detalle de una evaluación', () => {
         renderPage();
         expect(await screen.findByText('Evaluación no encontrada.')).toBeInTheDocument();
     });
+
+    it('muestra el informe de la IA aparte del dictamen y qué sugerencias se aceptaron', async () => {
+        loginWith(['evaluations.view']);
+        const detail = closedDetail();
+        detail.evaluation.ai_enabled = true;
+        detail.verdict = { ...detail.verdict!, ai_executive_summary: 'Resumen para la dirección.', ai_mitigation_plan: 'Capacitar al personal.' };
+        detail.factors[0] = {
+            ...detail.factors[0], ai_suggested_id: 3, ai_id_justification: 'La formación es clave.', id_was_ai_accepted: true,
+            subfactors: detail.factors[0].subfactors.map((sub) => ({
+                ...sub, ai_suggested_rating: 3, ai_rating_justification: 'Cursos en línea.', rating_was_ai_accepted: sub.rating === 3,
+            })),
+        };
+        service.getEvaluation.mockResolvedValue(detail);
+        renderPage();
+
+        const report = await screen.findByRole('region', { name: 'Informe complementario de la IA' });
+        expect(within(report).getByText('Generado por IA · orientativo')).toBeInTheDocument();
+        expect(within(report).getByText('Resumen para la dirección.')).toBeInTheDocument();
+        expect(within(report).getByText('Capacitar al personal.')).toBeInTheDocument();
+        expect(screen.getByText('Activada')).toBeInTheDocument();
+
+        const section = screen.getByRole('heading', { name: 'Asistencia de IA' }).closest('section')!;
+        expect(within(section).getByText(/2 de 3 sugerencias aceptadas sin cambios/)).toBeInTheDocument();
+        const rows = within(section).getAllByRole('row').slice(1);
+        expect(rows).toHaveLength(3);
+        expect(within(rows[0]).getByText('Formación · importancia (ID)')).toBeInTheDocument();
+        expect(within(rows[0]).getByText('Sí')).toBeInTheDocument();
+        expect(within(rows[2]).getByText('2 · No se sabe')).toBeInTheDocument();
+        expect(within(rows[2]).getByText('No')).toBeInTheDocument();
+    });
+
+    it('sin sugerencias ni informe de IA no muestra esas secciones', async () => {
+        loginWith(['evaluations.view']);
+        renderPage();
+        await screen.findByRole('heading', { name: /LibreOffice/ });
+        expect(screen.queryByText(/Generado por IA/)).not.toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: 'Asistencia de IA' })).not.toBeInTheDocument();
+    });
 });

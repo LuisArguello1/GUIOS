@@ -55,6 +55,9 @@ def _subfactor_rows(item):
             'code': sub.subfactor.code,
             'description': sub.description_snapshot,
             'rating': sub.rating,
+            'ai_suggested_rating': sub.ai_suggested_rating,
+            'ai_rating_justification': sub.ai_rating_justification,
+            'rating_was_ai_accepted': sub.rating_was_ai_accepted,
         }
         for sub in item.items
     ]
@@ -78,6 +81,9 @@ def _factor_base(item):
         'decisor_importance': item.decisor_importance,
         'scope_used': item.scope_used or None,
         'scope_configurable': item.factor.scope_configurable,
+        'ai_suggested_id': item.ai_suggested_id,
+        'ai_id_justification': item.ai_id_justification,
+        'id_was_ai_accepted': item.id_was_ai_accepted,
         'subfactors': _subfactor_rows(item),
     }
 

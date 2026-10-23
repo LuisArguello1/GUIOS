@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { FileCheck2, HelpCircle } from 'lucide-react';
+import { FileCheck2, HelpCircle, Sparkles } from 'lucide-react';
+import Alert from '../../../components/ui/Alert';
 import Button from '../../../components/ui/Button';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import GenericHelpModal from '../../../components/ui/GenericHelpModal';
@@ -20,6 +21,8 @@ const StationPage = () => {
     const {
         evaluation, summary, loadStatus, saveStatus, isGenerating, readOnly,
         setDecisorImportance, setScope, setRating, retryFailed, generateVerdict,
+        aiAvailable, aiBusy, aiError, dismissedSuggestions,
+        suggestImportance, suggestRatings, acceptAllRatings, dismissSuggestion, clearAiError,
     } = useEvaluation(uuid);
     const [activeTab, setActiveTab] = useState<string | null>(null);
     const [help, setHelp] = useState<HelpTopic | null>(null);
@@ -70,6 +73,16 @@ const StationPage = () => {
     };
 
     const canGenerate = Boolean(summary?.is_complete) && saveStatus !== 'saving' && saveStatus !== 'error';
+    // Asistencia de IA: solo si el servidor la tiene y la evaluación se registró con ella (RF-IA-01).
+    const aiOn = aiAvailable && evaluation.ai_enabled;
+    const aiFor = (factorId: number) => (aiOn ? {
+        dismissed: dismissedSuggestions,
+        busyRatings: aiBusy.includes(`ratings:${factorId}`),
+        onDismiss: dismissSuggestion,
+        onSuggestRatings: suggestRatings,
+        onAcceptAll: acceptAllRatings,
+    } : undefined);
+    const busyImportance = aiBusy.includes('importance');
 
     return (
         <div className="space-y-5">
@@ -93,8 +106,21 @@ const StationPage = () => {
                 </div>
             </div>
 
+            {aiError && <Alert type="warning" title="Asistencia de IA" message={aiError} onClose={clearAiError} />}
+
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="space-y-4">
+                    {aiOn && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-dashed border-[var(--color-info)] bg-[var(--color-info-bg)] p-3">
+                            <p className="text-xs text-[var(--color-info-text)]">
+                                La IA puede sugerir la importancia de cada factor. Las sugerencias son orientativas:
+                                nada se guarda hasta que usted las acepta o elige otro valor.
+                            </p>
+                            <Button size="sm" variant="info" icon={Sparkles} isLoading={busyImportance} onClick={() => suggestImportance()}>
+                                {busyImportance ? 'La IA está sugiriendo…' : 'Sugerir con IA'}
+                            </Button>
+                        </div>
+                    )}
                     <DimensionTabs tabs={dimensions} active={currentTab} onChange={setActiveTab} />
                     <div id="dimension-panel" role="tabpanel" aria-labelledby={`tab-${currentTab}`} className="space-y-4">
                         {factors.filter((factor) => factor.dimension === currentTab).map((factor) => (
@@ -106,6 +132,7 @@ const StationPage = () => {
                                 onDecisorImportance={setDecisorImportance}
                                 onScope={setScope}
                                 onRating={setRating}
+                                ai={aiFor(factor.factor_id)}
                             />
                         ))}
                     </div>

@@ -17,6 +17,8 @@ export interface RegistrationPayload {
     software_repo_url?: string | null;
     org_sector?: string;
     org_description?: string;
+    /** Activar asistencia IA (RF-IA-01): requiere descripción o repositorio. */
+    ai_enabled?: boolean;
 }
 
 export interface EvaluationSubfactorState {
@@ -24,6 +26,9 @@ export interface EvaluationSubfactorState {
     code: string | null;
     description: string;
     rating: Rating | null;
+    ai_suggested_rating: Rating | null;
+    ai_rating_justification: string;
+    rating_was_ai_accepted: boolean;
 }
 
 export interface EvaluationFactorState {
@@ -38,6 +43,9 @@ export interface EvaluationFactorState {
     is_relevant: boolean | null;
     scope_used: Scope | '';
     scope_configurable: boolean;
+    ai_suggested_id: Importance | null;
+    ai_id_justification: string;
+    id_was_ai_accepted: boolean;
     subfactors: EvaluationSubfactorState[];
 }
 
@@ -45,6 +53,10 @@ export interface Verdict {
     recommendation: Recommendation;
     recommendation_label: string;
     explanation_text: string;
+    /** Complemento de la IA, separado del dictamen ('' si no se generó). */
+    ai_executive_summary: string;
+    /** Solo en B o C, si se generó con la IA. */
+    ai_mitigation_plan: string;
     calculated_at: string;
 }
 
@@ -56,6 +68,7 @@ export interface EvaluationState {
     org_name: string;
     org_sector: string;
     org_description: string;
+    ai_enabled: boolean;
     status: EvaluationStatus;
     started_at: string;
     completed_at: string | null;
@@ -118,7 +131,29 @@ export interface PublicOrganization {
     logo?: string | null;
 }
 
+export interface AiStatus {
+    available: boolean;
+}
+
+export interface AiImportanceSuggestions {
+    suggestions: { factor_id: number; suggested_value: Importance; justification: string }[];
+}
+
+export interface AiRatingSuggestions {
+    factor_id: number;
+    suggestions: { subfactor_id: number; suggested_value: Rating; justification: string }[];
+}
+
+export interface AiReport {
+    executive_summary: string;
+    mitigation_plan: string;
+}
+
 const tokenHeader = (token: string) => ({ headers: { 'X-Evaluation-Token': token } });
+
+/** La IA puede tardar hasta GUIOS_AI_TIMEOUT (30 s) en el servidor: margen propio. */
+const AI_TIMEOUT_MS = 60000;
+const aiConfig = (token: string) => ({ ...tokenHeader(token), timeout: AI_TIMEOUT_MS });
 
 // ── Llamadas ─────────────────────────────────────────────────────────────────
 
@@ -170,6 +205,32 @@ const guiosPublicService = {
 
     duplicateEvaluation: async (uuid: string, token: string): Promise<CreatedEvaluation> => {
         const { data } = await publicApi.post<CreatedEvaluation>(ENDPOINTS.GUIOS_PUBLIC.DUPLICATE(uuid), null, tokenHeader(token));
+        return data;
+    },
+
+    /** ¿El servidor tiene IA configurada? Sin clave, ningún control de IA aparece. */
+    getAiStatus: async (): Promise<AiStatus> => {
+        const { data } = await publicApi.get<AiStatus>(ENDPOINTS.GUIOS_PUBLIC.AI_STATUS);
+        return data;
+    },
+
+    /** Sugerencias de ID (Paso 1-2). No cambian la ID: solo los campos ai_*. */
+    suggestImportance: async (uuid: string, token: string): Promise<AiImportanceSuggestions> => {
+        const { data } = await publicApi.post<AiImportanceSuggestions>(ENDPOINTS.GUIOS_PUBLIC.AI_IMPORTANCE(uuid), null, aiConfig(token));
+        return data;
+    },
+
+    /** Sugerencias de calificación de un factor relevante (Paso 3-4). */
+    suggestRatings: async (uuid: string, token: string, factorId: number): Promise<AiRatingSuggestions> => {
+        const { data } = await publicApi.post<AiRatingSuggestions>(
+            ENDPOINTS.GUIOS_PUBLIC.AI_RATINGS(uuid, factorId), null, aiConfig(token),
+        );
+        return data;
+    },
+
+    /** Resumen ejecutivo y plan de mitigación (B o C), después del dictamen. */
+    generateAiReport: async (uuid: string, token: string): Promise<AiReport> => {
+        const { data } = await publicApi.post<AiReport>(ENDPOINTS.GUIOS_PUBLIC.AI_REPORT(uuid), null, aiConfig(token));
         return data;
     },
 

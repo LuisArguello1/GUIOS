@@ -9,6 +9,7 @@ import guiosPublicService, {
     type Summary,
 } from '../api/guiosPublicService';
 import { getErrorData, getErrorStatus } from '../api/publicAxios';
+import { aiErrorMessage } from '../features/evaluation/aiErrors';
 import { createKeyedQueue } from '../features/evaluation/autosave';
 import useSavedEvaluationsStore from './useSavedEvaluationsStore';
 import useToastStore from './useToastStore';
@@ -16,6 +17,8 @@ import useToastStore from './useToastStore';
 export type LoadStatus = 'idle' | 'loading' | 'ready' | 'no_access' | 'error';
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type VerdictOutcome = 'ok' | 'incomplete' | 'locked' | 'error';
+/** Operación de IA en curso: 'importance', 'report' o `ratings:<factorId>`. */
+export type AiTask = string;
 
 interface EvaluationStoreState {
     uuid: string | null;
@@ -27,6 +30,12 @@ interface EvaluationStoreState {
     pendingSaves: number;
     failedKeys: string[];
     isGenerating: boolean;
+    /** El servidor tiene IA configurada (ai/status). */
+    aiAvailable: boolean;
+    aiBusy: AiTask[];
+    aiError: string | null;
+    /** Sugerencias ocultadas con "Ignorar" o "Cambiar": `factor:<id>` / `subfactor:<id>`. */
+    dismissedSuggestions: string[];
 
     load: (uuid: string) => Promise<void>;
     setDecisorImportance: (factorId: number, value: Importance | null) => void;
@@ -35,6 +44,12 @@ interface EvaluationStoreState {
     retryFailed: () => void;
     generateVerdict: () => Promise<VerdictOutcome>;
     duplicate: () => Promise<string | null>;
+    suggestImportance: () => Promise<void>;
+    suggestRatings: (factorId: number) => Promise<void>;
+    acceptAllRatings: (factorId: number) => number;
+    dismissSuggestion: (key: string) => void;
+    generateAiReport: () => Promise<boolean>;
+    clearAiError: () => void;
     reset: () => void;
 }
 
@@ -50,6 +65,10 @@ const initialState = {
     pendingSaves: 0,
     failedKeys: [] as string[],
     isGenerating: false,
+    aiAvailable: false,
+    aiBusy: [] as AiTask[],
+    aiError: null as string | null,
+    dismissedSuggestions: [] as string[],
 };
 
 const toast = (type: 'success' | 'error' | 'warning' | 'info', message: string) =>
@@ -137,6 +156,23 @@ const useEvaluationStore = create<EvaluationStoreState>((set, get) => {
             .finally(finishSave);
     };
 
+    /** Ejecuta una operación de IA; si falla, deja un mensaje y la evaluación sigue en modo manual. */
+    const runAi = async (task: AiTask, operation: () => Promise<void>): Promise<boolean> => {
+        if (get().aiBusy.includes(task)) return false;
+        set((state) => ({ aiBusy: [...state.aiBusy, task], aiError: null }));
+        try {
+            await operation();
+            return true;
+        } catch (error) {
+            const status = getErrorStatus(error);
+            set({ aiError: aiErrorMessage(error), ...(status === 503 ? { aiAvailable: false } : {}) });
+            if (status === 409) await refresh().catch(() => undefined);
+            return false;
+        } finally {
+            set((state) => ({ aiBusy: state.aiBusy.filter((item) => item !== task) }));
+        }
+    };
+
     return {
         ...initialState,
 
@@ -148,6 +184,9 @@ const useEvaluationStore = create<EvaluationStoreState>((set, get) => {
             const token = useSavedEvaluationsStore.getState().getToken(uuid);
             set({ ...initialState, uuid, token, loadStatus: token ? 'loading' : 'no_access' });
             if (!token) return;
+            guiosPublicService.getAiStatus()
+                .then(({ available }) => { if (get().uuid === uuid) set({ aiAvailable: available }); })
+                .catch(() => undefined);
             try {
                 await refresh();
                 set({ loadStatus: 'ready' });
@@ -161,7 +200,11 @@ const useEvaluationStore = create<EvaluationStoreState>((set, get) => {
             const { evaluation, uuid, token } = get();
             if (!evaluation || !uuid || !token || evaluation.status === 'completed') return;
             set({
-                evaluation: updateFactor(evaluation, factorId, (factor) => ({ ...factor, decisor_importance: value })),
+                evaluation: updateFactor(evaluation, factorId, (factor) => ({
+                    ...factor,
+                    decisor_importance: value,
+                    id_was_ai_accepted: value !== null && value === factor.ai_suggested_id,
+                })),
             });
             save(`factor:${factorId}:id`, () => guiosPublicService.setDecisorImportance(uuid, token, factorId, value));
         },
@@ -184,7 +227,9 @@ const useEvaluationStore = create<EvaluationStoreState>((set, get) => {
                     factors: evaluation.factors.map((factor) => ({
                         ...factor,
                         subfactors: factor.subfactors.map((sub) => (
-                            sub.subfactor_id === subfactorId ? { ...sub, rating: value } : sub
+                            sub.subfactor_id === subfactorId
+                                ? { ...sub, rating: value, rating_was_ai_accepted: value !== null && value === sub.ai_suggested_rating }
+                                : sub
                         )),
                     })),
                 },
@@ -253,6 +298,85 @@ const useEvaluationStore = create<EvaluationStoreState>((set, get) => {
                 return null;
             }
         },
+
+        suggestImportance: async () => {
+            const { uuid, token } = get();
+            if (!uuid || !token) return;
+            await runAi('importance', async () => {
+                const { suggestions } = await guiosPublicService.suggestImportance(uuid, token);
+                const byId = new Map(suggestions.map((item) => [item.factor_id, item]));
+                set((state) => ({
+                    evaluation: state.evaluation && {
+                        ...state.evaluation,
+                        factors: state.evaluation.factors.map((factor) => {
+                            const item = byId.get(factor.factor_id);
+                            return item
+                                ? { ...factor, ai_suggested_id: item.suggested_value, ai_id_justification: item.justification, id_was_ai_accepted: false }
+                                : factor;
+                        }),
+                    },
+                    dismissedSuggestions: state.dismissedSuggestions.filter((key) => !key.startsWith('factor:')),
+                }));
+            });
+        },
+
+        suggestRatings: async (factorId) => {
+            const { uuid, token } = get();
+            if (!uuid || !token) return;
+            await runAi(`ratings:${factorId}`, async () => {
+                const { suggestions } = await guiosPublicService.suggestRatings(uuid, token, factorId);
+                const byId = new Map(suggestions.map((item) => [item.subfactor_id, item]));
+                set((state) => ({
+                    evaluation: state.evaluation && updateFactor(state.evaluation, factorId, (factor) => ({
+                        ...factor,
+                        subfactors: factor.subfactors.map((sub) => {
+                            const item = byId.get(sub.subfactor_id);
+                            return item
+                                ? { ...sub, ai_suggested_rating: item.suggested_value, ai_rating_justification: item.justification, rating_was_ai_accepted: false }
+                                : sub;
+                        }),
+                    })),
+                    dismissedSuggestions: state.dismissedSuggestions.filter(
+                        (key) => !suggestions.some((item) => key === `subfactor:${item.subfactor_id}`),
+                    ),
+                }));
+            });
+        },
+
+        acceptAllRatings: (factorId) => {
+            const factor = get().evaluation?.factors.find((item) => item.factor_id === factorId);
+            if (!factor) return 0;
+            // Solo los subfactores que siguen sin calificar: nunca se pisa una decisión del evaluador.
+            const pending = factor.subfactors.filter((sub) => sub.rating === null && sub.ai_suggested_rating !== null);
+            pending.forEach((sub) => get().setRating(sub.subfactor_id, sub.ai_suggested_rating));
+            return pending.length;
+        },
+
+        dismissSuggestion: (key) => set((state) => ({
+            dismissedSuggestions: state.dismissedSuggestions.includes(key)
+                ? state.dismissedSuggestions
+                : [...state.dismissedSuggestions, key],
+        })),
+
+        generateAiReport: async () => {
+            const { uuid, token } = get();
+            if (!uuid || !token) return false;
+            return runAi('report', async () => {
+                const report = await guiosPublicService.generateAiReport(uuid, token);
+                set((state) => ({
+                    evaluation: state.evaluation?.verdict ? {
+                        ...state.evaluation,
+                        verdict: {
+                            ...state.evaluation.verdict,
+                            ai_executive_summary: report.executive_summary,
+                            ai_mitigation_plan: report.mitigation_plan,
+                        },
+                    } : state.evaluation,
+                }));
+            });
+        },
+
+        clearAiError: () => set({ aiError: null }),
 
         reset: () => set({ ...initialState }),
     };

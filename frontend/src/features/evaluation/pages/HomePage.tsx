@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HelpCircle } from 'lucide-react';
 import Card from '../../../components/ui/Card';
@@ -18,6 +18,16 @@ const HomePage = () => {
     const addToast = useToastStore((state) => state.addToast);
     const [submitting, setSubmitting] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
+    const [aiAvailable, setAiAvailable] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        // Sin IA configurada (o si la consulta falla) no aparece ningún control de IA.
+        guiosPublicService.getAiStatus()
+            .then(({ available }) => { if (active) setAiAvailable(available); })
+            .catch(() => undefined);
+        return () => { active = false; };
+    }, []);
 
     const handleSubmit = async (payload: RegistrationPayload) => {
         setSubmitting(true);
@@ -68,7 +78,7 @@ const HomePage = () => {
                     </button>
                 </div>
                 <Card title="Datos del software y de la organización">
-                    <RegistrationForm onSubmit={handleSubmit} isSubmitting={submitting} />
+                    <RegistrationForm onSubmit={handleSubmit} isSubmitting={submitting} aiAvailable={aiAvailable} />
                 </Card>
             </div>
             <Card title="Continuar una evaluación" subtitle="Guardadas en este navegador">
