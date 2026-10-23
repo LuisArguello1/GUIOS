@@ -384,6 +384,8 @@ class SummaryMatchesEngineTests(PublicApiTestBase):
         self.assertEqual(verdict['recommendation'], 'C')
         self.assertEqual(verdict['recommendation_label'], 'Recomendación C (Analizar y posponer la adopción)')
         text = verdict['explanation_text']
+        self.assertTrue(text.startswith('Factores que causan el dictamen:\n- Personalización:'), text[:80])
+        self.assertNotIn('Recomendación', text)   # el título lo muestra la tarjeta
         for name in ('Personalización', 'Formación', 'Soporte'):
             self.assertIn(f'- {name}: IR Importante', text)
         self.assertIn('PM 2.75, Debilidad', text)
@@ -503,7 +505,9 @@ class VerdictTests(PublicApiTestBase):
         self.patch_factor(uuid, token, 'ORG-SOP', scope_used='internal')
         response = self.post_verdict(uuid, token)
         self.assertEqual(response.data['verdict']['recommendation'], 'A')
-        self.assertNotIn('Factores que causan', response.data['verdict']['explanation_text'])
+        text_a = response.data['verdict']['explanation_text']
+        self.assertNotIn('Factores que causan', text_a)
+        self.assertTrue(text_a.startswith('Todos los factores relevantes son Fortalezas u Oportunidades'))
 
         uuid, token = self.create()
         # Solo Documentación (IR Opcional) no cumple: B.
@@ -515,7 +519,9 @@ class VerdictTests(PublicApiTestBase):
         self.patch_factor(uuid, token, 'ORG-SOP', scope_used='internal')
         verdict = self.post_verdict(uuid, token).data['verdict']
         self.assertEqual(verdict['recommendation'], 'B')
-        self.assertIn('- Documentación: IR Opcional, PM 1.00, Amenaza.', verdict['explanation_text'])
+        self.assertTrue(verdict['explanation_text'].startswith(
+            'Factores que causan el dictamen:\n- Documentación: IR Opcional, PM 1.00, Amenaza.'))
+        self.assertNotIn('Recomendación', verdict['explanation_text'])
         self.assertNotIn('No se sabe:', verdict['explanation_text'])
 
 

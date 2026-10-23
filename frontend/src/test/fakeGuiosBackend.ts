@@ -160,7 +160,7 @@ export const createFakeBackend = () => {
             evaluation.verdict = {
                 recommendation,
                 recommendation_label: `Recomendación ${recommendation}`,
-                explanation_text: `Recomendación ${recommendation}.\n${causing.map((f) => `- ${f.name}: IR ${f.relative_importance_label}, PM ${f.weighted_average}.`).join('\n')}`,
+                explanation_text: `Factores que causan el dictamen:\n${causing.map((f) => `- ${f.name}: IR ${f.relative_importance_label}, PM ${f.weighted_average}.`).join('\n')}`,
                 calculated_at: '2026-10-22T11:00:00Z',
             };
             return { verdict: evaluation.verdict, summary: summarize(evaluation) };
