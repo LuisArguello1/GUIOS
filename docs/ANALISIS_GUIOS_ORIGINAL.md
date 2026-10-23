@@ -487,8 +487,7 @@ El detalle completo está en [`docs/catalogo_guios.json`](catalogo_guios.json). 
 
 **Revisión final (Paso 11, decisiones del equipo).**
 - Borrados del panel: responden **200 con JSON** o **204 sin cuerpo**, nunca un 204 con cuerpo. `DELETE /api/v1/users/{id}/` responde siempre 200 con `{action: HARD_DELETE | SOFT_DELETE, message, detail}`; roles/grupos, menú y catálogo GUIOS responden 204 sin cuerpo. El frontend no depende del cuerpo tras un DELETE exitoso (mensaje por defecto) y refresca la lista.
-- `npm audit fix` (sin `--force`): de 49 a 7 vulnerabilidades, solo con actualizaciones dentro de los rangos de `package.json`. Quedan, solo como informe:
-  - `xlsx` (alta: contaminación de prototipo y ReDoS): no hay versión corregida en npm. No se usa en `frontend/src`; quitarlo de `package.json` eliminaría el aviso.
+- `npm audit fix` (sin `--force`): de 49 a 7 vulnerabilidades, solo con actualizaciones dentro de los rangos de `package.json`. Después se quitó `xlsx` de `package.json` (alta: contaminación de prototipo y ReDoS, sin versión corregida en npm): no se usaba en `frontend/src`, scripts ni configuración. Quedan 6, solo como informe:
   - Cadena de `vite-plugin-node-polyfills` (`elliptic`, `crypto-browserify`, `browserify-sign`, `create-ecdh`, `node-stdlib-browser`; 6 bajas): el arreglo exige un cambio de versión mayor. Afecta solo a los *polyfills* del navegador, no al servidor.
 - Playwright no se adopta para la entrega: las pruebas de interfaz quedan en Vitest + Testing Library y la lista manual de `docs/PRUEBAS_MANUALES.md`.
 
