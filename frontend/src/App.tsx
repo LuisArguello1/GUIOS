@@ -24,6 +24,9 @@ const SettingsPage = lazy(() => import('./features/settings/SettingsPage'));
 const RolesPermissonsPage = lazy(() => import('./features/settings/pages/RolesPermissonsPage'));
 const OrganizationPage = lazy(() => import('./features/settings/pages/OrganizationPage'));
 const MenuSettingsPage = lazy(() => import('./features/settings/pages/MenuSettingsPage'));
+const CatalogPage = lazy(() => import('./features/catalog/CatalogPage'));
+const EvaluationsPage = lazy(() => import('./features/evaluations/EvaluationsPage'));
+const EvaluationDetailPage = lazy(() => import('./features/evaluations/EvaluationDetailPage'));
 
 function App() {
     return (
@@ -60,6 +63,30 @@ function App() {
                             element={
                                 <ModuleGuard requiredPath="/dashboard/auditoria">
                                     <AuditPage />
+                                </ModuleGuard>
+                            }
+                        />
+                        <Route
+                            path="catalogo"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/catalogo">
+                                    <CatalogPage />
+                                </ModuleGuard>
+                            }
+                        />
+                        <Route
+                            path="evaluaciones"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/evaluaciones">
+                                    <EvaluationsPage />
+                                </ModuleGuard>
+                            }
+                        />
+                        <Route
+                            path="evaluaciones/:uuid"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/evaluaciones">
+                                    <EvaluationDetailPage />
                                 </ModuleGuard>
                             }
                         />

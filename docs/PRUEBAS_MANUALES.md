@@ -1,4 +1,4 @@
-# Pruebas manuales — evaluación pública (Paso 6)
+# Pruebas manuales — evaluación pública (Paso 6) y panel (Paso 8)
 
 Complementan las pruebas automáticas (`python backend/manage.py test` y `npm test`). Se hacen
 contra el backend real, con el catálogo cargado (`seed_guios_catalog`), en
@@ -84,3 +84,29 @@ orden en que aparecen los subfactores de cada factor.
 - [ ] Registrar "B&R Consultores" / "Ñandú & Cía.": se ven igual en la estación y en resultados.
 - [ ] Un texto con etiquetas, p. ej. `<b>hola</b>`, se guarda sin las etiquetas ("hola"). Cualquier
       cosa entre `<` y `>` con forma de etiqueta se elimina (protección contra XSS del backend).
+
+## 8. Panel administrativo (Paso 8)
+
+Preparación: `setup_menus`, `setup_permissions` y `seed_guios_catalog`; un superusuario y un rol
+"Lector GUIOS" con `dashboard.view`, `catalog.view` y `evaluations.view` (y los módulos del menú
+Dashboard, Catálogo y Evaluaciones asignados al rol). Al menos una evaluación con dictamen.
+
+- [ ] Tablero: el panel "Evaluaciones GUIOS" muestra total, en progreso, completadas, A/B/C con
+      número y porcentaje, y las recientes; cada reciente abre su detalle.
+- [ ] Catálogo (superusuario): crear una dimensión y un factor; el factor nace "Inactivo".
+- [ ] Activar ese factor sin subfactores: el modal muestra "Un factor solo se puede activar si tiene
+      al menos un subfactor activo." Agregar un subfactor y activarlo: funciona.
+- [ ] En un factor base, el botón de eliminar está deshabilitado y dice "Es del catálogo base"; con
+      Tab se llega al botón y el lector de pantalla lee el motivo. Al editarlo, la IS y el ámbito
+      están bloqueados.
+- [ ] Desactivar el único subfactor activo de un factor activo: el modal muestra el error del backend.
+- [ ] Historial: cada filtro (software, organización, dictamen, estado, fechas) y su combinación;
+      "Limpiar" quita todos; la paginación funciona con más de 20 evaluaciones.
+- [ ] "Exportar CSV" descarga solo las filas filtradas; abrir el archivo en Excel o LibreOffice Calc
+      (acentos correctos; un nombre que empieza con "=" no se ejecuta como fórmula).
+- [ ] Detalle de una evaluación con dictamen: dice "Resultados y dictamen guardados", muestra el
+      texto del dictamen, la matriz FODA, la tabla y las calificaciones; "PDF" descarga el detalle.
+- [ ] Detalle de una evaluación en progreso: indica que se calcula y lista los pendientes.
+- [ ] Con el rol "Lector GUIOS": no aparecen crear, editar, activar, eliminar, "Exportar CSV" ni "PDF".
+- [ ] Auditoría: aparecen los cambios del catálogo con el usuario y las exportaciones (acción EXPORT).
+- [ ] Modo oscuro y ancho de teléfono en las tres pantallas.

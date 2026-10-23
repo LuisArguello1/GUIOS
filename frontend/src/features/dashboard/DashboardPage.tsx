@@ -10,6 +10,7 @@ import useAuthStore from '../../app/useAuthStore';
 import useCoreStore from '../../app/useCoreStore';
 import { useLandingPath } from '../../hooks/useLandingPath';
 import iconoDashboard from '../../assets/img/Isotipo.webp';
+import GuiosMetricsPanel from './components/GuiosMetricsPanel';
 
 /* ─── Helpers de Fecha y Saludo ─────────────────────────────────────────────── */
 const getGreeting = (): string => {
@@ -121,6 +122,9 @@ const DashboardPage = () => {
                 </div>
             </div>
 
+
+            {/* ── Métricas de GUIOS (RF-ADM-19) ── */}
+            <GuiosMetricsPanel />
 
             {/* ── Información del Entorno y Sistema ── */}
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
