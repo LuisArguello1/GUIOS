@@ -430,7 +430,7 @@ El detalle completo está en [`docs/catalogo_guios.json`](catalogo_guios.json). 
 - SDK oficial de Python (`anthropic`) y precios oficiales verificados.
 - Si el costo preocupa, se puede usar Haiku 5.5 para las sugerencias de los pasos 1-4 y Sonnet 5.5 solo para el resumen. Como la interfaz `ProveedorIA` es intercambiable, el cambio de modelo o de proveedor es de configuración.
 
-**Decisión pendiente del equipo:** proveedor y modelo. El Paso 9 no empieza sin ella.
+**Decisión del equipo (Paso 9):** Anthropic. Claude Haiku 5.5 (`claude-haiku-5-5`) para las sugerencias de los pasos 1-4 y Claude Sonnet 5.5 (`claude-sonnet-5-5`) para el resumen ejecutivo y el plan de mitigación; ambos configurables en el `.env`.
 
 ### 8.2 Ajustes acordados para los pasos 5 a 8 (antes del Paso 3)
 
@@ -485,6 +485,14 @@ El detalle completo está en [`docs/catalogo_guios.json`](catalogo_guios.json). 
 
 **Pendiente para el Paso 11: esquema de la API.** drf-spectacular informa 12 errores "unable to guess serializer" en vistas de `apps/auth` y `apps/core` que no declaran serializer (`LoginView`, `Verify2FAView`, `LogoutView`, `CookieTokenRefreshView`, `TOTPManagementViewSet`, `PasswordResetWizardViewSet`, `DashboardView`, `DashboardExportView`, `DashboardExportStatusView`, `MenuViewSet`, `OrganizationViewSet`, `PermissionTreeViewSet`). Esas rutas no aparecen documentadas en Swagger. Se corrigen con `@extend_schema` (request/responses) en cada vista.
 
+**IA en el *backend* (Paso 9, decisiones del equipo).**
+- Código en `apps/guios/services/ai/`: interfaz `ProveedorIA` (`provider.py`), proveedor real `AnthropicProvider`, proveedor falso `FakeProvider` (pruebas), esquemas y validación (`schemas.py`), *prompts* (`prompts.py`) y operaciones (`assistance.py`).
+- Variables del `.env`: `ANTHROPIC_API_KEY` (sin ella la IA queda desactivada sin errores y `ai_enabled` se guarda en falso), `GUIOS_AI_SUGGESTION_MODEL` (por defecto `claude-haiku-5-5`), `GUIOS_AI_REPORT_MODEL` (por defecto `claude-sonnet-5-5`), `GUIOS_AI_TIMEOUT` (30 s, sin reintentos) y `GUIOS_AI_RATE` (throttle `guios_ai` por IP, por defecto `120/hour`; una evaluación completa usa unas 20 llamadas).
+- Rutas públicas con el token de la evaluación: `GET ai/status/` (`{available}`, nunca la clave ni el modelo); `POST evaluations/{uuid}/ai/importance/` (ID sugerida de cada factor); `POST evaluations/{uuid}/ai/factors/{factor_id}/ratings/` (solo factores relevantes, con ID e IR > 1; si no, 400 `factor_not_relevant` sin llamar a la IA); `POST evaluations/{uuid}/ai/report/` (solo con dictamen; plan de mitigación en B y C).
+- Errores: 503 `ai_unavailable` (sin clave), 400 `ai_not_enabled`, 409 (evaluación cerrada o informe sin dictamen), 504 `ai_timeout`, 502 `ai_error` / `ai_invalid_response`. La evaluación sigue en modo manual.
+- Validación: el proveedor real pide salida JSON con esquema y el *backend* la valida siempre con `jsonschema` y reglas propias (exactamente los ids pedidos, valores 1–4, justificación no vacía de hasta 500 caracteres, largo máximo del resumen y del plan, plan obligatorio en B y C). Si algo falla se descarta toda la respuesta.
+- Las sugerencias solo llenan los campos `ai_*`; `id_was_ai_accepted` y `rating_was_ai_accepted` son verdaderos solo si el valor elegido es igual a la sugerencia. Cada llamada (también las fallidas) se registra en `AIAssistanceLog` con el modelo, sin credenciales.
+
 **Sanitización (pasos 5 y 7).** `XSSSanitizationMiddleware` (`apps/core`) pasa cada texto JSON por `nh3.clean(tags=set())`, que quita las etiquetas y además convierte `&`, `<` y `>` en entidades: "B&R" se guarda como "B&amp;R" y "a < b" como "a &lt; b". Eso daña nombres de software, organizaciones y textos del catálogo.
 - **Decidido (sin tocar `apps/core`):** en los *serializers* de `apps/guios` usar un campo de texto propio (p. ej. `PlainTextField`) que aplique `html.unescape()` al recibir el valor. El middleware sigue quitando las etiquetas (la protección XSS se mantiene) y GUIOS guarda el texto que escribió el usuario. React escapa al mostrar; las salidas que no pasan por React (exportación PDF/CSV del Paso 7, *prompts* de IA del Paso 9) deben escapar o tratar el texto como datos.
 - **Alternativa descartada (tocaba `apps/core`):** que el middleware solo quite etiquetas y no escape `&`, `<` y `>` (o excluir las rutas de GUIOS) y validar en los *serializers*.
@@ -503,7 +511,7 @@ El detalle completo está en [`docs/catalogo_guios.json`](catalogo_guios.json). 
 | P5 | "Sistémica" → "Sugerida" | Se renombran también los campos (la base está vacía). |
 | P6 | Evaluación colaborativa | Trabajo futuro (la sugiere la especialista en la p. 107). |
 | P7 | IS publicada | Se usa la IS de la Tabla 5.3 sin recalcular. |
-| P8 | Proveedor de IA | Se decide al llegar al Paso 9 (opciones en §8.1). Hasta entonces se usa solo el proveedor falso (mock). |
+| P8 | Proveedor de IA | Anthropic: Claude Haiku para las sugerencias y Claude Sonnet para el informe, configurables en el `.env` (§8.1). Las pruebas usan solo el proveedor falso (mock). |
 
 ---
 

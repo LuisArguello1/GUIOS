@@ -17,9 +17,22 @@ class EvaluationCreateSerializer(serializers.Serializer):
     org_name = PlainTextField(max_length=200)
     org_sector = PlainTextField(max_length=150, required=False, allow_blank=True, default='')
     org_description = PlainTextField(max_length=5000, required=False, allow_blank=True, default='')
+    ai_enabled = serializers.BooleanField(
+        required=False, default=False,
+        help_text="Activar asistencia IA (RF-IA-01). Requiere la descripción o el enlace al repositorio; "
+                  "si el servidor no tiene IA configurada, queda en falso.",
+    )
 
     def validate_software_repo_url(self, value):
         return value or None
+
+    def validate(self, attrs):
+        if attrs.get('ai_enabled') and not (attrs.get('org_description', '').strip() or attrs.get('software_repo_url')):
+            raise serializers.ValidationError({
+                'ai_enabled': "Para activar la asistencia IA indique la descripción de la organización "
+                              "o el enlace al repositorio del software.",
+            })
+        return attrs
 
 
 class FactorUpdateSerializer(serializers.Serializer):
@@ -136,6 +149,9 @@ class EvaluationSubfactorStateSerializer(serializers.Serializer):
     code = serializers.CharField(source='subfactor.code', allow_null=True)
     description = serializers.CharField(source='description_snapshot')
     rating = serializers.IntegerField(allow_null=True)
+    ai_suggested_rating = serializers.IntegerField(allow_null=True)
+    ai_rating_justification = serializers.CharField()
+    rating_was_ai_accepted = serializers.BooleanField()
 
 
 class EvaluationFactorStateSerializer(serializers.Serializer):
@@ -150,6 +166,9 @@ class EvaluationFactorStateSerializer(serializers.Serializer):
     is_relevant = serializers.BooleanField(allow_null=True)
     scope_used = serializers.CharField()
     scope_configurable = serializers.BooleanField(source='factor.scope_configurable')
+    ai_suggested_id = serializers.IntegerField(allow_null=True)
+    ai_id_justification = serializers.CharField()
+    id_was_ai_accepted = serializers.BooleanField()
     subfactors = EvaluationSubfactorStateSerializer(many=True, source='items')
 
 
@@ -157,6 +176,8 @@ class VerdictSerializer(serializers.Serializer):
     recommendation = serializers.CharField()
     recommendation_label = serializers.CharField(source='get_recommendation_display')
     explanation_text = serializers.CharField()
+    ai_executive_summary = serializers.CharField(help_text="Complemento de la IA, separado del dictamen (vacío si no se generó).")
+    ai_mitigation_plan = serializers.CharField(help_text="Solo en B o C, si se generó con la IA.")
     calculated_at = serializers.DateTimeField()
 
 
@@ -168,6 +189,7 @@ class EvaluationStateSerializer(serializers.Serializer):
     org_name = serializers.CharField()
     org_sector = serializers.CharField()
     org_description = serializers.CharField()
+    ai_enabled = serializers.BooleanField()
     status = serializers.CharField()
     started_at = serializers.DateTimeField()
     completed_at = serializers.DateTimeField(allow_null=True)
