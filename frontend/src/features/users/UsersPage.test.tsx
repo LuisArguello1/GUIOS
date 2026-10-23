@@ -91,4 +91,17 @@ describe('Usuarios: roles y aviso antes de eliminar', () => {
         await waitFor(() => expect(toastMessages())
             .toContain('Usuario (ana@example.com) eliminado permanentemente.'));
     });
+
+    it.each([
+        [['users.view', 'users.deactivate'], true],
+        [['users.view'], false],
+    ])('el botón Eliminar depende de users.deactivate (permisos %j)', async (permissions, visible) => {
+        useAuthStore.setState({
+            isAuthenticated: true,
+            user: { id: 2, email: 'gestor@example.com', username: 'gestor', first_name: 'Gestor', last_name: '', is_staff: false, is_superuser: false, permissions },
+        });
+        renderPage();
+        const row = await anaRow();
+        expect(Boolean(within(row).queryByRole('button', { name: 'Eliminar' }))).toBe(visible);
+    });
 });

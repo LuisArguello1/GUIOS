@@ -87,7 +87,8 @@ const UsersPage = () => {
     const canCreateAction = useMemo(() => isSuperuser || has('users.create'), [isSuperuser, has]);
     const canModifyAction = useMemo(() => isSuperuser || has('users.edit'), [isSuperuser, has]);
     const canDeactivateAction = useMemo(() => isSuperuser || has('users.deactivate'), [isSuperuser, has]);
-    const canDeleteAction = useMemo(() => isSuperuser || has('users.delete'), [isSuperuser, has]);
+    // El backend exige users.deactivate para DELETE (borra o desactiva según los registros); users.delete no existe.
+    const canDeleteAction = canDeactivateAction;
 
     /* ── Fetch ── */
     const fetchData = useCallback(async (page = 1) => {
