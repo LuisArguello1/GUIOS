@@ -1,4 +1,4 @@
-# Pruebas manuales — evaluación pública (Paso 6), panel (Paso 8) e IA (Paso 10)
+# Pruebas manuales — evaluación pública (Paso 6), panel (Paso 8), IA (Paso 10) y revisión final (Paso 11)
 
 Complementan las pruebas automáticas (`python backend/manage.py test` y `npm test`). Se hacen
 contra el backend real, con el catálogo cargado (`seed_guios_catalog`), en
@@ -129,3 +129,13 @@ Requiere `ANTHROPIC_API_KEY` en el `.env` (cada prueba consume la API).
       con "Generado por IA · orientativo". "Regenerar" pide confirmación. El dictamen no cambia.
 - [ ] Panel: el detalle muestra el informe de la IA y la tabla "Asistencia de IA" con las sugerencias
       aceptadas; el PDF incluye el resumen y el plan.
+
+## 10. Revisión final (Paso 11)
+
+- [ ] Usuarios: eliminar un usuario sin datos vinculados muestra "Usuario eliminado…" (sin "Error al
+      ejecutar la acción") y desaparece de la lista; uno con evaluaciones queda desactivado con su aviso.
+      En la pestaña Red, el DELETE responde 200 con JSON.
+- [ ] Roles: eliminar un rol sin usuarios funciona y la lista se actualiza (DELETE 204 sin cuerpo).
+- [ ] Catálogo: eliminar una dimensión, un factor y un subfactor creados a mano funciona sin error.
+- [ ] `/api/docs/` (Swagger) muestra las rutas de login, 2FA, recuperación de contraseña, menú,
+      organización y árbol de permisos.
