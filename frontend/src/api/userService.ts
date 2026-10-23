@@ -10,6 +10,14 @@ export interface UserDeleteResult {
 
 export const DEFAULT_DELETE_MESSAGE = 'Usuario eliminado.';
 
+/** Qué pasará al eliminar: misma regla que el DELETE (registros como autor → se desactiva). */
+export interface UserDeleteImpact {
+    action: 'HARD_DELETE' | 'SOFT_DELETE';
+    total: number;
+    items: { key: string; label: string; count: number }[];
+    summary: string;
+}
+
 /**
  * Respuesta paginada estándar de Django REST Framework.
  * DRF con PageNumberPagination retorna { count, next, previous, results }
@@ -96,6 +104,11 @@ const userService = {
             };
         }
         return { action: 'HARD_DELETE', message: DEFAULT_DELETE_MESSAGE, detail: [] };
+    },
+
+    getDeleteImpact: async (id: string | number): Promise<UserDeleteImpact> => {
+        const response = await api.get<UserDeleteImpact>(ENDPOINTS.USERS.DELETE_IMPACT(id));
+        return response.data;
     },
 
     toggleActive: async (id: string | number): Promise<{ is_active: boolean; detail: string }> => {

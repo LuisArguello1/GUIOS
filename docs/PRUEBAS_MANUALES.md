@@ -132,9 +132,20 @@ Requiere `ANTHROPIC_API_KEY` en el `.env` (cada prueba consume la API).
 
 ## 10. Revisión final (Paso 11)
 
-- [ ] Usuarios: eliminar un usuario sin datos vinculados muestra "Usuario eliminado…" (sin "Error al
-      ejecutar la acción") y desaparece de la lista; uno con evaluaciones queda desactivado con su aviso.
-      En la pestaña Red, el DELETE responde 200 con JSON.
+- [ ] Usuarios: la columna "Roles" muestra los roles de cada usuario (no "Sin roles").
+- [ ] Eliminar un usuario recién creado (sin actividad): el modal avisa del borrado permanente; al
+      confirmar desaparece de la lista sin "Error al ejecutar la acción" (DELETE 200 con JSON).
+- [ ] Eliminar un usuario que editó el catálogo o exportó evaluaciones: el modal dice que se
+      desactivará y muestra el resumen (p. ej. "3 cambios en el catálogo GUIOS, 2 registros de
+      auditoría"); al confirmar queda inactivo.
+- [ ] Usuario que activó su 2FA desde su perfil: al eliminarlo se **desactiva** (no se borra). Activar el
+      2FA deja 3 registros de auditoría con ese usuario como autor (creación y cambios de su
+      dispositivo 2FA); iniciar sesión no deja ninguno. El modal debe decir "3 registros de auditoría".
+- [ ] 2FA sin actividad (el 2FA por sí solo no impide borrar): lo cubre el test
+      `test_two_factor_and_groups_are_deleted_with_the_user` (`apps/auth/tests/test_user_delete.py`).
+      A mano: con el superusuario, crear el dispositivo 2FA del usuario nuevo en el admin de Django
+      (`/admin/`, "Dispositivos TOTP"); el autor del registro es el superusuario, así que al eliminar al
+      usuario el modal avisa del borrado permanente.
 - [ ] Roles: eliminar un rol sin usuarios funciona y la lista se actualiza (DELETE 204 sin cuerpo).
 - [ ] Catálogo: eliminar una dimensión, un factor y un subfactor creados a mano funciona sin error.
 - [ ] `/api/docs/` (Swagger) muestra las rutas de login, 2FA, recuperación de contraseña, menú,

@@ -24,6 +24,7 @@ export const ENDPOINTS = {
         CHANGE_PASSWORD: '/users/change-password/',
         DETAIL: (id: string | number) => `/users/${id}/`,
         TOGGLE_ACTIVE: (id: string | number) => `/users/${id}/toggle-active/`,
+        DELETE_IMPACT: (id: string | number) => `/users/${id}/delete-impact/`,
     },
     AUDIT: {
         LOGS: '/audit/logs/',
