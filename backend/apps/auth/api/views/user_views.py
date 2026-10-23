@@ -134,13 +134,10 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # Siempre 200 con JSON (action: HARD_DELETE o SOFT_DELETE). Un 204 no puede
+        # llevar cuerpo: el navegador fallaba al leerlo aunque el borrado se hiciera.
         result = user_delete_logic(user=user)
-        response_status = (
-            status.HTTP_204_NO_CONTENT
-            if result['action'] == 'HARD_DELETE'
-            else status.HTTP_200_OK
-        )
-        return Response(result, status=response_status)
+        return Response(result, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='toggle-active')
     def toggle_active(self, request, pk=None):

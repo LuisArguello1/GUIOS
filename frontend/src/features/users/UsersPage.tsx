@@ -126,12 +126,12 @@ const UsersPage = () => {
             } else if (confirmModal.type === 'delete') {
                 const response = await userService.delete(confirmModal.user.id);
                 addToast({
-                    type: 'success',
-                    message: response?.message || 'Usuario eliminado.'
+                    type: response.action === 'SOFT_DELETE' ? 'info' : 'success',
+                    message: response.message,
                 });
             }
             setConfirmModal({ isOpen: false, type: null, user: null });
-            fetchData(currentPage);
+            await fetchData(currentPage);
         } catch (error: unknown) {
             const msg = getErrorDetail(error, 'Error al ejecutar la acción.');
             addToast({ type: 'error', message: msg });

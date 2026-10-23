@@ -84,7 +84,7 @@ export const useUsers = () => {
             const result = await userService.delete(id);
             addToast({
                 type: result.action === 'HARD_DELETE' ? 'success' : 'info',
-                message: result.message || 'Operación de borrado completada.',
+                message: result.message,
             });
             await fetchUsers();
             return true;
