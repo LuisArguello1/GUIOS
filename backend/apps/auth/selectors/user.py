@@ -1,6 +1,6 @@
 from django.db.models import Q, QuerySet
-from ..models.audit import AuditLog
 from ..models.user import CustomUser
+from .audit import count_audit_logs_by_actor
 
 def get_users_list(*, search: str = None, show_inactive: bool = False) -> QuerySet[CustomUser]:
     """
@@ -48,7 +48,6 @@ _NOT_LINKED = frozenset({
     'logentry_set',                         # log interno del admin de Django
     'audit_logs', 'impersonation_audit_logs', 'evaluations',
 })
-_CATALOG_MODELS = ('dimension', 'factor', 'subfactor')
 
 
 def _plural(count: int, singular: str, plural: str) -> str:
@@ -61,19 +60,14 @@ def user_linked_records(user: CustomUser) -> list[dict]:
     En la auditoría solo cuenta lo que el usuario hizo (autor o suplantador),
     no los registros donde él es el objeto (p. ej. "usuario creado por admin").
     """
-    authored = AuditLog.objects.filter(Q(user=user) | Q(impersonated_by=user))
-    catalog_q = Q(content_type__app_label='guios', content_type__model__in=_CATALOG_MODELS)
-    evaluation_q = (Q(content_type__app_label='guios') | Q(action='EXPORT')) & ~catalog_q
-    catalog = authored.filter(catalog_q).count()
-    evaluation_actions = authored.filter(evaluation_q).count()
-    other_audit = authored.count() - catalog - evaluation_actions
+    audit = count_audit_logs_by_actor(user)
     created = user.evaluations.count()
 
     items = [
-        ('audit_catalog', catalog, 'cambio en el catálogo GUIOS', 'cambios en el catálogo GUIOS'),
-        ('audit_evaluations', evaluation_actions, 'acción en evaluaciones', 'acciones en evaluaciones'),
+        ('audit_catalog', audit['catalog'], 'cambio en el catálogo GUIOS', 'cambios en el catálogo GUIOS'),
+        ('audit_evaluations', audit['evaluations'], 'acción en evaluaciones', 'acciones en evaluaciones'),
         ('evaluations_created', created, 'evaluación creada', 'evaluaciones creadas'),
-        ('audit_other', other_audit, 'registro de auditoría', 'registros de auditoría'),
+        ('audit_other', audit['other'], 'registro de auditoría', 'registros de auditoría'),
     ]
     result = [
         {'key': key, 'label': _plural(count, singular, plural), 'count': count}

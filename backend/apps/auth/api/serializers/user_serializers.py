@@ -5,17 +5,11 @@ from rest_framework import serializers
 from ...models.user import CustomUser
 
 
-class GroupNamesMixin(serializers.Serializer):
-    """Nombres de los roles del usuario (la tabla y el detalle del panel los muestran)."""
-    groups_names = serializers.SerializerMethodField()
-
-    def get_groups_names(self, obj) -> list[str]:
-        return [group.name for group in obj.groups.all()]
-
-
-class UserListSerializer(GroupNamesMixin, serializers.ModelSerializer):
+class UserListSerializer(serializers.ModelSerializer):
     """Serializador resumido para listado de usuarios."""
     full_name = serializers.CharField(source='get_full_name', read_only=True)
+    # Nombres de los roles: la columna "Roles" de la tabla del panel los muestra.
+    groups_names = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -31,6 +25,9 @@ class UserListSerializer(GroupNamesMixin, serializers.ModelSerializer):
             'groups',
             'groups_names',
         )
+
+    def get_groups_names(self, obj) -> list[str]:
+        return [group.name for group in obj.groups.all()]
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -178,7 +175,7 @@ class UserSelfUpdateSerializer(serializers.ModelSerializer):
         return value
 
 
-class UserDetailSerializer(GroupNamesMixin, serializers.ModelSerializer):
+class UserDetailSerializer(serializers.ModelSerializer):
     """Serializador de solo lectura para el detalle completo de un usuario."""
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     groups = serializers.SerializerMethodField()
@@ -200,7 +197,6 @@ class UserDetailSerializer(GroupNamesMixin, serializers.ModelSerializer):
             'is_staff',
             'is_superuser',
             'groups',
-            'groups_names',
             'permissions',
             'permissions_details',
             'modules_details',

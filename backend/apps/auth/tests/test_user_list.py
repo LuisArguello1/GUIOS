@@ -5,7 +5,7 @@ from apps.auth.models.user import CustomUser
 
 
 class UserGroupNamesTests(APITestCase):
-    """La columna "Roles" del panel lee groups_names en el listado y en el detalle."""
+    """La columna "Roles" del panel lee groups_names del listado (el detalle trae groups con id y nombre)."""
 
     def setUp(self):
         self.admin = CustomUser.objects.create_superuser(
@@ -22,10 +22,11 @@ class UserGroupNamesTests(APITestCase):
         self.assertEqual(sorted(row['groups_names']), ['Editor', 'Lector GUIOS'])
         self.assertEqual(len(row['groups']), 2)
 
-    def test_detail_returns_group_names(self):
+    def test_detail_returns_groups_with_names(self):
         response = self.client.get(f'/api/v1/users/{self.user.pk}/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(sorted(response.json()['groups_names']), ['Editor', 'Lector GUIOS'])
+        self.assertNotIn('groups_names', response.json())
+        self.assertEqual(sorted(g['name'] for g in response.json()['groups']), ['Editor', 'Lector GUIOS'])
 
     def test_user_without_groups_returns_empty_list(self):
         response = self.client.get('/api/v1/users/', {'search': 'admin@'})
