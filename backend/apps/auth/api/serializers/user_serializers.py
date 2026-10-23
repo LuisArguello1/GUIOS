@@ -5,7 +5,15 @@ from rest_framework import serializers
 from ...models.user import CustomUser
 
 
-class UserListSerializer(serializers.ModelSerializer):
+class GroupNamesMixin(serializers.Serializer):
+    """Nombres de los roles del usuario (la tabla y el detalle del panel los muestran)."""
+    groups_names = serializers.SerializerMethodField()
+
+    def get_groups_names(self, obj) -> list[str]:
+        return [group.name for group in obj.groups.all()]
+
+
+class UserListSerializer(GroupNamesMixin, serializers.ModelSerializer):
     """Serializador resumido para listado de usuarios."""
     full_name = serializers.CharField(source='get_full_name', read_only=True)
 
@@ -21,6 +29,7 @@ class UserListSerializer(serializers.ModelSerializer):
             'is_staff',
             'created_at',
             'groups',
+            'groups_names',
         )
 
 
@@ -169,7 +178,7 @@ class UserSelfUpdateSerializer(serializers.ModelSerializer):
         return value
 
 
-class UserDetailSerializer(serializers.ModelSerializer):
+class UserDetailSerializer(GroupNamesMixin, serializers.ModelSerializer):
     """Serializador de solo lectura para el detalle completo de un usuario."""
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     groups = serializers.SerializerMethodField()
@@ -191,6 +200,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'is_staff',
             'is_superuser',
             'groups',
+            'groups_names',
             'permissions',
             'permissions_details',
             'modules_details',
@@ -307,3 +317,17 @@ class ChangePasswordSerializer(serializers.Serializer):
                 "new_password": "La nueva contraseña no puede ser igual a la anterior."
             })
         return data
+
+
+class UserDeleteImpactItemSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    label = serializers.CharField()
+    count = serializers.IntegerField()
+
+
+class UserDeleteImpactSerializer(serializers.Serializer):
+    """Qué pasará al eliminar al usuario (aviso del modal antes de confirmar)."""
+    action = serializers.ChoiceField(choices=['HARD_DELETE', 'SOFT_DELETE'])
+    total = serializers.IntegerField()
+    items = UserDeleteImpactItemSerializer(many=True)
+    summary = serializers.CharField(help_text='Ej.: "12 registros de auditoría, 3 cambios en el catálogo GUIOS".')

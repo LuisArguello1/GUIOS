@@ -132,9 +132,12 @@ Requiere `ANTHROPIC_API_KEY` en el `.env` (cada prueba consume la API).
 
 ## 10. Revisión final (Paso 11)
 
-- [ ] Usuarios: eliminar un usuario sin datos vinculados muestra "Usuario eliminado…" (sin "Error al
-      ejecutar la acción") y desaparece de la lista; uno con evaluaciones queda desactivado con su aviso.
-      En la pestaña Red, el DELETE responde 200 con JSON.
+- [ ] Usuarios: la columna "Roles" muestra los roles de cada usuario (no "Sin roles").
+- [ ] Eliminar un usuario recién creado (sin actividad): el modal avisa del borrado permanente; al
+      confirmar desaparece de la lista sin "Error al ejecutar la acción" (DELETE 200 con JSON).
+- [ ] Eliminar un usuario que editó el catálogo o exportó evaluaciones: el modal dice que se
+      desactivará y muestra el resumen (p. ej. "3 cambios en el catálogo GUIOS, 2 registros de
+      auditoría"); al confirmar queda inactivo.
 - [ ] Roles: eliminar un rol sin usuarios funciona y la lista se actualiza (DELETE 204 sin cuerpo).
 - [ ] Catálogo: eliminar una dimensión, un factor y un subfactor creados a mano funciona sin error.
 - [ ] `/api/docs/` (Swagger) muestra las rutas de login, 2FA, recuperación de contraseña, menú,
