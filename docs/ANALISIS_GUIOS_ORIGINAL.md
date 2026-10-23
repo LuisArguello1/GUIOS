@@ -469,6 +469,14 @@ El detalle completo está en [`docs/catalogo_guios.json`](catalogo_guios.json). 
 
 **Subfactores con evaluaciones (Paso 7).** Las evaluaciones agrupan sus subfactores por el factor del catálogo. El CRUD no debe permitir mover a otro factor un subfactor que ya tiene evaluaciones.
 
+**API administrativa (Paso 7, decisiones del equipo).**
+- Rutas bajo `/api/v1/guios/admin/`, con el login del panel y `HasModulePermission`. Módulos "Catálogo" (`/dashboard/catalogo`) y "Evaluaciones" (`/dashboard/evaluaciones`) en el grupo "GUIOS" de `setup_menus`; permisos `catalog.view|create|edit|delete` y `evaluations.view|export` en `setup_permissions`; las métricas usan `dashboard.view`.
+- Reglas del CRUD (`services/catalog.py`): (1) RN-07/PROTECT: no se elimina lo que tiene dependencias o evaluaciones (409); (2) el catálogo base no se elimina y su `code`, IS y ámbito son de solo lectura; (3) `scope_configurable` se deduce del ámbito ("both"); (4) un factor nuevo nace inactivo y un factor activo no puede quedarse sin subfactores activos; (5) un subfactor con evaluaciones no se mueve de factor.
+- Detalle y PDF: una evaluación **completada** muestra los resultados y el dictamen guardados (`EvaluationResult`, `EvaluationVerdict`); el motor solo calcula las evaluaciones en progreso.
+- Exportación: CSV del historial filtrado (con protección contra fórmulas) y PDF del detalle con ReportLab (textos escapados); cada exportación se registra con la acción `EXPORT`.
+- El catálogo público excluye los factores sin subfactores activos y las dimensiones sin factores válidos.
+- Pendiente fuera del alcance: registrar una extensión de drf-spectacular para `CookieJWTAuthentication` (hoy el esquema avisa en todas las vistas autenticadas).
+
 **Sanitización (pasos 5 y 7).** `XSSSanitizationMiddleware` (`apps/core`) pasa cada texto JSON por `nh3.clean(tags=set())`, que quita las etiquetas y además convierte `&`, `<` y `>` en entidades: "B&R" se guarda como "B&amp;R" y "a < b" como "a &lt; b". Eso daña nombres de software, organizaciones y textos del catálogo.
 - **Decidido (sin tocar `apps/core`):** en los *serializers* de `apps/guios` usar un campo de texto propio (p. ej. `PlainTextField`) que aplique `html.unescape()` al recibir el valor. El middleware sigue quitando las etiquetas (la protección XSS se mantiene) y GUIOS guarda el texto que escribió el usuario. React escapa al mostrar; las salidas que no pasan por React (exportación PDF/CSV del Paso 7, *prompts* de IA del Paso 9) deben escapar o tratar el texto como datos.
 - **Alternativa descartada (tocaba `apps/core`):** que el middleware solo quite etiquetas y no escape `&`, `<` y `>` (o excluir las rutas de GUIOS) y validar en los *serializers*.

@@ -29,6 +29,18 @@ PERMISSION_CATALOG: dict[str, list[tuple[str, str, str, int]]] = {
     ],
 
 
+    # ── GUIOS ─────────────────────────────────────────────────────────────────
+    "/dashboard/catalogo": [
+        ("catalog.view",   "Ver catálogo",       "Consulta dimensiones, factores y subfactores (incluidos los inactivos).", 1),
+        ("catalog.create", "Crear en catálogo",  "Crea dimensiones, factores y subfactores.",                                 2),
+        ("catalog.edit",   "Editar catálogo",    "Modifica, activa o desactiva elementos del catálogo.",                       3),
+        ("catalog.delete", "Eliminar del catálogo", "Elimina elementos sin evaluaciones ni dependencias (RN-07).",             4),
+    ],
+    "/dashboard/evaluaciones": [
+        ("evaluations.view",   "Ver evaluaciones",      "Consulta el historial y el detalle de las evaluaciones.", 1),
+        ("evaluations.export", "Exportar evaluaciones", "Exporta el historial en CSV y el detalle en PDF.",         2),
+    ],
+
     # ── Configuración & Sistema ───────────────────────────────────────────────
     "/dashboard/users": [
         ("users.view",        "Ver usuarios",       "Accede al listado de usuarios del sistema.",                   1),

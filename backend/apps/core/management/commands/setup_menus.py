@@ -33,6 +33,8 @@ ICONS = {
     "ASPIRANTE":   "UserCheck",
     "DOCENTE":     "BookOpen",
     "PLANTILLA":   "FileText",
+    "CATALOG":     "ListTree",
+    "EVALUATIONS": "ClipboardList",
 }
 
 class Command(BaseCommand):
@@ -48,6 +50,15 @@ class Command(BaseCommand):
                 "order": 10,
                 "modules": [
                     {"label": "Dashboard", "icon": ICONS["DASHBOARD"], "path": "/dashboard", "order": 1},
+                ],
+            },
+            # ── GUIOS (catálogo y evaluaciones) ───────────────────────────────
+            {
+                "name": "GUIOS",
+                "order": 20,
+                "modules": [
+                    {"label": "Catálogo",     "icon": ICONS["CATALOG"],     "path": "/dashboard/catalogo",     "order": 1},
+                    {"label": "Evaluaciones", "icon": ICONS["EVALUATIONS"], "path": "/dashboard/evaluaciones", "order": 2},
                 ],
             },
             # ── Configuración & Sistema ───────────────────────────────────────
