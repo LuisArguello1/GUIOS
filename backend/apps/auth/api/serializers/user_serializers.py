@@ -200,10 +200,10 @@ class UserDetailSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_groups(self, obj):
+    def get_groups(self, obj) -> list[dict]:
         return [{"id": g.id, "name": g.name} for g in obj.groups.all()]
 
-    def get_permissions_details(self, obj):
+    def get_permissions_details(self, obj) -> list[dict]:
         if obj.is_superuser:
             return [{
                 "id": 0,
@@ -230,7 +230,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
                 unique_perms.append(p)
         return unique_perms
 
-    def get_modules_details(self, obj):
+    def get_modules_details(self, obj) -> list[dict]:
         if obj.is_superuser:
             from apps.core.models.menuModule import MenuModule
             modules = MenuModule.objects.all().select_related('group')

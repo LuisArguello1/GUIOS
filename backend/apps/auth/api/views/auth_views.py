@@ -2,6 +2,8 @@ import logging
 from django.http import FileResponse
 from django.contrib.auth import authenticate
 from django.utils.translation import gettext_lazy as _
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -29,6 +31,8 @@ from ...services.otp import (
 from ...services.totp_service import TOTPService
 from ...utils.pdf_recovery_codes import RecoveryCodesPDFGenerator
 from django.core.cache import cache
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 
 class PasswordResetThrottle(AnonRateThrottle):
     """Tasa definida en settings.py -> 'password_reset'"""
@@ -84,6 +88,7 @@ class LoginView(APIView):
     _MAX_ATTEMPTS   = 10
     _LOCKOUT_TIMES  = [60, 900, 3600, 86400]  # 1min, 15min, 1h, 24h
 
+    @extend_schema(tags=['Autenticación'], summary="Iniciar sesión (cookies JWT; puede pedir 2FA)", request=LoginSerializer, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -172,6 +177,7 @@ class LogoutView(APIView):
     """Vista para cierre de sesión y limpieza de cookies."""
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(tags=['Autenticación'], summary="Cerrar sesión (borra las cookies)", request=None, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         response = Response(
             {'detail': _('Sesión cerrada correctamente.')},
@@ -189,6 +195,7 @@ class CookieTokenRefreshView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [RefreshThrottle]
 
+    @extend_schema(tags=['Autenticación'], summary="Renovar el token de acceso con la cookie de refresco", request=None, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         refresh_cookie = request.COOKIES.get('refresh_token')
         
@@ -245,6 +252,7 @@ class PasswordResetWizardViewSet(viewsets.ViewSet):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [PasswordResetThrottle]
 
+    @extend_schema(tags=['Autenticación'], summary="Recuperar contraseña: pedir el código", request=PasswordResetRequestSerializer, responses=OpenApiTypes.OBJECT)
     @action(detail=False, methods=['post'], url_path='request')
     def request_reset(self, request):
         """PASO 1: Enviar código OTP al email."""
@@ -260,6 +268,7 @@ class PasswordResetWizardViewSet(viewsets.ViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(tags=['Autenticación'], summary="Recuperar contraseña: verificar el código", request=OTPVerifySerializer, responses=OpenApiTypes.OBJECT)
     @action(detail=False, methods=['post'], url_path='verify')
     def verify_otp(self, request):
         """PASO 2: Verificar el código OTP."""
@@ -285,6 +294,7 @@ class PasswordResetWizardViewSet(viewsets.ViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @extend_schema(tags=['Autenticación'], summary="Recuperar contraseña: nueva contraseña", request=PasswordResetConfirmSerializer, responses=OpenApiTypes.OBJECT)
     @action(detail=False, methods=['post'], url_path='confirm')
     def confirm_reset(self, request):
         """PASO 3: Cambiar la contraseña definitiva."""
@@ -313,6 +323,7 @@ class Verify2FAView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [LoginThrottle]
 
+    @extend_schema(tags=['Autenticación'], summary="Verificar el segundo factor del login", request=Verify2FASerializer, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         serializer = Verify2FASerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -352,12 +363,14 @@ class TOTPManagementViewSet(viewsets.ViewSet):
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(tags=['Autenticación'], summary="2FA: configuración (QR y secreto)", request=None, responses=OpenApiTypes.OBJECT)
     @action(detail=False, methods=['get'], url_path='config')
     def get_config(self, request):
         """Obtiene la URI de provisioning y el estado actual."""
         data = TOTPService.get_provisioning_data(request.user)
         return Response(data)
 
+    @extend_schema(tags=['Autenticación'], summary="2FA: activar", request=TOTPSetupSerializer, responses=OpenApiTypes.OBJECT)
     @action(detail=False, methods=['post'], url_path='activate')
     def activate(self, request):
         """Activa el 2FA tras verificar el primer código."""
@@ -376,6 +389,7 @@ class TOTPManagementViewSet(viewsets.ViewSet):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+    @extend_schema(tags=['Autenticación'], summary="2FA: regenerar códigos (requiere contraseña)", request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     @action(detail=False, methods=['post'], url_path='regenerate-codes')
     def regenerate_codes(self, request):
         """Regenera los códigos de recuperación (requiere validación de password)."""
@@ -392,6 +406,7 @@ class TOTPManagementViewSet(viewsets.ViewSet):
             'recovery_codes': codes
         })
 
+    @extend_schema(tags=['Autenticación'], summary="2FA: exportar códigos a PDF", request=OpenApiTypes.OBJECT, responses={(200, 'application/pdf'): OpenApiTypes.BINARY})
     @action(detail=False, methods=['post'], url_path='export-pdf')
     def export_pdf(self, request):
         """Exporta los códigos entregados por el frontend a un PDF."""
@@ -410,6 +425,7 @@ class TOTPManagementViewSet(viewsets.ViewSet):
             content_type='application/pdf'
         )
 
+    @extend_schema(tags=['Autenticación'], summary="2FA: desactivar (requiere contraseña)", request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     @action(detail=False, methods=['post'], url_path='deactivate')
     def deactivate(self, request):
         """Desactiva el 2FA (requiere validación de password por seguridad)."""
