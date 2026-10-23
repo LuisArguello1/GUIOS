@@ -36,6 +36,9 @@ class AdminSubfactorSerializer(serializers.Serializer):
     code = serializers.CharField(allow_null=True)
     description = serializers.CharField(help_text="Instantánea del texto al iniciar la evaluación.")
     rating = serializers.IntegerField(allow_null=True)
+    ai_suggested_rating = serializers.IntegerField(allow_null=True)
+    ai_rating_justification = serializers.CharField()
+    rating_was_ai_accepted = serializers.BooleanField()
 
 
 class AdminFailingSubfactorSerializer(serializers.Serializer):
@@ -55,6 +58,9 @@ class AdminFactorDetailSerializer(serializers.Serializer):
     is_relevant = serializers.BooleanField(allow_null=True)
     scope_used = serializers.CharField(allow_null=True)
     scope_configurable = serializers.BooleanField()
+    ai_suggested_id = serializers.IntegerField(allow_null=True)
+    ai_id_justification = serializers.CharField()
+    id_was_ai_accepted = serializers.BooleanField()
     weighted_average = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
     meets_threshold = serializers.BooleanField(allow_null=True)
     foda = serializers.CharField(allow_null=True)

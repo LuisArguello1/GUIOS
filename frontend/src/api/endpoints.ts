@@ -77,6 +77,10 @@ export const ENDPOINTS = {
         SUBFACTOR: (uuid: string, subfactorId: number) => `/guios/public/evaluations/${uuid}/subfactors/${subfactorId}/`,
         VERDICT: (uuid: string) => `/guios/public/evaluations/${uuid}/verdict/`,
         DUPLICATE: (uuid: string) => `/guios/public/evaluations/${uuid}/duplicate/`,
+        AI_STATUS: '/guios/public/ai/status/',
+        AI_IMPORTANCE: (uuid: string) => `/guios/public/evaluations/${uuid}/ai/importance/`,
+        AI_RATINGS: (uuid: string, factorId: number) => `/guios/public/evaluations/${uuid}/ai/factors/${factorId}/ratings/`,
+        AI_REPORT: (uuid: string) => `/guios/public/evaluations/${uuid}/ai/report/`,
     },
 };
 

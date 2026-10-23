@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Copy, HelpCircle } from 'lucide-react';
+import { Copy, HelpCircle, Sparkles } from 'lucide-react';
 import Alert from '../../../components/ui/Alert';
 import Button from '../../../components/ui/Button';
+import ConfirmModal from '../../../components/ui/ConfirmModal';
 import GenericHelpModal from '../../../components/ui/GenericHelpModal';
 import Loading from '../../../components/ui/Loading';
 import useEvaluation from '../../../hooks/useEvaluation';
+import AiReport from '../components/AiReport';
 import EvaluationUnavailable from '../components/EvaluationUnavailable';
 import FactorsTable from '../components/FactorsTable';
 import FodaMatrix from '../components/FodaMatrix';
@@ -16,8 +18,11 @@ import { HELP } from '../components/helpContent';
 const ResultsPage = () => {
     const { uuid } = useParams();
     const navigate = useNavigate();
-    const { evaluation, summary, loadStatus, duplicate } = useEvaluation(uuid);
+    const {
+        evaluation, summary, loadStatus, duplicate, aiAvailable, aiBusy, aiError, generateAiReport, clearAiError,
+    } = useEvaluation(uuid);
     const [helpOpen, setHelpOpen] = useState(false);
+    const [confirmRegenerate, setConfirmRegenerate] = useState(false);
     const [duplicating, setDuplicating] = useState(false);
 
     useEffect(() => {
@@ -32,6 +37,15 @@ const ResultsPage = () => {
     if (evaluation.status !== 'completed' || !evaluation.verdict) {
         return <Navigate to={`/evaluacion/${uuid}`} replace />;
     }
+
+    const aiOn = aiAvailable && evaluation.ai_enabled;
+    const hasReport = Boolean(evaluation.verdict.ai_executive_summary);
+    const reportBusy = aiBusy.includes('report');
+
+    const handleRegenerate = async () => {
+        await generateAiReport();
+        setConfirmRegenerate(false);
+    };
 
     const handleDuplicate = async () => {
         setDuplicating(true);
@@ -71,12 +85,41 @@ const ResultsPage = () => {
             />
 
             <VerdictCard verdict={evaluation.verdict} />
+            {aiError && <Alert type="warning" title="Asistencia de IA" message={aiError} onClose={clearAiError} />}
+            {(aiOn || hasReport) && (
+                <AiReport
+                    summary={evaluation.verdict.ai_executive_summary}
+                    mitigation={evaluation.verdict.ai_mitigation_plan}
+                    actions={aiOn && (
+                        <Button
+                            variant={hasReport ? 'outline' : 'info'}
+                            size="sm"
+                            icon={Sparkles}
+                            isLoading={reportBusy && !confirmRegenerate}
+                            onClick={() => (hasReport ? setConfirmRegenerate(true) : generateAiReport())}
+                        >
+                            {reportBusy ? 'La IA está redactando…' : hasReport ? 'Regenerar' : 'Generar resumen con IA'}
+                        </Button>
+                    )}
+                />
+            )}
             <FodaMatrix factors={summary.factors} />
             <FactorsTable factors={summary.factors} />
 
             <Link to="/" className="inline-block text-sm font-semibold text-[var(--color-primary)] hover:underline">
                 Volver al inicio
             </Link>
+            <ConfirmModal
+                isOpen={confirmRegenerate}
+                onClose={() => setConfirmRegenerate(false)}
+                onConfirm={handleRegenerate}
+                isLoading={reportBusy}
+                variant="info"
+                title="Regenerar el informe de la IA"
+                message="Se pedirá a la IA un nuevo resumen ejecutivo y plan de mitigación, que reemplazarán a los actuales. El dictamen no cambia."
+                confirmText="Regenerar"
+                cancelText="Cancelar"
+            />
             <GenericHelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} footerText="Ayuda metodológica GUIOS" {...HELP.results} />
         </div>
     );

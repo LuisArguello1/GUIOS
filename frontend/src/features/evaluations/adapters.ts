@@ -29,5 +29,7 @@ export const toVerdict = (verdict: AdminVerdict): Verdict => ({
     recommendation: verdict.recommendation,
     recommendation_label: verdict.recommendation_label,
     explanation_text: verdict.explanation_text,
+    ai_executive_summary: verdict.ai_executive_summary,
+    ai_mitigation_plan: verdict.ai_mitigation_plan,
     calculated_at: verdict.calculated_at,
 });

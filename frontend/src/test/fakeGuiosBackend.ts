@@ -8,6 +8,9 @@ import { AxiosError } from 'axios';
 import type { AxiosResponse } from 'axios';
 import catalog from '../../../docs/catalogo_guios.json';
 import type {
+    AiImportanceSuggestions,
+    AiRatingSuggestions,
+    AiReport,
     CreatedEvaluation,
     EvaluationState,
     Foda,
@@ -25,21 +28,23 @@ const LABELS = ['', 'Irrelevante', 'Opcional', 'Importante', 'Fundamental'];
 
 export interface FakeCall { method: string; args: unknown[] }
 
-const httpError = (status: number, data: Record<string, unknown> = {}) =>
+export const httpError = (status: number, data: Record<string, unknown> = {}) =>
     new AxiosError(String(status), 'ERR_BAD_REQUEST', undefined, undefined, { status, data } as AxiosResponse);
 
 export const createFakeBackend = () => {
     const calls: FakeCall[] = [];
     const evaluations = new Map<string, EvaluationState>();
     let counter = 0;
+    /** Asistencia de IA simulada: disponible por defecto; `error` hace fallar la próxima llamada. */
+    const ai = { available: true, error: null as unknown, rating: 3 as Rating };
 
-    const build = (uuid: string): EvaluationState => {
+    const build = (uuid: string, aiEnabled = false): EvaluationState => {
         let factorId = 0;
         let subfactorId = 0;
         return {
             uuid,
             software_name: 'LibreOffice', software_version: '24.2', software_repo_url: null,
-            org_name: 'UNEMI', org_sector: '', org_description: '',
+            org_name: 'UNEMI', org_sector: '', org_description: '', ai_enabled: aiEnabled,
             status: 'in_progress', started_at: '2026-10-22T10:00:00Z', completed_at: null, verdict: null,
             factors: catalog.dimensiones.flatMap((dimension) => dimension.factores.map((factor) => ({
                 factor_id: ++factorId,
@@ -53,8 +58,12 @@ export const createFakeBackend = () => {
                 is_relevant: null,
                 scope_used: SCOPE[factor.ambito],
                 scope_configurable: factor.ambito_configurable,
+                ai_suggested_id: null,
+                ai_id_justification: '',
+                id_was_ai_accepted: false,
                 subfactors: factor.subfactores.map((sub) => ({
                     subfactor_id: ++subfactorId, code: sub.codigo, description: sub.texto_mostrar, rating: null,
+                    ai_suggested_rating: null, ai_rating_justification: '', rating_was_ai_accepted: false,
                 })),
             }))),
         };
@@ -112,10 +121,20 @@ export const createFakeBackend = () => {
         }
     };
 
+    const failAi = () => {
+        if (!ai.available) throw httpError(503, { code: 'ai_unavailable' });
+        if (ai.error) {
+            const error = ai.error;
+            ai.error = null;
+            throw error;
+        }
+    };
+
     const service = {
-        createEvaluation: async (): Promise<CreatedEvaluation> => {
+        createEvaluation: async (payload?: { ai_enabled?: boolean }): Promise<CreatedEvaluation> => {
+            calls.push({ method: 'createEvaluation', args: [payload] });
             const uuid = `eval-${++counter}`;
-            const evaluation = build(uuid);
+            const evaluation = build(uuid, Boolean(payload?.ai_enabled) && ai.available);
             evaluations.set(uuid, evaluation);
             return { ...structuredClone(evaluation), session_token: `token-${uuid}` };
         },
@@ -127,6 +146,7 @@ export const createFakeBackend = () => {
             ensureOpen(evaluation);
             const factor = evaluation.factors.find((f) => f.factor_id === factorId)!;
             factor.decisor_importance = value;
+            factor.id_was_ai_accepted = value !== null && value === factor.ai_suggested_id;
             return summarize(evaluation);
         },
         setScope: async (uuid: string, token: string, factorId: number, value: Scope | null) => {
@@ -140,7 +160,9 @@ export const createFakeBackend = () => {
             calls.push({ method: 'setRating', args: [subfactorId, value] });
             const evaluation = get(uuid, token);
             ensureOpen(evaluation);
-            evaluation.factors.flatMap((f) => f.subfactors).find((s) => s.subfactor_id === subfactorId)!.rating = value;
+            const sub = evaluation.factors.flatMap((f) => f.subfactors).find((s) => s.subfactor_id === subfactorId)!;
+            sub.rating = value;
+            sub.rating_was_ai_accepted = value !== null && value === sub.ai_suggested_rating;
             return summarize(evaluation);
         },
         generateVerdict: async (uuid: string, token: string): Promise<VerdictResult> => {
@@ -160,6 +182,8 @@ export const createFakeBackend = () => {
             evaluation.verdict = {
                 recommendation,
                 recommendation_label: `Recomendación ${recommendation}`,
+                ai_executive_summary: '',
+                ai_mitigation_plan: '',
                 explanation_text: `Factores que causan el dictamen:\n${causing.map((f) => `- ${f.name}: IR ${f.relative_importance_label}, PM ${f.weighted_average}.`).join('\n')}`,
                 calculated_at: '2026-10-22T11:00:00Z',
             };
@@ -176,7 +200,53 @@ export const createFakeBackend = () => {
             return { ...structuredClone(copy), session_token: `token-${copyUuid}` };
         },
         getOrganization: async () => ({ name: 'UNEMI', logo: null }),
+        getAiStatus: async () => ({ available: ai.available }),
+        suggestImportance: async (uuid: string, token: string): Promise<AiImportanceSuggestions> => {
+            calls.push({ method: 'suggestImportance', args: [] });
+            const evaluation = get(uuid, token);
+            failAi();
+            ensureOpen(evaluation);
+            evaluation.factors.forEach((f) => {
+                f.ai_suggested_id = f.suggested_importance;
+                f.ai_id_justification = `Justificación IA de ${f.name}.`;
+                f.id_was_ai_accepted = false;
+            });
+            return { suggestions: evaluation.factors.map((f) => ({
+                factor_id: f.factor_id, suggested_value: f.suggested_importance, justification: f.ai_id_justification,
+            })) };
+        },
+        suggestRatings: async (uuid: string, token: string, factorId: number): Promise<AiRatingSuggestions> => {
+            calls.push({ method: 'suggestRatings', args: [factorId] });
+            const evaluation = get(uuid, token);
+            failAi();
+            ensureOpen(evaluation);
+            const factor = evaluation.factors.find((f) => f.factor_id === factorId)!;
+            if (!summarize(evaluation).factors.find((f) => f.factor_id === factorId)!.is_relevant) {
+                throw httpError(400, { code: 'factor_not_relevant', detail: 'Solo se sugieren calificaciones para factores relevantes.' });
+            }
+            factor.subfactors.forEach((sub) => {
+                sub.ai_suggested_rating = ai.rating;
+                sub.ai_rating_justification = `Justificación IA ${sub.subfactor_id}.`;
+                sub.rating_was_ai_accepted = false;
+            });
+            return { factor_id: factorId, suggestions: factor.subfactors.map((sub) => ({
+                subfactor_id: sub.subfactor_id, suggested_value: ai.rating, justification: sub.ai_rating_justification,
+            })) };
+        },
+        generateAiReport: async (uuid: string, token: string): Promise<AiReport> => {
+            calls.push({ method: 'generateAiReport', args: [] });
+            const evaluation = get(uuid, token);
+            failAi();
+            if (!evaluation.verdict) throw httpError(409, { code: 'verdict_required' });
+            const count = calls.filter((c) => c.method === 'generateAiReport').length;
+            evaluation.verdict.ai_executive_summary = `Resumen ejecutivo de prueba ${count}.`;
+            evaluation.verdict.ai_mitigation_plan = evaluation.verdict.recommendation === 'A' ? '' : 'Plan de mitigación de prueba.';
+            return {
+                executive_summary: evaluation.verdict.ai_executive_summary,
+                mitigation_plan: evaluation.verdict.ai_mitigation_plan,
+            };
+        },
     };
 
-    return { service, calls, evaluations };
+    return { service, calls, evaluations, ai };
 };

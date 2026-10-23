@@ -96,8 +96,19 @@ export interface AdminFactorDetail {
     weighted_average: string | null;
     meets_threshold: boolean | null;
     foda: Foda | null;
+    ai_suggested_id: Importance | null;
+    ai_id_justification: string;
+    id_was_ai_accepted: boolean;
     failing_subfactors: { subfactor_id: number; description: string; rating: 1 | 2 }[];
-    subfactors: { subfactor_id: number; code: string | null; description: string; rating: Rating | null }[];
+    subfactors: {
+        subfactor_id: number;
+        code: string | null;
+        description: string;
+        rating: Rating | null;
+        ai_suggested_rating: Rating | null;
+        ai_rating_justification: string;
+        rating_was_ai_accepted: boolean;
+    }[];
 }
 
 export interface AdminVerdict {

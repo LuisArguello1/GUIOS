@@ -7,10 +7,12 @@ import PermissionGuard from '../../components/ui/PermissionGuard';
 import Skeleton from '../../components/ui/Skeleton';
 import { useEvaluationDetail } from '../../hooks/useEvaluationsAdmin';
 import usePermissions from '../../hooks/usePermissions';
+import AiReport from '../evaluation/components/AiReport';
 import FactorsTable from '../evaluation/components/FactorsTable';
 import FodaMatrix from '../evaluation/components/FodaMatrix';
 import VerdictCard from '../evaluation/components/VerdictCard';
 import { toFactorSummary, toVerdict } from './adapters';
+import AiSuggestionsSummary from './components/AiSuggestionsSummary';
 import SubfactorRatings from './components/SubfactorRatings';
 import { StatusBadge } from './components/StatusBadges';
 
@@ -88,6 +90,7 @@ const EvaluationDetailPage = () => {
                     <Field label="Repositorio" value={evaluation.software_repo_url} />
                     <Field label="Sector" value={evaluation.org_sector} />
                     <Field label="Descripción" value={evaluation.org_description} />
+<Field label="Asistencia de IA" value={evaluation.ai_enabled ? 'Activada' : 'No activada'} />
                     <Field label="Inicio" value={formatDate(evaluation.started_at)} />
                     <Field label="Dictamen emitido" value={formatDate(evaluation.completed_at)} />
                     <Field label="Identificador" value={<span className="font-mono">{evaluation.uuid}</span>} />
@@ -98,10 +101,7 @@ const EvaluationDetailPage = () => {
                 <>
                     <VerdictCard verdict={toVerdict(verdict)} />
                     {verdict.ai_executive_summary && (
-                        <Alert type="info" title="Resumen ejecutivo (IA, orientativo)" message={verdict.ai_executive_summary} />
-                    )}
-                    {verdict.ai_mitigation_plan && (
-                        <Alert type="info" title="Plan de mitigación (IA, orientativo)" message={verdict.ai_mitigation_plan} />
+                        <AiReport summary={verdict.ai_executive_summary} mitigation={verdict.ai_mitigation_plan} />
                     )}
                 </>
             ) : (
@@ -117,6 +117,7 @@ const EvaluationDetailPage = () => {
             <FodaMatrix factors={factors} />
             <FactorsTable factors={factors} />
             <SubfactorRatings factors={detail.factors} />
+            <AiSuggestionsSummary factors={detail.factors} />
         </div>
     );
 };

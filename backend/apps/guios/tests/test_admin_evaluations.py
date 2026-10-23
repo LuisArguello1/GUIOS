@@ -7,7 +7,14 @@ from django.utils import timezone
 from pypdf import PdfReader
 
 from apps.auth.models.audit import AuditLog
-from apps.guios.models import Evaluation, EvaluationResult, EvaluationSubfactor, EvaluationVerdict, Factor
+from apps.guios.models import (
+    Evaluation,
+    EvaluationFactor,
+    EvaluationResult,
+    EvaluationSubfactor,
+    EvaluationVerdict,
+    Factor,
+)
 
 from .admin_base import ADMIN, AdminApiTestBase
 
@@ -127,6 +134,21 @@ class DetailTests(AdminApiTestBase):
         self.assertEqual(data['verdict']['recommendation'], 'C')
         self.assertEqual(data['verdict']['explanation_text'], 'Texto guardado.')
         self.assertEqual(data['missing'], [])
+
+    def test_detail_includes_ai_suggestions(self):
+        evaluation = self.make_evaluation()
+        EvaluationFactor.objects.filter(evaluation=evaluation, factor__code='TEC-USA').update(
+            ai_suggested_id=3, ai_id_justification='Motivo.', id_was_ai_accepted=True,
+        )
+        EvaluationSubfactor.objects.filter(evaluation=evaluation, subfactor__factor__code='TEC-USA').update(
+            ai_suggested_rating=2, ai_rating_justification='Sin datos.',
+        )
+        usability = next(f for f in self.detail(evaluation)['factors'] if f['code'] == 'TEC-USA')
+        self.assertEqual((usability['ai_suggested_id'], usability['ai_id_justification']), (3, 'Motivo.'))
+        self.assertTrue(usability['id_was_ai_accepted'])
+        sub = usability['subfactors'][0]
+        self.assertEqual((sub['ai_suggested_rating'], sub['ai_rating_justification']), (2, 'Sin datos.'))
+        self.assertFalse(sub['rating_was_ai_accepted'])
 
     def test_completed_detail_uses_snapshots(self):
         evaluation = self.make_evaluation()

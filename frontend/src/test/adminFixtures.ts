@@ -43,6 +43,8 @@ export const catalogTree = (): AdminDimension[] => [
     },
 ];
 
+const NO_AI = { ai_suggested_rating: null, ai_rating_justification: '', rating_was_ai_accepted: false };
+
 export const closedDetail = (): EvaluationDetail => ({
     evaluation: {
         uuid: '11111111-2222-4333-8444-555555555555', software_name: 'LibreOffice', software_version: '24.2',
@@ -55,24 +57,27 @@ export const closedDetail = (): EvaluationDetail => ({
         {
             factor_id: 1, code: 'ORG-FOR', dimension: 'Organizacional', name: 'Formación', suggested_importance: 3,
             decisor_importance: 3, relative_importance: 3, is_relevant: true, scope_used: 'internal', scope_configurable: false,
+            ai_suggested_id: null, ai_id_justification: '', id_was_ai_accepted: false,
             weighted_average: '2.75', meets_threshold: false, foda: 'weakness',
             failing_subfactors: [{ subfactor_id: 7, description: 'Hay planes de formación', rating: 2 }],
             subfactors: [
-                { subfactor_id: 5, code: 'ORG-FOR-01', description: 'Hay cursos disponibles', rating: 3 },
-                { subfactor_id: 7, code: 'ORG-FOR-04', description: 'Hay planes de formación', rating: 2 },
+                { subfactor_id: 5, code: 'ORG-FOR-01', description: 'Hay cursos disponibles', rating: 3, ...NO_AI },
+                { subfactor_id: 7, code: 'ORG-FOR-04', description: 'Hay planes de formación', rating: 2, ...NO_AI },
             ],
         },
         {
             factor_id: 2, code: 'TEC-COM', dimension: 'Tecnológica', name: 'Compatibilidad', suggested_importance: 3,
             decisor_importance: 4, relative_importance: 3, is_relevant: true, scope_used: 'external', scope_configurable: false,
+            ai_suggested_id: null, ai_id_justification: '', id_was_ai_accepted: false,
             weighted_average: '3.75', meets_threshold: true, foda: 'opportunity', failing_subfactors: [],
-            subfactors: [{ subfactor_id: 9, code: 'TEC-COM-01', description: 'Exporta formatos estándar', rating: 4 }],
+            subfactors: [{ subfactor_id: 9, code: 'TEC-COM-01', description: 'Exporta formatos estándar', rating: 4, ...NO_AI }],
         },
         {
             factor_id: 3, code: 'TEC-REU', dimension: 'Tecnológica', name: 'Reusabilidad', suggested_importance: 2,
             decisor_importance: 1, relative_importance: 1, is_relevant: false, scope_used: 'external', scope_configurable: false,
+            ai_suggested_id: null, ai_id_justification: '', id_was_ai_accepted: false,
             weighted_average: null, meets_threshold: null, foda: null, failing_subfactors: [],
-            subfactors: [{ subfactor_id: 11, code: 'TEC-REU-01', description: 'Se reutiliza', rating: null }],
+            subfactors: [{ subfactor_id: 11, code: 'TEC-REU-01', description: 'Se reutiliza', rating: null, ...NO_AI }],
         },
     ],
     missing: [],
