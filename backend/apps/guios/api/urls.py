@@ -10,6 +10,7 @@ from .views.admin_catalog_views import (
 from .views.admin_evaluation_views import EvaluationAdminViewSet
 from .views.admin_metrics_views import MetricsView
 
+from .views.ai_views import AIImportanceView, AIRatingsView, AIReportView, AIStatusView
 from .views.catalog_views import PublicCatalogView
 from .views.evaluation_views import (
     EvaluationCreateView,
@@ -39,6 +40,11 @@ urlpatterns = [
     path('public/evaluations/<uuid:evaluation_uuid>/subfactors/<int:subfactor_id>/', EvaluationSubfactorView.as_view(), name='public-evaluation-subfactor'),
     path('public/evaluations/<uuid:evaluation_uuid>/verdict/', EvaluationVerdictView.as_view(), name='public-evaluation-verdict'),
     path('public/evaluations/<uuid:evaluation_uuid>/duplicate/', EvaluationDuplicateView.as_view(), name='public-evaluation-duplicate'),
+    # Asistencia de IA (Paso 9; límite GUIOS_AI_RATE)
+    path('public/ai/status/', AIStatusView.as_view(), name='public-ai-status'),
+    path('public/evaluations/<uuid:evaluation_uuid>/ai/importance/', AIImportanceView.as_view(), name='public-ai-importance'),
+    path('public/evaluations/<uuid:evaluation_uuid>/ai/factors/<int:factor_id>/ratings/', AIRatingsView.as_view(), name='public-ai-ratings'),
+    path('public/evaluations/<uuid:evaluation_uuid>/ai/report/', AIReportView.as_view(), name='public-ai-report'),
     # Panel administrativo (autenticado, HasModulePermission)
     path('admin/catalog/tree/', CatalogTreeView.as_view(), name='admin-catalog-tree'),
     path('admin/metrics/', MetricsView.as_view(), name='admin-metrics'),

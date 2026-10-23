@@ -23,6 +23,7 @@ from ..models import (
 from ..selectors.catalog import evaluable_factors
 from ..selectors.evaluation import build_engine_inputs, evaluation_factors, hash_session_token
 from . import engine
+from .ai import is_available as ai_is_available
 from .verdict_text import build_explanation
 
 
@@ -51,7 +52,9 @@ def create_evaluation(**data) -> tuple[Evaluation, str]:
     Crea la evaluación y copia del catálogo activo las instantáneas de IS, nombre
     del factor y texto de cada subfactor. Todo arranca "sin calificar".
     Devuelve la evaluación y el token de sesión en claro (solo se entrega aquí).
+    Sin clave de IA en el .env, ai_enabled queda en falso sin error.
     """
+    data['ai_enabled'] = bool(data.get('ai_enabled')) and ai_is_available()
     token = secrets.token_urlsafe(32)
     evaluation = Evaluation.objects.create(session_token=hash_session_token(token), **data)
 
@@ -95,6 +98,7 @@ def duplicate_evaluation(original: Evaluation) -> tuple[Evaluation, str]:
     token = secrets.token_urlsafe(32)
     copy = Evaluation.objects.create(
         session_token=hash_session_token(token),
+        ai_enabled=original.ai_enabled and ai_is_available(),
         **{field: getattr(original, field) for field in REGISTRATION_FIELDS},
     )
     EvaluationFactor.objects.bulk_create([
@@ -123,16 +127,20 @@ def duplicate_evaluation(original: Evaluation) -> tuple[Evaluation, str]:
 
 
 def set_decisor_importance(evaluation: Evaluation, item: EvaluationFactor, value) -> None:
-    """Guarda la ID (1-4 o None = sin calificar) y recalcula IR y relevancia."""
+    """
+    Guarda la ID (1-4 o None = sin calificar) y recalcula IR y relevancia.
+    La sugerencia de IA cuenta como aceptada solo si el valor es igual a ella.
+    """
     _ensure_open(evaluation)
     item.decisor_importance = value
+    item.id_was_ai_accepted = value is not None and value == item.ai_suggested_id
     if value is None:
         item.relative_importance = None
         item.is_relevant = None
     else:
         item.relative_importance = engine.relative_importance(item.suggested_importance_snapshot, value)
         item.is_relevant = engine.is_relevant(item.relative_importance)
-    item.save(update_fields=['decisor_importance', 'relative_importance', 'is_relevant'])
+    item.save(update_fields=['decisor_importance', 'relative_importance', 'is_relevant', 'id_was_ai_accepted'])
 
 
 def set_scope(evaluation: Evaluation, item: EvaluationFactor, value) -> None:
@@ -145,10 +153,11 @@ def set_scope(evaluation: Evaluation, item: EvaluationFactor, value) -> None:
 
 
 def set_rating(evaluation: Evaluation, item: EvaluationSubfactor, value) -> None:
-    """Guarda la calificación (1-4 o None = sin calificar)."""
+    """Guarda la calificación (1-4 o None = sin calificar); aceptada si es igual a la sugerencia de IA."""
     _ensure_open(evaluation)
     item.rating = value
-    item.save(update_fields=['rating', 'saved_at'])
+    item.rating_was_ai_accepted = value is not None and value == item.ai_suggested_rating
+    item.save(update_fields=['rating', 'rating_was_ai_accepted', 'saved_at'])
 
 
 def compute_outcome(evaluation: Evaluation):

@@ -31,7 +31,8 @@ Si dos fuentes se contradicen: **tesis > `docs/` > código > `guiosad.html`**.
 - Snapshots (IS, nombre del factor, texto del subfactor) protegen el historial. `PROTECT` en el
   catálogo: no se borra lo que tiene hijos o evaluaciones.
 - IA: opcional, al final (Pasos 9–10). Solo sugiere; nunca rellena valores ni decide el dictamen.
-  Tests solo con proveedor falso. La clave va en `.env`. Proveedor aún sin decidir (P8).
+  Tests solo con proveedor falso. La clave va en `.env`; sin ella la IA queda desactivada. Proveedor:
+  Anthropic (P8), Haiku para sugerencias y Sonnet para el informe (`services/ai/`, §8.2).
 
 ## Comandos (comprobados en esta copia, Python 3.12, Node 22)
 

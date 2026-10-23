@@ -267,6 +267,8 @@ REST_FRAMEWORK = {
         'refresh': '20/minute',         # Por IP
         # API pública de GUIOS (guardado automático; varios equipos pueden compartir IP)
         'guios_public': os.getenv('GUIOS_PUBLIC_RATE', '600/minute'),
+        # Asistencia de IA de GUIOS (cada llamada cuesta; una evaluación completa usa ~20)
+        'guios_ai': os.getenv('GUIOS_AI_RATE', '120/hour'),
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
@@ -284,6 +286,13 @@ SPECTACULAR_SETTINGS = {
 
 # GUIOS: límite de creación de evaluaciones públicas por IP (django-ratelimit)
 GUIOS_EVALUATION_CREATE_RATE = os.getenv('GUIOS_EVALUATION_CREATE_RATE', '100/h')
+
+# GUIOS: asistencia de IA (Paso 9, proveedor Anthropic). Sin ANTHROPIC_API_KEY la IA
+# queda desactivada y el sistema funciona completo en modo manual.
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '').strip()
+GUIOS_AI_SUGGESTION_MODEL = os.getenv('GUIOS_AI_SUGGESTION_MODEL', 'claude-haiku-5-5')   # Pasos 1-4
+GUIOS_AI_REPORT_MODEL = os.getenv('GUIOS_AI_REPORT_MODEL', 'claude-sonnet-5-5')           # Resumen y mitigación
+GUIOS_AI_TIMEOUT = float(os.getenv('GUIOS_AI_TIMEOUT', '30'))                             # Segundos (RNF-03)
 
 # JWT Configuration
 SIMPLE_JWT = {
