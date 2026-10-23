@@ -475,7 +475,15 @@ El detalle completo está en [`docs/catalogo_guios.json`](catalogo_guios.json). 
 - Detalle y PDF: una evaluación **completada** muestra los resultados y el dictamen guardados (`EvaluationResult`, `EvaluationVerdict`); el motor solo calcula las evaluaciones en progreso.
 - Exportación: CSV del historial filtrado (con protección contra fórmulas) y PDF del detalle con ReportLab (textos escapados); cada exportación se registra con la acción `EXPORT`.
 - El catálogo público excluye los factores sin subfactores activos y las dimensiones sin factores válidos.
-- Pendiente fuera del alcance: registrar una extensión de drf-spectacular para `CookieJWTAuthentication` (hoy el esquema avisa en todas las vistas autenticadas).
+- Hecho en el Paso 8: extensión de drf-spectacular para `CookieJWTAuthentication` (`apps/auth/api/schema.py`), sin avisos del autenticador.
+
+**Frontend administrativo (Paso 8, decisiones del equipo).**
+- Rutas `/dashboard/catalogo`, `/dashboard/evaluaciones` y `/dashboard/evaluaciones/:uuid` con `ModuleGuard`; cada página exige su permiso `*.view` y cada botón su permiso (`catalog.create|edit|delete`, `evaluations.export`) con `PermissionGuard`.
+- Eliminar con `can_delete` falso: el botón queda deshabilitado (`aria-disabled`, enfocable) y el motivo ("Es del catálogo base", "Tiene evaluaciones", "Tiene subfactores", "Tiene factores") se ve en pantalla y se anuncia con `aria-describedby`.
+- Tablero: el `DashboardPage` existente muestra las métricas de GUIOS; los dictámenes A/B/C en barras CSS con número y porcentaje en texto.
+- El detalle reutiliza `VerdictCard`, `FodaMatrix` y `FactorsTable` del módulo público mediante un adaptador (sin modificarlos).
+
+**Pendiente para el Paso 11: esquema de la API.** drf-spectacular informa 12 errores "unable to guess serializer" en vistas de `apps/auth` y `apps/core` que no declaran serializer (`LoginView`, `Verify2FAView`, `LogoutView`, `CookieTokenRefreshView`, `TOTPManagementViewSet`, `PasswordResetWizardViewSet`, `DashboardView`, `DashboardExportView`, `DashboardExportStatusView`, `MenuViewSet`, `OrganizationViewSet`, `PermissionTreeViewSet`). Esas rutas no aparecen documentadas en Swagger. Se corrigen con `@extend_schema` (request/responses) en cada vista.
 
 **Sanitización (pasos 5 y 7).** `XSSSanitizationMiddleware` (`apps/core`) pasa cada texto JSON por `nh3.clean(tags=set())`, que quita las etiquetas y además convierte `&`, `<` y `>` en entidades: "B&R" se guarda como "B&amp;R" y "a < b" como "a &lt; b". Eso daña nombres de software, organizaciones y textos del catálogo.
 - **Decidido (sin tocar `apps/core`):** en los *serializers* de `apps/guios` usar un campo de texto propio (p. ej. `PlainTextField`) que aplique `html.unescape()` al recibir el valor. El middleware sigue quitando las etiquetas (la protección XSS se mantiene) y GUIOS guarda el texto que escribió el usuario. React escapa al mostrar; las salidas que no pasan por React (exportación PDF/CSV del Paso 7, *prompts* de IA del Paso 9) deben escapar o tratar el texto como datos.
