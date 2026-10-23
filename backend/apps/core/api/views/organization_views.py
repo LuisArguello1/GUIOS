@@ -1,3 +1,5 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -29,6 +31,7 @@ class OrganizationViewSet(viewsets.ViewSet):
             return [permissions.AllowAny()]
         return [permission() for permission in self.permission_classes]
 
+    @extend_schema(tags=['Organización'], summary="Datos de la organización (público)", request=None, responses=OrganizationSerializer)
     def list(self, request):
         """
         GET /api/v1/core/organization/
@@ -39,6 +42,7 @@ class OrganizationViewSet(viewsets.ViewSet):
         serializer = OrganizationSerializer(organization, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(tags=['Organización'], summary="Actualizar la organización", request=OrganizationSerializer, responses=OrganizationSerializer)
     @action(detail=False, methods=['patch'], url_path='update')
     def update_data(self, request):
         organization = get_organization_with_preferences()

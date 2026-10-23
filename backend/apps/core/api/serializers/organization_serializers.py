@@ -15,7 +15,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
     logo = serializers.ImageField(required=False, allow_null=True)
     clear_logo = serializers.BooleanField(required=False, write_only=True, default=False)
 
-    def get_sidebar_preferences(self, obj):
+    def get_sidebar_preferences(self, obj) -> dict:
         return {
             'is_collapsed': False,
             'theme': 'dark',

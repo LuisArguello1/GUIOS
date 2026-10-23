@@ -30,7 +30,7 @@ class GroupDetailSerializer(serializers.ModelSerializer):
         model = Group
         fields = ['id', 'name', 'modules', 'permissions']
 
-    def get_permissions(self, obj):
+    def get_permissions(self, obj) -> list[dict]:
         # Utilizar la relación prefetcheada para evitar N+1
         return [
             {
