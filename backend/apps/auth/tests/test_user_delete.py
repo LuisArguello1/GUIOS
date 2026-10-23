@@ -4,9 +4,12 @@ Respuestas de los borrados del panel: 200 con JSON o 204 sin cuerpo, nunca un
 """
 from io import StringIO
 
+import pyotp
+
 from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
+from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from apps.auth.models.audit import AuditLog
@@ -124,3 +127,61 @@ class DeleteImpactTests(APITestCase):
         viewer = CustomUser.objects.create_user(email='viewer@example.com', username='viewer', password='Clave-segura-123')
         self.client.force_authenticate(user=viewer)
         self.assertEqual(self.client.get(f'/api/v1/users/{self.user.pk}/delete-impact/').status_code, 403)
+
+
+class OwnActionsDoNotBlockDeleteTests(APITestCase):
+    """
+    Lo que el usuario hace sobre sí mismo (su 2FA, su perfil) no impide el
+    borrado; lo que hace sobre otras cosas, sí. Las peticiones del usuario van
+    con las cookies del login real, como en el navegador, para que la
+    auditoría lo registre como autor.
+    """
+    PASSWORD = 'Clave-segura-123'
+
+    def setUp(self):
+        self.admin = CustomUser.objects.create_superuser(email='admin@example.com', username='admin', password=self.PASSWORD)
+
+    def login_as_new_user(self, **extra):
+        user = CustomUser.objects.create_user(email='nuevo@example.com', username='nuevo', password=self.PASSWORD, **extra)
+        response = self.client.post(reverse('authentication:login'), {'email': user.email, 'password': self.PASSWORD})
+        self.assertEqual(response.status_code, 200)
+        return user
+
+    def impact_as_admin(self, user):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(f'/api/v1/users/{user.pk}/delete-impact/')
+        self.assertEqual(response.status_code, 200)
+        return response.json()
+
+    def authored(self, user):
+        return AuditLog.objects.filter(user=user).count()
+
+    def test_opening_two_factor_setup_does_not_block_delete(self):
+        user = self.login_as_new_user()
+        self.assertEqual(self.client.get(reverse('authentication:totp-mgmt-get-config')).status_code, 200)
+        self.assertEqual(self.authored(user), 1)          # el dispositivo sin confirmar sí se audita
+        self.assertEqual(self.impact_as_admin(user)['action'], 'HARD_DELETE')
+
+    def test_activating_two_factor_does_not_block_delete(self):
+        user = self.login_as_new_user()
+        secret = self.client.get(reverse('authentication:totp-mgmt-get-config')).data['secret']
+        response = self.client.post(reverse('authentication:totp-mgmt-activate'), {'code': pyotp.TOTP(secret).now()})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.authored(user), 3)
+        self.assertEqual(self.impact_as_admin(user)['action'], 'HARD_DELETE')
+        self.assertEqual(self.client.delete(f'/api/v1/users/{user.pk}/').json()['action'], 'HARD_DELETE')
+
+    def test_editing_own_profile_does_not_block_delete(self):
+        user = self.login_as_new_user()
+        response = self.client.patch('/api/v1/users/me/', {'first_name': 'Nuevo nombre'}, format='multipart')
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(self.authored(user), 1)
+        self.assertEqual(self.impact_as_admin(user)['action'], 'HARD_DELETE')
+
+    def test_catalog_change_blocks_delete(self):
+        user = self.login_as_new_user(is_staff=True, is_superuser=True)
+        response = self.client.post('/api/v1/guios/admin/dimensions/', {'name': 'Legal', 'order': 9}, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        data = self.impact_as_admin(user)
+        self.assertEqual(data['action'], 'SOFT_DELETE')
+        self.assertEqual([(item['key'], item['count']) for item in data['items']], [('audit_catalog', 1)])
