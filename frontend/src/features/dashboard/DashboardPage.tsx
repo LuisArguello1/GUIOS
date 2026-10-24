@@ -25,7 +25,6 @@ import useCoreStore from '../../app/useCoreStore';
 import { useLandingPath } from '../../hooks/useLandingPath';
 import useDashboardStats from '../../hooks/useDashboardStats';
 import iconoDashboard from '../../assets/img/Isotipo.webp';
-import GuiosMetricsPanel from './components/GuiosMetricsPanel';
 
 import DashboardKpiCards from './components/DashboardKpiCards';
 import AdoptionVerdictDonut from './components/AdoptionVerdictDonut';
@@ -220,9 +219,6 @@ const DashboardPage = () => {
                     <TopSoftwareTable items={stats.top_software} />
                 </>
             ) : null}
-
-            {/* ── Métricas de Catálogo y Evaluaciones de GUIOS (RF-ADM-19) ── */}
-            <GuiosMetricsPanel />
 
             {/* ── 5. Información del Entorno Institucional y Sesión ── */}
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">

@@ -17,14 +17,6 @@ IGNORED_MODELS = frozenset([
     'TokenBlacklist',
     'OutstandingToken',
     'BlacklistedToken',
-    # Modelos de evaluación de GUIOS: el guardado automático llenaría la auditoría.
-    # El dictamen se registra explícitamente (RF-ADM-37); el catálogo sí se audita.
-    'Evaluation',
-    'EvaluationFactor',
-    'EvaluationSubfactor',
-    'EvaluationResult',
-    'EvaluationVerdict',
-    'AIAssistanceLog',
 ])
 
 

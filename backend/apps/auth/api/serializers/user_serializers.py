@@ -8,8 +8,6 @@ from ...models.user import CustomUser
 class UserListSerializer(serializers.ModelSerializer):
     """Serializador resumido para listado de usuarios."""
     full_name = serializers.CharField(source='get_full_name', read_only=True)
-    # Nombres de los roles: la columna "Roles" de la tabla del panel los muestra.
-    groups_names = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -23,11 +21,7 @@ class UserListSerializer(serializers.ModelSerializer):
             'is_staff',
             'created_at',
             'groups',
-            'groups_names',
         )
-
-    def get_groups_names(self, obj) -> list[str]:
-        return [group.name for group in obj.groups.all()]
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -206,10 +200,10 @@ class UserDetailSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_groups(self, obj) -> list[dict]:
+    def get_groups(self, obj):
         return [{"id": g.id, "name": g.name} for g in obj.groups.all()]
 
-    def get_permissions_details(self, obj) -> list[dict]:
+    def get_permissions_details(self, obj):
         if obj.is_superuser:
             return [{
                 "id": 0,
@@ -236,7 +230,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
                 unique_perms.append(p)
         return unique_perms
 
-    def get_modules_details(self, obj) -> list[dict]:
+    def get_modules_details(self, obj):
         if obj.is_superuser:
             from apps.core.models.menuModule import MenuModule
             modules = MenuModule.objects.all().select_related('group')
@@ -313,17 +307,3 @@ class ChangePasswordSerializer(serializers.Serializer):
                 "new_password": "La nueva contraseña no puede ser igual a la anterior."
             })
         return data
-
-
-class UserDeleteImpactItemSerializer(serializers.Serializer):
-    key = serializers.CharField()
-    label = serializers.CharField()
-    count = serializers.IntegerField()
-
-
-class UserDeleteImpactSerializer(serializers.Serializer):
-    """Qué pasará al eliminar al usuario (aviso del modal antes de confirmar)."""
-    action = serializers.ChoiceField(choices=['HARD_DELETE', 'SOFT_DELETE'])
-    total = serializers.IntegerField()
-    items = UserDeleteImpactItemSerializer(many=True)
-    summary = serializers.CharField(help_text='Ej.: "12 registros de auditoría, 3 cambios en el catálogo GUIOS".')

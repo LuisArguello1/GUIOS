@@ -20,10 +20,6 @@ from ..serializers.ai_log_serializers import (
 )
 
 
-from drf_spectacular.utils import extend_schema
-
-
-@extend_schema(exclude=True)
 class AILogViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Vista de auditoría para inspeccionar las interacciones con el motor de Inteligencia Artificial.

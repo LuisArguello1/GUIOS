@@ -14,7 +14,7 @@ export const useAudit = () => {
     const fetchLogs = useCallback(async () => {
         setLoading(true);
         try {
-            // CORRECCIÓN: DRF paginado retorna { count, results }
+            // CORRECCIÓN: igual que en useUsers, DRF retorna { count, results }
             const data = await auditService.getAll(filters);
             setLogs(data.results, data.count);
         } catch {

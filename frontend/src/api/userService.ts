@@ -2,22 +2,6 @@ import api from './axios';
 import { ENDPOINTS } from './endpoints';
 import type { User, UserFilters } from '../app/useUserStore';
 
-export interface UserDeleteResult {
-    action: 'HARD_DELETE' | 'SOFT_DELETE';
-    message: string;
-    detail: string[];
-}
-
-export const DEFAULT_DELETE_MESSAGE = 'Usuario eliminado.';
-
-/** Qué pasará al eliminar: misma regla que el DELETE (registros como autor → se desactiva). */
-export interface UserDeleteImpact {
-    action: 'HARD_DELETE' | 'SOFT_DELETE';
-    total: number;
-    items: { key: string; label: string; count: number }[];
-    summary: string;
-}
-
 /**
  * Respuesta paginada estándar de Django REST Framework.
  * DRF con PageNumberPagination retorna { count, next, previous, results }
@@ -89,26 +73,13 @@ const userService = {
     },
 
     /**
-     * Soft/Hard delete. El backend responde 200 con { action, message, detail }.
-     * Un 2xx es éxito aunque el cuerpo falte o no sea JSON: nunca se depende de él.
+     * Soft/Hard delete. El backend retorna el tipo de borrado realizado.
+     * 204 → hard delete (sin body), 200 → soft delete (con body).
      */
-    delete: async (id: string | number): Promise<UserDeleteResult> => {
+    delete: async (id: string | number): Promise<{ action: string; message: string; detail: string[] }> => {
         const response = await api.delete(ENDPOINTS.USERS.DETAIL(id));
-        const data: unknown = response.data;
-        if (data && typeof data === 'object' && 'action' in data) {
-            const result = data as Partial<UserDeleteResult>;
-            return {
-                action: result.action === 'SOFT_DELETE' ? 'SOFT_DELETE' : 'HARD_DELETE',
-                message: result.message || DEFAULT_DELETE_MESSAGE,
-                detail: Array.isArray(result.detail) ? result.detail : [],
-            };
-        }
-        return { action: 'HARD_DELETE', message: DEFAULT_DELETE_MESSAGE, detail: [] };
-    },
-
-    getDeleteImpact: async (id: string | number): Promise<UserDeleteImpact> => {
-        const response = await api.get<UserDeleteImpact>(ENDPOINTS.USERS.DELETE_IMPACT(id));
-        return response.data;
+        // 204 No Content no tiene body — retornar un objeto consistente
+        return response.data ?? { action: 'HARD_DELETE', message: 'Eliminado.', detail: [] };
     },
 
     toggleActive: async (id: string | number): Promise<{ is_active: boolean; detail: string }> => {

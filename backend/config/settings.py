@@ -94,7 +94,6 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'django_filters',
     'drf_spectacular',
-    'drf_spectacular_sidecar',  # Swagger UI y ReDoc servidos desde estáticos propios (sin CDN)
 ]
 
 LOCAL_APPS = [
@@ -149,9 +148,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
-
-# Permite ejecutar `python backend/manage.py test` desde la raíz del repositorio.
-TEST_RUNNER = 'config.test_runner.BackendDiscoverRunner'
 ASGI_APPLICATION = 'config.asgi.application'
 
 # Database
@@ -213,25 +209,16 @@ AUTH_USER_MODEL = 'authentication.CustomUser'
 
 # Cache (Redis)
 REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')
-if os.getenv('REDIS_URL') or os.getenv('REDIS_CACHE_URL'):
-    CACHES = {
-        'default': {
-            'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': os.getenv('REDIS_CACHE_URL', REDIS_URL),
-            'OPTIONS': {
-                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            },
-            'KEY_PREFIX': 'guios_cache',
-        }
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.getenv('REDIS_CACHE_URL', REDIS_URL),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'guios_cache',
     }
-else:
-    # Desarrollo local sin Redis: cache en memoria (se pierde al reiniciar el servidor)
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'KEY_PREFIX': 'guios_cache',
-        }
-    }
+}
 
 # Usar Redis para el almacenamiento de sesiones
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
@@ -265,34 +252,9 @@ REST_FRAMEWORK = {
         'login': '5/minute',            # Por IP
         'password_reset': '5/minute',   # Por IP
         'refresh': '20/minute',         # Por IP
-        # API pública de GUIOS (guardado automático; varios equipos pueden compartir IP)
-        'guios_public': os.getenv('GUIOS_PUBLIC_RATE', '600/minute'),
-        # Asistencia de IA de GUIOS (cada llamada cuesta; una evaluación completa usa ~20)
-        'guios_ai': os.getenv('GUIOS_AI_RATE', '120/hour'),
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
-
-# Documentación de la API (drf-spectacular). Los archivos de Swagger UI y ReDoc
-# vienen de drf-spectacular-sidecar para que la CSP no tenga que permitir un CDN.
-# Pendiente si se despliega: restringir /api/docs/ y /api/redoc/ al staff
-# (SERVE_PERMISSIONS); hoy la documentación es pública por decisión del equipo.
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'GUIOS PRO API',
-    'SWAGGER_UI_DIST': 'SIDECAR',
-    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
-    'REDOC_DIST': 'SIDECAR',
-}
-
-# GUIOS: límite de creación de evaluaciones públicas por IP (django-ratelimit)
-GUIOS_EVALUATION_CREATE_RATE = os.getenv('GUIOS_EVALUATION_CREATE_RATE', '100/h')
-
-# GUIOS: asistencia de IA (Paso 9, proveedor Anthropic). Sin ANTHROPIC_API_KEY la IA
-# queda desactivada y el sistema funciona completo en modo manual.
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '').strip()
-GUIOS_AI_SUGGESTION_MODEL = os.getenv('GUIOS_AI_SUGGESTION_MODEL', 'claude-haiku-5-5')   # Pasos 1-4
-GUIOS_AI_REPORT_MODEL = os.getenv('GUIOS_AI_REPORT_MODEL', 'claude-sonnet-5-5')           # Resumen y mitigación
-GUIOS_AI_TIMEOUT = float(os.getenv('GUIOS_AI_TIMEOUT', '30'))                             # Segundos (RNF-03)
 
 # JWT Configuration
 SIMPLE_JWT = {

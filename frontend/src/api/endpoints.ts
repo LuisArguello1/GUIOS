@@ -24,7 +24,6 @@ export const ENDPOINTS = {
         CHANGE_PASSWORD: '/users/change-password/',
         DETAIL: (id: string | number) => `/users/${id}/`,
         TOGGLE_ACTIVE: (id: string | number) => `/users/${id}/toggle-active/`,
-        DELETE_IMPACT: (id: string | number) => `/users/${id}/delete-impact/`,
     },
     AUDIT: {
         LOGS: '/audit/logs/',
@@ -55,7 +54,7 @@ export const ENDPOINTS = {
         },
         DASHBOARD: '/core/dashboard/',
     },
-GUIOS: {
+    GUIOS: {
         DIMENSIONS: '/guios/dimensions/',
         DIMENSION_DETAIL: (id: string | number) => `/guios/dimensions/${id}/`,
         FACTORS: '/guios/factors/',
@@ -76,34 +75,6 @@ GUIOS: {
         DASHBOARD_EXPORT_EXCEL: '/guios/dashboard/export-excel/',
         AI_LOGS: '/guios/ai-logs/',
         AI_LOG_DETAIL: (id: string | number) => `/guios/ai-logs/${id}/`,
-    },
-GUIOS_ADMIN: {
-        CATALOG_TREE: '/guios/admin/catalog/tree/',
-        DIMENSIONS: '/guios/admin/dimensions/',
-        DIMENSION: (id: number) => `/guios/admin/dimensions/${id}/`,
-        FACTORS: '/guios/admin/factors/',
-        FACTOR: (id: number) => `/guios/admin/factors/${id}/`,
-        SUBFACTORS: '/guios/admin/subfactors/',
-        SUBFACTOR: (id: number) => `/guios/admin/subfactors/${id}/`,
-        EVALUATIONS: '/guios/admin/evaluations/',
-        EVALUATION: (uuid: string) => `/guios/admin/evaluations/${uuid}/`,
-        EXPORT_CSV: '/guios/admin/evaluations/export/csv/',
-        EXPORT_PDF: (uuid: string) => `/guios/admin/evaluations/${uuid}/export/pdf/`,
-        METRICS: '/guios/admin/metrics/',
-    },
-    GUIOS_PUBLIC: {
-        CATALOG: '/guios/public/catalog/',
-        EVALUATIONS: '/guios/public/evaluations/',
-        EVALUATION: (uuid: string) => `/guios/public/evaluations/${uuid}/`,
-        SUMMARY: (uuid: string) => `/guios/public/evaluations/${uuid}/summary/`,
-        FACTOR: (uuid: string, factorId: number) => `/guios/public/evaluations/${uuid}/factors/${factorId}/`,
-        SUBFACTOR: (uuid: string, subfactorId: number) => `/guios/public/evaluations/${uuid}/subfactors/${subfactorId}/`,
-        VERDICT: (uuid: string) => `/guios/public/evaluations/${uuid}/verdict/`,
-        DUPLICATE: (uuid: string) => `/guios/public/evaluations/${uuid}/duplicate/`,
-        AI_STATUS: '/guios/public/ai/status/',
-        AI_IMPORTANCE: (uuid: string) => `/guios/public/evaluations/${uuid}/ai/importance/`,
-        AI_RATINGS: (uuid: string, factorId: number) => `/guios/public/evaluations/${uuid}/ai/factors/${factorId}/ratings/`,
-        AI_REPORT: (uuid: string) => `/guios/public/evaluations/${uuid}/ai/report/`,
     },
 };
 

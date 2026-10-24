@@ -12,12 +12,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.auth.api.permissions import HasModulePermission
-from drf_spectacular.utils import extend_schema
 from apps.guios.selectors.dashboard import get_dashboard_statistics
 from apps.guios.services.reports import DashboardPDFReport, DashboardExcelReport
 
 
-@extend_schema(exclude=True)
 class DashboardViewSet(viewsets.ViewSet):
     """
     ViewSet para Métricas Ejecutivas del Dashboard y Descarga de Informes.
