@@ -32,11 +32,18 @@ class EvaluationSubfactor(models.Model):
         verbose_name="Snapshot de descripción del criterio",
         help_text="Copia inmutable del texto del subfactor al momento de la evaluación (RN-08)."
     )
+    ai_citations_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Citas detectadas por IA",
+        help_text="Citas científicas/referencias encontradas por la IA para este subfactor."
+    )
     rating = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(4)],
         choices=RATING_CHOICES,
         verbose_name="Calificación del evaluador",
-        help_text="1: No cumple, 2: Desconozco, 3: Cumple parcialmente, 4: Cumple."
+        help_text="1: No cumple, 2: Desconozco, 3: Cumple parcialmente, 4: Cumple (Paso 3)."
     )
     ai_suggested_rating = models.PositiveSmallIntegerField(
         null=True,

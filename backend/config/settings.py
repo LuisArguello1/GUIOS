@@ -372,5 +372,12 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 
-
-
+# ==============================================================================
+# AI ENGINE CONFIGURATION (GUIOS)
+# ==============================================================================
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'groq')
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+GROQ_MODEL = os.getenv('GROQ_MODEL', 'qwen/qwen3.8-27b')
+COHERE_API_KEY = os.getenv('COHERE_API_KEY', '')
+COHERE_MODEL = os.getenv('COHERE_MODEL', 'command-r-plus-08-2024')
+AI_TIMEOUT_SECONDS = int(os.getenv('AI_TIMEOUT_SECONDS', 30))

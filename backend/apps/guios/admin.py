@@ -23,12 +23,12 @@ class DimensionAdmin(admin.ModelAdmin):
 class SubfactorInline(admin.TabularInline):
     model = Subfactor
     extra = 1
-    fields = ('description', 'order', 'is_base', 'is_active')
+    fields = ('description', 'base_citations_count', 'keywords_ia', 'order', 'is_base', 'is_active')
 
 
 @admin.register(Factor)
 class FactorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'dimension', 'systemic_importance', 'scope', 'scope_configurable', 'order', 'is_active')
+    list_display = ('id', 'name', 'dimension', 'systemic_importance', 'expert_importance', 'literature_importance_base', 'scope', 'scope_configurable', 'order', 'is_active')
     list_filter = ('dimension', 'scope', 'scope_configurable', 'is_active', 'is_base')
     search_fields = ('name', 'dimension__name')
     ordering = ('dimension__order', 'order', 'id')
@@ -37,9 +37,9 @@ class FactorAdmin(admin.ModelAdmin):
 
 @admin.register(Subfactor)
 class SubfactorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'factor', 'description_short', 'order', 'is_base', 'is_active')
+    list_display = ('id', 'factor', 'description_short', 'base_citations_count', 'order', 'is_base', 'is_active')
     list_filter = ('factor__dimension', 'factor', 'is_active', 'is_base')
-    search_fields = ('description', 'factor__name')
+    search_fields = ('description', 'factor__name', 'keywords_ia')
     ordering = ('factor__order', 'order', 'id')
 
     def description_short(self, obj):
@@ -50,7 +50,15 @@ class SubfactorAdmin(admin.ModelAdmin):
 class EvaluationFactorInline(admin.TabularInline):
     model = EvaluationFactor
     extra = 0
-    readonly_fields = ('systemic_importance_snapshot', 'relative_importance', 'is_relevant')
+    readonly_fields = (
+        'systemic_importance_snapshot',
+        'citations_count',
+        'citation_ratio',
+        'literature_importance_calculated',
+        'expert_importance_snapshot',
+        'relative_importance',
+        'is_relevant',
+    )
 
 
 class EvaluationResultInline(admin.TabularInline):
@@ -67,24 +75,37 @@ class EvaluationVerdictInline(admin.StackedInline):
 
 @admin.register(Evaluation)
 class EvaluationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'software_name', 'software_version', 'org_name', 'status', 'ai_enabled', 'started_at', 'completed_at')
-    list_filter = ('status', 'ai_enabled', 'started_at')
-    search_fields = ('software_name', 'org_name', 'uuid', 'session_token')
-    readonly_fields = ('uuid', 'started_at')
+    list_display = ('id', 'software_name', 'software_category', 'software_version', 'org_name', 'status', 'ai_status', 'ai_enabled', 'started_at', 'completed_at')
+    list_filter = ('status', 'ai_status', 'ai_enabled', 'software_category', 'started_at')
+    search_fields = ('software_name', 'software_category', 'org_name', 'uuid', 'session_token')
+    readonly_fields = ('uuid', 'started_at', 'q1_threshold', 'q2_threshold', 'q3_threshold', 'q4_threshold')
     ordering = ('-started_at',)
     inlines = [EvaluationFactorInline, EvaluationResultInline, EvaluationVerdictInline]
 
 
 @admin.register(EvaluationFactor)
 class EvaluationFactorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'evaluation', 'factor', 'systemic_importance_snapshot', 'decisor_importance', 'relative_importance', 'is_relevant', 'scope_used')
-    list_filter = ('is_relevant', 'scope_used', 'relative_importance')
+    list_display = (
+        'id',
+        'evaluation',
+        'factor',
+        'citations_count',
+        'citation_ratio',
+        'literature_importance_calculated',
+        'expert_importance_snapshot',
+        'systemic_importance_snapshot',
+        'decisor_importance',
+        'relative_importance',
+        'is_relevant',
+        'scope_used',
+    )
+    list_filter = ('is_relevant', 'scope_used', 'relative_importance', 'literature_importance_calculated')
     search_fields = ('evaluation__software_name', 'factor__name')
 
 
 @admin.register(EvaluationSubfactor)
 class EvaluationSubfactorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'evaluation', 'subfactor', 'rating', 'rating_was_ai_accepted', 'saved_at')
+    list_display = ('id', 'evaluation', 'subfactor', 'ai_citations_count', 'rating', 'rating_was_ai_accepted', 'saved_at')
     list_filter = ('rating', 'rating_was_ai_accepted')
     search_fields = ('evaluation__software_name', 'subfactor__description')
 

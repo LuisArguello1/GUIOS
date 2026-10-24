@@ -17,6 +17,18 @@ class Subfactor(models.Model):
         verbose_name="Descripción del criterio",
         help_text="Texto redactado como afirmación verificable."
     )
+    base_citations_count = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Citas base en literatura",
+        help_text="Cantidad de citas base en la literatura (c_i) de la tesis para cálculos sin IA o de referencia."
+    )
+    keywords_ia = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Palabras clave para IA",
+        help_text="Términos clave opcionales para orientar la búsqueda y extracción de citas con IA."
+    )
     order = models.PositiveSmallIntegerField(
         default=0,
         verbose_name="Orden dentro del factor"

@@ -46,8 +46,9 @@ urlpatterns = [
         name="redoc",
     ),
 
-    # API Core & Auth
+    # API Core, Auth & GUIOS
     path('api/v1/core/', include('apps.core.api.urls')),
+    path('api/v1/guios/', include('apps.guios.api.urls')),
     path('api/v1/', include('apps.auth.api.urls')),
 ]
 

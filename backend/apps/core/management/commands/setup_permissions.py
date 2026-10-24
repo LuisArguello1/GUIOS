@@ -26,8 +26,31 @@ PERMISSION_CATALOG: dict[str, list[tuple[str, str, str, int]]] = {
     # ── Panel Principal ───────────────────────────────────────────────────────
     "/dashboard": [
         ("dashboard.view", "Ver dashboard", "Accede al panel principal con KPIs y resúmenes.", 1),
+        ("dashboard.export_report", "Exportar reportes", "Genera y descarga reportes analíticos del dashboard en PDF y Excel.", 2),
     ],
 
+
+    # ── Metodología GUIOS ─────────────────────────────────────────────
+    "/dashboard/guios/dimensiones": [
+        ("guios.dimension_view",   "Ver dimensiones",     "Accede al listado y detalle de dimensiones del catálogo GUIOS.", 1),
+        ("guios.dimension_create", "Crear dimensiones",   "Registra nuevas dimensiones de evaluación.",                      2),
+        ("guios.dimension_edit",   "Editar dimensiones",  "Modifica nombre, descripción y orden de dimensiones.",            3),
+        ("guios.dimension_delete", "Eliminar dimensiones","Elimina dimensiones no base que no contengan factores.",       4),
+    ],
+    "/dashboard/guios/factores": [
+        ("guios.factor_view",   "Ver factores",   "Accede al listado y detalle de factores y subfactores.",                1),
+        ("guios.factor_create", "Crear factores", "Registra nuevos factores y subfactores.",                               2),
+        ("guios.factor_edit",   "Editar factores", "Modifica factores y subfactores.",                                     3),
+        ("guios.factor_delete", "Eliminar factores", "Elimina factores y subfactores no base.",                           4),
+    ],
+    "/dashboard/guios/evaluaciones": [
+        ("guios.evaluation_view",   "Ver evaluaciones",   "Accede al listado y detalle de evaluaciones de software.", 1),
+        ("guios.evaluation_create", "Crear evaluación",   "Crea una nueva evaluación de software.",                  2),
+        ("guios.evaluation_edit",   "Editar evaluación",  "Califica subfactores y ajusta parámetros de evaluación.", 3),
+        ("guios.evaluation_delete", "Eliminar evaluación", "Elimina evaluaciones de software.",                      4),
+        ("guios.evaluation_run_ai", "Ejecutar análisis IA", "Dispara búsqueda de literatura y cálculo de cuartiles con IA.", 5),
+        ("guios.evaluation_export", "Exportar informe evaluación", "Genera y descarga el informe técnico en PDF y Excel.", 6),
+    ],
 
     # ── Configuración & Sistema ───────────────────────────────────────────────
     "/dashboard/users": [
@@ -61,7 +84,7 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **kwargs):
-        self.stdout.write("\n🔐  Sincronizando catálogo de permisos de módulo...\n")
+        self.stdout.write("\nSincronizando catalogo de permisos de modulo...\n")
 
         # Pre-cargar módulos por path para no hacer N consultas
         modules_by_path: dict[str, MenuModule] = {
@@ -74,13 +97,13 @@ class Command(BaseCommand):
             module = modules_by_path.get(path)
             if not module:
                 self.stdout.write(
-                    self.style.WARNING(f"Módulo no encontrado para path '{path}' — omitido. "
+                    self.style.WARNING(f"Modulo no encontrado para path '{path}' -- omitido. "
                                        "Ejecuta setup_menus primero.")
                 )
                 stats["skipped_no_module"] += len(permissions)
                 continue
 
-            self.stdout.write(f"\n  📦 [{module.label}]  ({path})")
+            self.stdout.write(f"\n  [{module.label}] ({path})")
 
             for codename, label, description, order in permissions:
                 perm, created = ModulePermission.objects.get_or_create(
@@ -95,7 +118,7 @@ class Command(BaseCommand):
 
                 if created:
                     stats["created"] += 1
-                    self.stdout.write(f"    ✨ CREADO    {codename} → {label}")
+                    self.stdout.write(f"    [+] CREADO     {codename} -> {label}")
                 else:
                     # Actualizar si algo cambió (excepto los grupos asignados)
                     changed = False
@@ -115,13 +138,13 @@ class Command(BaseCommand):
                     if changed:
                         perm.save()
                         stats["updated"] += 1
-                        self.stdout.write(f"    🔄 ACTUALIZADO {codename} → {label}")
+                        self.stdout.write(f"    [*] ACTUALIZADO {codename} -> {label}")
                     else:
                         stats["unchanged"] += 1
-                        self.stdout.write(f"    ✓  sin cambios  {codename}")
+                        self.stdout.write(f"    [-] sin cambios {codename}")
 
         # ── Limpieza de permisos obsoletos ─────────────────────────────────────
-        self.stdout.write("\n🧹  Buscando permisos obsoletos para eliminar...")
+        self.stdout.write("\nBuscando permisos obsoletos para eliminar...")
         all_catalog_codenames = []
         for perms in PERMISSION_CATALOG.values():
             for codename, _, _, _ in perms:
@@ -132,26 +155,26 @@ class Command(BaseCommand):
 
         if delete_count > 0:
             for p in to_delete:
-                self.stdout.write(self.style.WARNING(f"    🗑️  ELIMINANDO: {p.codename}"))
+                self.stdout.write(self.style.WARNING(f"    [x] ELIMINANDO: {p.codename}"))
             to_delete.delete()
-            self.stdout.write(self.style.SUCCESS(f"  ✅  Se eliminaron {delete_count} permisos obsoletos."))
+            self.stdout.write(self.style.SUCCESS(f"  [OK] Se eliminaron {delete_count} permisos obsoletos."))
         else:
-            self.stdout.write("    ✓  No hay permisos obsoletos.")
+            self.stdout.write("    [-] No hay permisos obsoletos.")
 
         total = stats["created"] + stats["updated"] + stats["unchanged"]
         self.stdout.write("\n" + "=" * 70)
-        self.stdout.write(self.style.SUCCESS("📊  RESUMEN"))
+        self.stdout.write(self.style.SUCCESS("RESUMEN"))
         self.stdout.write("=" * 70)
-        self.stdout.write(f"  ✨ Creados:          {stats['created']}")
-        self.stdout.write(f"  🔄 Actualizados:    {stats['updated']}")
-        self.stdout.write(f"  ✓  Sin cambios:     {stats['unchanged']}")
-        self.stdout.write(f"  ⚠  Sin módulo:      {stats['skipped_no_module']}")
-        self.stdout.write(f"  📊 Total procesados: {total}")
+        self.stdout.write(f"  Creados:          {stats['created']}")
+        self.stdout.write(f"  Actualizados:     {stats['updated']}")
+        self.stdout.write(f"  Sin cambios:      {stats['unchanged']}")
+        self.stdout.write(f"  Sin modulo:       {stats['skipped_no_module']}")
+        self.stdout.write(f"  Total procesados: {total}")
         self.stdout.write("=" * 70)
-        self.stdout.write(self.style.SUCCESS("✅  ¡Catálogo de permisos sincronizado!"))
+        self.stdout.write(self.style.SUCCESS("[OK] Catalogo de permisos sincronizado!"))
         self.stdout.write(
             self.style.WARNING(
-                "\n💡 Ahora asigna permisos a los roles desde:\n"
-                "   Configuración → Roles y Permisos\n"
+                "\nNota: Ahora asigna permisos a los roles desde:\n"
+                "   Configuracion -> Roles y Permisos\n"
             )
         )

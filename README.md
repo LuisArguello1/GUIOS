@@ -16,12 +16,14 @@ Plataforma empresarial de gestion administrativa, evaluacion y control de acceso
    - [6.2 Instalacion de dependencias](#62-instalacion-de-dependencias)
    - [6.3 Base de datos y migraciones locales](#63-base-de-datos-y-migraciones-locales)
    - [6.4 Creacion de superusuario y datos iniciales](#64-creacion-de-superusuario-y-datos-iniciales)
-   - [6.5 Ejecucion del servidor backend en puerto 8050](#65-ejecucion-del-servidor-backend-en-puerto-8050)
+   - [6.5 Servicio de Redis (Broker de Mensajeria y Cache)](#65-servicio-de-redis-broker-de-mensajeria-y-cache)
+   - [6.6 Worker de Celery para Procesamiento de IA](#66-worker-de-celery-para-procesamiento-de-ia)
+   - [6.7 Ejecucion del servidor backend en puerto 8050](#67-ejecucion-del-servidor-backend-en-puerto-8050)
 7. [Instalacion y Configuracion del Frontend](#7-instalacion-y-configuracion-del-frontend)
    - [7.1 Instalacion de paquetes npm](#71-instalacion-de-paquetes-npm)
    - [7.2 Configuracion del Hook pre-push](#72-configuracion-del-hook-pre-push)
    - [7.3 Ejecucion del servidor de desarrollo frontend](#73-ejecucion-del-servidor-de-desarrollo-frontend)
-8. [Guia de Ejecucion en Dos Terminales](#8-guia-de-ejecucion-en-dos-terminales)
+8. [Guia de Ejecucion en Tres Terminales](#8-guia-de-ejecucion-en-tres-terminales)
 9. [Politicas de Calidad de Codigo y CI/CD](#9-politicas-de-calidad-de-codigo-y-cicd)
 10. [Estructura del Proyecto](#10-estructura-del-proyecto)
 
@@ -60,7 +62,10 @@ Antes de iniciar la instalacion, asegurese de tener instaladas las siguientes he
 - Python (3.11 o 3.12)
 - Node.js (v20.x o v22.x LTS) y npm (v10.x o superior)
 - PostgreSQL (v14 o superior, opcional si utiliza SQLite para desarrollo local)
-- Redis Server (requerido para cola de tareas y cache en tiempo real)
+- **Redis Server (v8.8.0 o superior)**: **Requisito obligatorio**. Actúa como broker de mensajería para Celery y capa de almacenamiento en caché de alto rendimiento. Es imprescindible para procesar en segundo plano las tareas de Inteligencia Artificial (búsqueda de literatura científica, cálculo de cuartiles y planes de mitigación) sin bloquear los endpoints ni la interfaz.
+  - *En Windows*: Puede ejecutarse mediante Docker (`docker run -d --name guios-redis -p 6379:6379 redis:alpine`), mediante WSL2 (`sudo service redis-server start`) o mediante Memurai/Redis para Windows.
+  - *En Linux (Ubuntu/Debian)*: `sudo apt install redis-server && sudo systemctl start redis-server`
+  - *En macOS*: `brew install redis && brew services start redis`
 - Dependencias de sistema para compilacion (en Linux/Ubuntu: `libcairo2-dev pkg-config python3-dev`)
 
 ---
@@ -129,6 +134,14 @@ REDIS_URL=redis://127.0.0.1:6379/0
 REDIS_CACHE_URL=redis://127.0.0.1:6379/1
 CELERY_BROKER_URL=redis://127.0.0.1:6379/0
 CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/0
+
+# Motor de Inteligencia Artificial (GUIOS)
+AI_PROVIDER=groq
+GROQ_API_KEY=tu_clave_api_groq_aqui
+GROQ_MODEL=qwen/qwen3.8-27b
+COHERE_API_KEY=tu_clave_api_cohere_aqui
+COHERE_MODEL=command-r-plus-08-2024
+AI_TIMEOUT_SECONDS=30
 ```
 
 ---
@@ -177,13 +190,46 @@ python manage.py migrate
    python backend/manage.py createsuperuser
    ```
 
-2. Inicialice los catalogos de menus del sistema y el arbol de permisos:
+2. Inicialice los catalogos de menus del sistema, el arbol de permisos y el catalogo metodologico de la tesis:
    ```bash
    python backend/manage.py setup_menus
    python backend/manage.py setup_permissions
+   python backend/manage.py seed_guios_catalog
    ```
+   *Nota:* `seed_guios_catalog` puebla de forma automatica e idempotente las 3 Dimensiones (Tecnologica, Organizacional, Economica), los 18 Factores y los 61 Subfactores oficiales de la tesis con sus palabras clave para IA.
 
-### 6.5 Ejecucion del servidor backend en puerto 8050
+### 6.5 Servicio de Redis (Broker de Mensajeria y Cache)
+
+Antes de iniciar Celery o ejecutar evaluaciones que invoquen la IA, el servicio de Redis debe estar en ejecución y escuchando peticiones en el puerto `6379`:
+
+- **Opción recomendada con Docker:**
+  ```bash
+  docker run -d --name guios-redis -p 6379:6379 redis:alpine
+  ```
+
+- **Verificación de conexión (opcional):**
+  ```bash
+  redis-cli ping
+  # Respuesta esperada: PONG
+  ```
+
+### 6.6 Worker de Celery para Procesamiento de IA
+
+Las tareas intensivas de Inteligencia Artificial (consultas a modelos LLM como Groq/Cohere, búsqueda y extracción de citas en literatura científica y cálculo dinámico de cuartiles para factores) se procesan asíncronamente a través del worker de Celery.
+
+Desde el directorio `backend/` y con el entorno virtual activo:
+
+- **En Windows:** *(Requiere `--pool=solo` o `--pool=gevent` debido al manejo de procesos en Windows)*
+  ```bash
+  celery -A config worker --pool=solo -l info
+  ```
+
+- **En Linux / macOS:**
+  ```bash
+  celery -A config worker -l info
+  ```
+
+### 6.7 Ejecucion del servidor backend en puerto 8050
 
 Inicie el servidor de desarrollo de Django especificando el puerto 8050:
 
@@ -231,23 +277,47 @@ El frontend se expondra habitualmente en `http://localhost:5173/`.
 
 ---
 
-## 8. Guia de Ejecucion en Dos Terminales
+## 8. Guia de Ejecucion en Tres Terminales
 
-Para trabajar en el entorno de desarrollo se requieren dos terminales abiertas simultaneamente:
+Para trabajar en el entorno de desarrollo con todas las funcionalidades activas (API REST, Procesamiento Asíncrono de Inteligencia Artificial y Frontend reactivo), se requiere tener el servicio de **Redis** activo y **tres terminales** abiertas de forma concurrente:
+
+> **Prerrequisito de Fondo:** Asegúrese de que Redis esté corriendo en `127.0.0.1:6379` (ej. ejecutando `docker run -d --name guios-redis -p 6379:6379 redis:alpine` o mediante el servicio local de Redis/WSL2).
 
 ### Terminal 1: Backend (Django REST Framework en puerto 8050)
 ```bash
-venv\Scripts\Activate
+# En Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+cd backend
+python manage.py runserver 8050
+
+# En Linux / macOS:
+source venv/bin/activate
 cd backend
 python manage.py runserver 8050
 ```
 
-### Terminal 2: Frontend (React + Vite)
+### Terminal 2: Worker de Celery (Procesamiento Asíncrono de IA)
+Esta terminal procesa en segundo plano la búsqueda de citas bibliográficas con IA (Groq/Cohere), el cómputo matricial de cuartiles y la generación de recomendaciones sin congelar las peticiones HTTP del usuario.
 ```bash
-venv\Scripts\Activate
+# En Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+cd backend
+celery -A config worker --pool=solo -l info
+
+# En Linux / macOS:
+source venv/bin/activate
+cd backend
+celery -A config worker -l info
+```
+
+### Terminal 3: Frontend (React 19 + Vite)
+```bash
+# Desde la raíz del proyecto:
 cd frontend
 npm run dev
 ```
+
+El cliente web estará disponible en `http://localhost:5173/` y se comunicará automáticamente con la API en `http://127.0.0.1:8050/api/v1/`.
 
 ---
 

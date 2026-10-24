@@ -13,9 +13,9 @@ class EvaluationVerdict(models.Model):
     RECOMMENDATION_C = 'C'
 
     RECOMMENDATION_CHOICES = (
-        (RECOMMENDATION_A, 'Recomendación A (No viable sin mitigar riesgos)'),
-        (RECOMMENDATION_B, 'Recomendación B (Viable con reservas / Plan de mitigación)'),
-        (RECOMMENDATION_C, 'Recomendación C (Adoptar plenamente)'),
+        (RECOMMENDATION_A, 'Recomendación A (Adoptar sin observaciones)'),
+        (RECOMMENDATION_B, 'Recomendación B (Es posible adoptar, con matices)'),
+        (RECOMMENDATION_C, 'Recomendación C (Se sugiere analizar la adopción y posponerla)'),
     )
 
     evaluation = models.OneToOneField(
@@ -43,7 +43,7 @@ class EvaluationVerdict(models.Model):
         blank=True,
         default="",
         verbose_name="Plan de mitigación generado por IA",
-        help_text="Plan de acciones correctivas para factores negativos (Recomendación A o B)."
+        help_text="Plan de acciones correctivas para factores negativos (Recomendación B o C)."
     )
     calculated_at = models.DateTimeField(
         auto_now_add=True,

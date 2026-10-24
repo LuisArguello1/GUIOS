@@ -54,6 +54,28 @@ export const ENDPOINTS = {
         },
         DASHBOARD: '/core/dashboard/',
     },
+    GUIOS: {
+        DIMENSIONS: '/guios/dimensions/',
+        DIMENSION_DETAIL: (id: string | number) => `/guios/dimensions/${id}/`,
+        FACTORS: '/guios/factors/',
+        FACTOR_DETAIL: (id: string | number) => `/guios/factors/${id}/`,
+        SUBFACTORS: '/guios/subfactors/',
+        SUBFACTOR_DETAIL: (id: string | number) => `/guios/subfactors/${id}/`,
+        EVALUATIONS: '/guios/evaluations/',
+        EVALUATION_DETAIL: (id: string | number) => `/guios/evaluations/${id}/`,
+        EVALUATION_CALCULATE_LITERATURE: (id: string | number) => `/guios/evaluations/${id}/calculate-literature/`,
+        EVALUATION_APPLY_DECISOR: (id: string | number) => `/guios/evaluations/${id}/apply-decisor/`,
+        EVALUATION_RATE_SUBFACTORS: (id: string | number) => `/guios/evaluations/${id}/rate-subfactors/`,
+        EVALUATION_COMPUTE_VERDICT: (id: string | number) => `/guios/evaluations/${id}/compute-verdict/`,
+        EVALUATION_AI_LOGS: (id: string | number) => `/guios/evaluations/${id}/ai-logs/`,
+        EVALUATION_EXPORT_PDF: (id: string | number) => `/guios/evaluations/${id}/export-pdf/`,
+        EVALUATION_EXPORT_EXCEL: (id: string | number) => `/guios/evaluations/${id}/export-excel/`,
+        DASHBOARD_STATS: '/guios/dashboard/statistics/',
+        DASHBOARD_EXPORT_PDF: '/guios/dashboard/export-pdf/',
+        DASHBOARD_EXPORT_EXCEL: '/guios/dashboard/export-excel/',
+        AI_LOGS: '/guios/ai-logs/',
+        AI_LOG_DETAIL: (id: string | number) => `/guios/ai-logs/${id}/`,
+    },
 };
 
 export default ENDPOINTS;

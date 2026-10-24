@@ -50,6 +50,16 @@ class Command(BaseCommand):
                     {"label": "Dashboard", "icon": ICONS["DASHBOARD"], "path": "/dashboard", "order": 1},
                 ],
             },
+            # ── Metodología GUIOS ─────────────────────────────────────────────
+            {
+                "name": "Metodología GUIOS",
+                "order": 20,
+                "modules": [
+                    {"label": "Dimensiones",   "icon": "Layers",         "path": "/dashboard/guios/dimensiones", "order": 1},
+                    {"label": "Factores",       "icon": "Sliders",        "path": "/dashboard/guios/factores",    "order": 2},
+                    {"label": "Evaluaciones",   "icon": "ClipboardCheck", "path": "/dashboard/guios/evaluaciones", "order": 3},
+                ],
+            },
             # ── Configuración & Sistema ───────────────────────────────────────
             {
                 "name": "Configuración & Sistema",
@@ -73,9 +83,9 @@ class Command(BaseCommand):
             )
             
             if group_created:
-                self.stdout.write(f"\n  📁 Grupo creado: {menu_group.name}")
+                self.stdout.write(f"\n  [Grupo Creado] {menu_group.name}")
             else:
-                self.stdout.write(f"\n  📁 Grupo existente: {menu_group.name}")
+                self.stdout.write(f"\n  [Grupo Existente] {menu_group.name}")
             
             for mod_data in group_data["modules"]:
                 path = mod_data["path"]
@@ -95,7 +105,7 @@ class Command(BaseCommand):
                 # Si fue creado, agregar a estadísticas
                 if module_created:
                     stats["created"] += 1
-                    status_icon = "✨"
+                    status_icon = "[+]"
                     status_text = "CREADO"
                 else:
                     # Verificar si necesita actualización
@@ -113,25 +123,25 @@ class Command(BaseCommand):
                         module.order = mod_data["order"]
                         module.save()
                         stats["updated"] += 1
-                        status_icon = "🔄"
+                        status_icon = "[*]"
                         status_text = "ACTUALIZADO"
                     else:
                         stats["unchanged"] += 1
-                        status_icon = "✓"
+                        status_icon = "[-]"
                         status_text = "SIN CAMBIOS"
                 
-                self.stdout.write(f"    {status_icon} {status_text}: {module.label} → {path}")
+                self.stdout.write(f"    {status_icon} {status_text}: {module.label} -> {path}")
 
         # Mostrar resumen
         self.stdout.write("\n" + "="*70)
-        self.stdout.write(self.style.SUCCESS("📊 RESUMEN DE MIGRACIÓN DE MENÚS"))
+        self.stdout.write(self.style.SUCCESS("RESUMEN DE MIGRACION DE MENUS"))
         self.stdout.write("="*70)
-        self.stdout.write(f"  ✨ Módulos Creados:    {stats['created']}")
-        self.stdout.write(f"  🔄 Módulos Actualizados: {stats['updated']}")
-        self.stdout.write(f"  ✓ Módulos Sin Cambios:  {stats['unchanged']}")
-        self.stdout.write(f"  📊 Total de Módulos:    {stats['created'] + stats['updated'] + stats['unchanged']}")
+        self.stdout.write(f"  Modulos Creados:     {stats['created']}")
+        self.stdout.write(f"  Modulos Actualizados: {stats['updated']}")
+        self.stdout.write(f"  Modulos Sin Cambios:  {stats['unchanged']}")
+        self.stdout.write(f"  Total de Modulos:     {stats['created'] + stats['updated'] + stats['unchanged']}")
         self.stdout.write("="*70)
-        self.stdout.write(self.style.SUCCESS("✅ ¡Migración de menús completada satisfactoriamente!"))
+        self.stdout.write(self.style.SUCCESS("[OK] Migracion de menus completada satisfactoriamente!"))
         self.stdout.write(self.style.WARNING(
-            "\n💡 Nota: Los roles de cada módulo fueron sincronizados automáticamente."
+            "\nNota: Los roles de cada modulo fueron sincronizados automaticamente."
         ))

@@ -31,7 +31,19 @@ class Factor(models.Model):
     systemic_importance = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(4)],
         verbose_name="Importancia Sistémica (IS)",
-        help_text="Valor fijo definido por la metodología (1: Irrelevante, 2: Opcional, 3: Importante, 4: Fundamental)."
+        help_text="Valor definido por la metodología o autocalculado cruzando (IL_base x IE)."
+    )
+    expert_importance = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+        verbose_name="Importancia del Experto (IE)",
+        help_text="Importancia del Experto (IE: 1 a 4) obtenida de encuestas empíricas."
+    )
+    literature_importance_base = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+        verbose_name="Importancia de la Literatura Base (IL)",
+        help_text="Importancia de la Literatura base (IL: 1 a 4) calculada por cuartiles en el catálogo."
     )
     scope = models.CharField(
         max_length=10,

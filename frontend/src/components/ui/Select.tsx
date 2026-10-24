@@ -98,13 +98,15 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
                         className={clsx(selectBase, selectClassName, error && selectError)}
                         {...rest}
                     >
-                        <option
-                            value=""
-                            disabled
-                            className={clsx('text-[var(--color-text-disabled)] italic', optionClassName)}
-                        >
-                            {placeholder}
-                        </option>
+                        {placeholder && (
+                            <option
+                                value=""
+                                disabled={required}
+                                className={clsx('text-[var(--color-text-disabled)] italic', optionClassName)}
+                            >
+                                {placeholder}
+                            </option>
+                        )}
 
                         {options.map((opt) => (
                             <option

@@ -8,11 +8,13 @@ class AIAssistanceLog(models.Model):
     Registro inmutable de cada llamada al servicio de IA durante una evaluación.
     Permite trazabilidad completa de las interacciones con el servicio externo.
     """
+    REQ_LITERATURE_SEARCH = 'literature_search'
     REQ_FACTOR_IMPORTANCE = 'factor_importance'
     REQ_SUBFACTOR_RATING = 'subfactor_rating'
     REQ_EXECUTIVE_SUMMARY = 'executive_summary'
 
     REQUEST_TYPE_CHOICES = (
+        (REQ_LITERATURE_SEARCH, 'Búsqueda de Literatura Científica y Citas (Fase 2 / Paso 0)'),
         (REQ_FACTOR_IMPORTANCE, 'Importancia de Factores (Paso 1-2)'),
         (REQ_SUBFACTOR_RATING, 'Calificación de Subfactores (Paso 3-4)'),
         (REQ_EXECUTIVE_SUMMARY, 'Resumen Ejecutivo y Mitigación (Paso 5-6)'),

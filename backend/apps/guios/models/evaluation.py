@@ -27,6 +27,13 @@ class Evaluation(models.Model):
         max_length=200,
         verbose_name="Nombre del software candidato"
     )
+    software_category = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Categoría del software",
+        help_text="Categoría del software (ej. Ofimática, LMS / Educación, ERP, Seguridad, Base de Datos)."
+    )
     software_version = models.CharField(
         max_length=50,
         blank=True,
@@ -37,6 +44,12 @@ class Evaluation(models.Model):
         blank=True,
         null=True,
         verbose_name="Enlace al repositorio del software"
+    )
+    software_description = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Descripción funcional del software",
+        help_text="Descripción funcional, arquitectura o perfil del software a evaluar (contexto para IA)."
     )
     org_name = models.CharField(
         max_length=200,
@@ -56,6 +69,56 @@ class Evaluation(models.Model):
     ai_enabled = models.BooleanField(
         default=False,
         verbose_name="Asistencia de IA activada"
+    )
+    AI_STATUS_PENDING = 'pending'
+    AI_STATUS_SEARCHING = 'searching'
+    AI_STATUS_COMPLETED = 'completed'
+    AI_STATUS_FAILED = 'failed'
+
+    AI_STATUS_CHOICES = (
+        (AI_STATUS_PENDING, 'Pendiente'),
+        (AI_STATUS_SEARCHING, 'Buscando literatura'),
+        (AI_STATUS_COMPLETED, 'Literatura procesada'),
+        (AI_STATUS_FAILED, 'Error en búsqueda IA'),
+    )
+
+    ai_status = models.CharField(
+        max_length=20,
+        choices=AI_STATUS_CHOICES,
+        default=AI_STATUS_PENDING,
+        verbose_name="Estado de literatura IA"
+    )
+    q1_threshold = models.DecimalField(
+        max_digits=8,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name="Corte Cuartil 1 (q1 - 25%)",
+        help_text="Valor del corte r_q1 calculado en esta evaluación."
+    )
+    q2_threshold = models.DecimalField(
+        max_digits=8,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name="Corte Cuartil 2 / Mediana (q2 - 50%)",
+        help_text="Valor del corte r_q2 calculado en esta evaluación."
+    )
+    q3_threshold = models.DecimalField(
+        max_digits=8,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name="Corte Cuartil 3 (q3 - 75%)",
+        help_text="Valor del corte r_q3 calculado en esta evaluación."
+    )
+    q4_threshold = models.DecimalField(
+        max_digits=8,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name="Corte Cuartil 4 / Máximo (q4 - 100%)",
+        help_text="Valor del corte r_q4 calculado en esta evaluación."
     )
     status = models.CharField(
         max_length=20,

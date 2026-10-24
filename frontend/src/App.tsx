@@ -19,6 +19,9 @@ const SettingsPage = lazy(() => import('./features/settings/SettingsPage'));
 const RolesPermissonsPage = lazy(() => import('./features/settings/pages/RolesPermissonsPage'));
 const OrganizationPage = lazy(() => import('./features/settings/pages/OrganizationPage'));
 const MenuSettingsPage = lazy(() => import('./features/settings/pages/MenuSettingsPage'));
+const DimensionsPage = lazy(() => import('./features/guios/dimensions/DimensionsPage'));
+const FactorsPage = lazy(() => import('./features/guios/factors/FactorsPage'));
+const EvaluationsPage = lazy(() => import('./features/guios/evaluations/EvaluationsPage'));
 
 function App() {
     return (
@@ -35,6 +38,30 @@ function App() {
                     <Route path="/dashboard" element={<MainLayout />}>
                         <Route index element={<DashboardPage />} />
                         <Route path="perfil" element={<ProfilePage />} />
+                        <Route
+                            path="guios/dimensiones"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/guios/dimensiones">
+                                    <DimensionsPage />
+                                </ModuleGuard>
+                            }
+                        />
+                        <Route
+                            path="guios/factores"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/guios/factores">
+                                    <FactorsPage />
+                                </ModuleGuard>
+                            }
+                        />
+                        <Route
+                            path="guios/evaluaciones"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/guios/evaluaciones">
+                                    <EvaluationsPage />
+                                </ModuleGuard>
+                            }
+                        />
                         <Route
                             path="users"
                             element={
