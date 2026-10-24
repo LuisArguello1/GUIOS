@@ -1,0 +1,734 @@
+<!DOCTYPE html><html class="dark" lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<meta content="web_dashboard" name="shell-type">
+<title>Usuarios · GUIOS PRO</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "obsidian-base": "#121212",
+            "obsidian-sidebar": "#0E0E0E",
+            "obsidian-card": "#1E1E24",
+            "obsidian-border": "#33333B",
+            "obsidian-subtle": "#1F1F23",
+            "obsidian-pill": "#27272A",
+            "text-primary": "#F4F4F5",
+            "text-muted": "#A1A1AA",
+            "text-placeholder": "#71717A",
+          },
+          fontFamily: {
+            sans: ["Geist", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #121212;
+        color: #F4F4F5;
+        font-family: 'Geist', sans-serif;
+      }
+      body {
+        overscroll-behavior: none;
+      }
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #121212;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272A;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #33333B;
+    }
+  </style>
+</head>
+<body class="bg-[#121212] text-[#F4F4F5] antialiased min-h-screen overflow-hidden flex">
+<!-- 1. Global Persistent Left Sidebar -->
+<aside class="w-64 h-screen bg-[#0E0E0E] border-r border-[#1F1F23] flex flex-col justify-between shrink-0 select-none z-50">
+<div class="flex flex-col">
+<!-- Sidebar Header -->
+<div class="h-16 px-5 flex items-center gap-3 border-b border-[#1F1F23]/60 bg-[#0E0E0E]">
+<div class="w-9 h-9 rounded-lg bg-[#1E1E24] border border-[#33333B]/60 flex items-center justify-center text-[#F4F4F5] shadow-inner">
+<span class="material-symbols-outlined text-[20px]">shield</span>
+</div>
+<div class="flex flex-col leading-tight min-w-0">
+<span class="text-base font-bold text-[#F4F4F5] tracking-tight truncate">GUIOS PRO</span>
+<span class="font-mono text-[11px] font-medium text-[#A1A1AA] tracking-wider uppercase">AUDITORÍA V2.4</span>
+</div>
+</div>
+<!-- Navigation Categories -->
+<div class="py-4 px-3 space-y-6 overflow-y-auto max-h-[calc(100vh-140px)]">
+<!-- PANEL PRINCIPAL -->
+<div>
+<span class="px-3 text-[11px] font-mono uppercase tracking-wider text-[#71717A] block mb-2 font-medium">PANEL PRINCIPAL</span>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/dashboard">
+<span class="material-symbols-outlined text-[19px]">dashboard</span>
+<span class="">Dashboard</span>
+</a>
+</nav>
+</div>
+<!-- GESTIÓN METODOLÓGICA -->
+<div>
+<span class="px-3 text-[11px] font-mono uppercase tracking-wider text-[#71717A] block mb-2 font-medium">GESTIÓN METODOLÓGICA</span>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/catalog/dimensions">
+<span class="material-symbols-outlined text-[19px]">rule</span>
+<span class="">Catálogo</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/evaluations">
+<span class="material-symbols-outlined text-[19px]">history</span>
+<span class="">Historial</span>
+</a>
+</nav>
+</div>
+<!-- SEGURIDAD Y ACCESO (Active State) -->
+<div>
+<span class="px-3 text-[11px] font-mono uppercase tracking-wider text-[#71717A] block mb-2 font-medium">SEGURIDAD Y ACCESO</span>
+<nav class="space-y-1">
+<a class="relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#F4F4F5] font-medium bg-[#27272A] transition-colors" href="/admin/users">
+<!-- Left white accent bar -->
+<span class="absolute left-0 top-1.5 bottom-1.5 w-1 bg-[#F4F4F5] rounded-r-full"></span>
+<span class="material-symbols-outlined text-[19px]">group</span>
+<span class="">Usuarios</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/roles">
+<span class="material-symbols-outlined text-[19px]">admin_panel_settings</span>
+<span class="">Roles y Permisos</span>
+</a>
+
+</nav>
+</div>
+<!-- CONFIGURACIÓN -->
+<div>
+<span class="px-3 text-[11px] font-mono uppercase tracking-wider text-[#71717A] block mb-2 font-medium">CONFIGURACIÓN</span>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/settings/organization">
+<span class="material-symbols-outlined text-[19px]">domain</span>
+<span class="">Organización</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/settings/menu-structure">
+<span class="material-symbols-outlined text-[19px]">menu_open</span>
+<span class="">Estructura del Menú</span>
+</a>
+</nav>
+</div>
+<!-- TRAZABILIDAD -->
+<div>
+<span class="px-3 text-[11px] font-mono uppercase tracking-wider text-[#71717A] block mb-2 font-medium">TRAZABILIDAD</span>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#1E1E24]/60 transition-colors" href="/admin/audit-log">
+<span class="material-symbols-outlined text-[19px]">manage_search</span>
+<span class="">Auditoría</span>
+</a>
+</nav>
+</div>
+</div>
+</div>
+<!-- Sidebar Bottom Action -->
+<div class="p-3 border-t border-[#1F1F23] bg-[#0E0E0E]">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-red-400 hover:bg-red-500/10 transition-colors" href="/login">
+<span class="material-symbols-outlined text-[19px]">logout</span>
+<span class="">Cerrar Sesión</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Layout wrapper -->
+<div class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+<!-- Top Navbar (64px / h-16) -->
+<header class="h-16 px-8 border-b border-[#1F1F23] bg-[#0E0E0E] flex items-center justify-between shrink-0 select-none z-30">
+<!-- Breadcrumbs -->
+<nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs md:text-sm text-[#A1A1AA]">
+<span class="hover:text-[#F4F4F5] cursor-pointer transition-colors">Inicio</span>
+<span class="text-[#71717A]">/</span>
+<span class="hover:text-[#F4F4F5] cursor-pointer transition-colors">Seguridad y Acceso</span>
+<span class="text-[#71717A]">/</span>
+<span class="text-[#F4F4F5] font-semibold">Usuarios</span>
+</nav>
+<!-- Right Header Actions -->
+<div class="flex items-center gap-4 relative">
+<!-- Notification button with ping -->
+<button class="relative w-9 h-9 rounded-lg bg-[#1E1E24] border border-[#33333B] flex items-center justify-center text-[#A1A1AA] hover:text-[#F4F4F5] hover:border-[#71717A] transition-colors" onclick="showToast('No hay alertas críticas pendientes', 'notifications')" title="Notificaciones" type="button">
+<span class="material-symbols-outlined text-[19px]">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-[#0E0E0E]"></span>
+</button>
+<!-- User Profile Pill with chevron -->
+<div class="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-full bg-[#1E1E24] border border-[#33333B] hover:border-[#71717A] cursor-pointer transition-colors select-none" id="userProfileTrigger">
+<div class="w-7 h-7 rounded-full bg-[#27272A] border border-[#33333B] text-[#F4F4F5] font-bold text-xs flex items-center justify-center">
+            A
+          </div>
+<div class="flex flex-col text-left leading-tight hidden sm:flex">
+<span class="text-xs font-semibold text-[#F4F4F5]">Admin GUIOS</span>
+<span class="text-[10px] text-[#A1A1AA]">Superadministrador</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-[#A1A1AA]">expand_more</span>
+</div>
+<!-- User Navbar Dropdown Container -->
+<div class="hidden absolute top-12 right-0 w-56 bg-[#1E1E24] border border-[#33333B] rounded-xl shadow-2xl p-1.5 z-50 flex-col gap-1 backdrop-blur-md" id="navbarUserDropdown">
+<div class="px-3 py-2 border-b border-[#33333B]/60 mb-1">
+<span class="text-xs font-semibold text-[#F4F4F5] block">Admin GUIOS</span>
+<span class="text-[11px] font-mono text-[#A1A1AA]">admin@guios.pro</span>
+</div>
+<button class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#F4F4F5] hover:bg-[#27272A] transition-colors text-left w-full" onclick="openUserProfileModal('Admin GUIOS', 'admin@guios.pro', 'Superadministrador', 'Dirección TICs MINTEL', 'Activo'); closeNavDropdown();" type="button">
+<span class="material-symbols-outlined text-[17px] text-[#A1A1AA]">badge</span>
+<span class="">Ver perfil</span>
+</button>
+<button class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#F4F4F5] hover:bg-[#27272A] transition-colors text-left w-full" onclick="showToast('Selección de rol activo actualizada', 'swap_horiz'); closeNavDropdown();" type="button">
+<span class="material-symbols-outlined text-[17px] text-[#A1A1AA]">swap_horiz</span>
+<span class="">Cambiar rol</span>
+</button>
+<div class="border-t border-[#33333B]/60 my-1"></div>
+<a class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-red-400 hover:bg-red-500/10 transition-colors" href="/login">
+<span class="material-symbols-outlined text-[17px]">logout</span>
+<span class="">Cerrar sesión</span>
+</a>
+</div>
+</div>
+</header>
+<!-- Main Container (scrollable) -->
+<main class="flex-1 overflow-y-auto max-h-[calc(100vh-64px)] bg-[#121212] p-8">
+<div class="max-w-[1400px] mx-auto space-y-6">
+<!-- 2. Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+<div class="space-y-1">
+<h1 class="text-2xl font-bold tracking-tight text-[#F4F4F5]">Gestión de Usuarios</h1>
+<p class="text-sm text-[#A1A1AA]">Administración de cuentas de usuario, asignación de roles y estados de acceso.</p>
+</div>
+<div>
+<button class="bg-[#F4F4F5] text-[#121212] font-semibold text-sm rounded-lg px-4 py-2.5 flex items-center gap-2 shadow-sm hover:bg-[#E4E4E7] active:scale-[0.98] transition-all" id="btnOpenCreateUser" type="button">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+<span class="">+ Nuevo Usuario</span>
+</button>
+</div>
+</div>
+<!-- 3. Filter Bar (Card surface #1E1E24, border #33333B, rounded-xl, padding 16px, mb-6) -->
+<section class="bg-[#1E1E24] border border-[#33333B] rounded-xl p-4 shadow-sm">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Col 1: Search -->
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3.5 text-[#71717A] text-[19px] pointer-events-none">search</span>
+<input class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] placeholder-[#71717A] pl-10 pr-3.5 py-2.5 rounded-lg text-sm outline-none focus:border-[#A1A1AA] transition-colors" id="searchInput" placeholder="Buscar usuario por nombre o correo..." type="text">
+</div>
+<!-- Col 2: Rol Select -->
+<div class="relative flex items-center">
+<select class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3.5 py-2.5 rounded-lg text-sm outline-none focus:border-[#A1A1AA] transition-colors appearance-none cursor-pointer" id="roleSelect">
+<option value="">Filtrar por Rol (Todos los roles)</option>
+<option value="Superadministrador">Superadministrador</option>
+<option value="Administrador">Administrador</option>
+<option value="Evaluador TI">Evaluador TI</option>
+</select>
+<span class="material-symbols-outlined absolute right-3.5 text-[#71717A] text-[18px] pointer-events-none">unfold_more</span>
+</div>
+<!-- Col 3: Estado Select -->
+<div class="relative flex items-center">
+<select class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3.5 py-2.5 rounded-lg text-sm outline-none focus:border-[#A1A1AA] transition-colors appearance-none cursor-pointer" id="statusSelect">
+<option value="">Estado (Todos los estados)</option>
+<option value="Activo">Activo</option>
+<option value="Inactivo">Inactivo</option>
+</select>
+<span class="material-symbols-outlined absolute right-3.5 text-[#71717A] text-[18px] pointer-events-none">unfold_more</span>
+</div>
+</div>
+</section>
+<!-- 4. Users Data Table Card (Card surface #1E1E24, border #33333B, rounded-xl) -->
+<section class="bg-[#1E1E24] border border-[#33333B] rounded-xl overflow-hidden shadow-lg">
+<div class="overflow-x-auto w-full">
+<table class="w-full text-left border-collapse min-w-[860px]">
+<thead>
+<tr class="border-b border-[#33333B] bg-[#121212]/40">
+<th class="px-6 py-4 text-xs uppercase tracking-wider text-[#A1A1AA] font-semibold" scope="col">USUARIO</th>
+<th class="px-6 py-4 text-xs uppercase tracking-wider text-[#A1A1AA] font-semibold" scope="col">ROL Y GRUPO</th>
+<th class="px-6 py-4 text-xs uppercase tracking-wider text-[#A1A1AA] font-semibold" scope="col">AUTENTICACIÓN 2FA</th>
+<th class="px-6 py-4 text-xs uppercase tracking-wider text-[#A1A1AA] font-semibold" scope="col">ESTADO</th>
+<th class="px-6 py-4 text-xs uppercase tracking-wider text-[#A1A1AA] font-semibold text-right" scope="col">ACCIONES</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#33333B]/60" id="usersTableBody">
+<!-- Row 1: Erick Guaillas -->
+<tr class="hover:bg-[#27272A]/40 transition-colors group">
+<!-- Col 1: Usuario -->
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#27272A] border border-[#33333B] text-[#F4F4F5] text-xs font-semibold flex items-center justify-center shrink-0">
+                        EG
+                      </div>
+<div class="flex flex-col">
+<span class="font-semibold text-sm text-[#F4F4F5] leading-tight">Erick Guaillas</span>
+<span class="text-xs text-[#A1A1AA] font-mono leading-tight mt-0.5">eguaillasv@unemi.edu.ec</span>
+</div>
+</div>
+</td>
+<!-- Col 2: Rol y Grupo -->
+<td class="px-6 py-4">
+<div class="flex flex-col items-start">
+<span class="bg-[#27272A] text-[#F4F4F5] px-2.5 py-1 rounded text-xs font-medium">Superadministrador</span>
+<span class="text-xs text-[#A1A1AA] mt-1">Equipo TICs UNEMI</span>
+</div>
+</td>
+<!-- Col 3: Autenticación 2FA -->
+<td class="px-6 py-4">
+<span class="bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 w-max">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+                      TOTP Habilitado
+                    </span>
+</td>
+<!-- Col 4: Estado -->
+<td class="px-6 py-4">
+<span class="bg-[#10B981]/20 text-[#10B981] px-2.5 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+                      Activo
+                    </span>
+</td>
+<!-- Col 5: Acciones -->
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors" onclick="showToast('Editor activado para Erick Guaillas', 'edit')" title="Editar" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors" onclick="openUserProfileModal('Erick Guaillas', 'eguaillasv@unemi.edu.ec', 'Superadministrador', 'Equipo TICs UNEMI', 'Activo')" title="Ver Detalle" type="button">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-amber-400 hover:bg-[#27272A] transition-colors" onclick="showToast('Erick Guaillas ha sido conmutado a Inactivo', 'toggle_on')" title="Inactivar" type="button">
+<span class="material-symbols-outlined text-[18px]">toggle_on</span>
+</button>
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-red-400 hover:bg-[#27272A] transition-colors" onclick="openRuleRN07Modal('Erick Guaillas', 12, 45)" title="Eliminar" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2: Luis Arguello -->
+<tr class="hover:bg-[#27272A]/40 transition-colors group">
+<!-- Col 1: Usuario -->
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#27272A] border border-[#33333B] text-[#F4F4F5] text-xs font-semibold flex items-center justify-center shrink-0">
+                        LA
+                      </div>
+<div class="flex flex-col">
+<span class="font-semibold text-sm text-[#F4F4F5] leading-tight">Luis Arguello</span>
+<span class="text-xs text-[#A1A1AA] font-mono leading-tight mt-0.5">larguellol@unemi.edu.ec</span>
+</div>
+</div>
+</td>
+<!-- Col 2: Rol y Grupo -->
+<td class="px-6 py-4">
+<div class="flex flex-col items-start">
+<span class="bg-[#27272A] text-[#F4F4F5] px-2.5 py-1 rounded text-xs font-medium">Administrador</span>
+<span class="text-xs text-[#A1A1AA] mt-1">Equipo TICs UNEMI</span>
+</div>
+</td>
+<!-- Col 3: Autenticación 2FA -->
+<td class="px-6 py-4">
+<span class="bg-[#64748B]/20 text-[#94A3B8] border border-[#64748B]/30 px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 w-max">
+<span class="w-1.5 h-1.5 rounded-full bg-[#94A3B8]"></span>
+                      Desactivado
+                    </span>
+</td>
+<!-- Col 4: Estado -->
+<td class="px-6 py-4">
+<span class="bg-[#10B981]/20 text-[#10B981] px-2.5 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+                      Activo
+                    </span>
+</td>
+<!-- Col 5: Acciones -->
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors" onclick="showToast('Editor activado para Luis Arguello', 'edit')" title="Editar" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors" onclick="openUserProfileModal('Luis Arguello', 'larguellol@unemi.edu.ec', 'Administrador', 'Equipo TICs UNEMI', 'Activo')" title="Ver Detalle" type="button">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-amber-400 hover:bg-[#27272A] transition-colors" onclick="showToast('Luis Arguello ha sido conmutado a Inactivo', 'toggle_on')" title="Inactivar" type="button">
+<span class="material-symbols-outlined text-[18px]">toggle_on</span>
+</button>
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-red-400 hover:bg-[#27272A] transition-colors" onclick="openRuleRN07Modal('Luis Arguello', 8, 22)" title="Eliminar" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Pablo Moreano -->
+<tr class="hover:bg-[#27272A]/40 transition-colors group">
+<!-- Col 1: Usuario -->
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#27272A] border border-[#33333B] text-[#F4F4F5] text-xs font-semibold flex items-center justify-center shrink-0">
+                        PM
+                      </div>
+<div class="flex flex-col">
+<span class="font-semibold text-sm text-[#F4F4F5] leading-tight">Pablo Moreano</span>
+<span class="text-xs text-[#A1A1AA] font-mono leading-tight mt-0.5">pmoreanop@unemi.edu.ec</span>
+</div>
+</div>
+</td>
+<!-- Col 2: Rol y Grupo -->
+<td class="px-6 py-4">
+<div class="flex flex-col items-start">
+<span class="bg-[#27272A] text-[#F4F4F5] px-2.5 py-1 rounded text-xs font-medium">Evaluador TI</span>
+<span class="text-xs text-[#A1A1AA] mt-1">Dirección TICs MINTEL</span>
+</div>
+</td>
+<!-- Col 3: Autenticación 2FA -->
+<td class="px-6 py-4">
+<span class="bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 w-max">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+                      TOTP Habilitado
+                    </span>
+</td>
+<!-- Col 4: Estado -->
+<td class="px-6 py-4">
+<span class="bg-[#EF4444]/20 text-[#EF4444] px-2.5 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-[#EF4444]"></span>
+                      Inactivo
+                    </span>
+</td>
+<!-- Col 5: Acciones -->
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-1">
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors" onclick="showToast('Editor activado para Pablo Moreano', 'edit')" title="Editar" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors" onclick="openUserProfileModal('Pablo Moreano', 'pmoreanop@unemi.edu.ec', 'Evaluador TI', 'Dirección TICs MINTEL', 'Inactivo')" title="Ver Detalle" type="button">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+</button>
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-emerald-400 hover:bg-[#27272A] transition-colors" onclick="showToast('Pablo Moreano ha sido reactivado con éxito', 'toggle_off')" title="Activar" type="button">
+<span class="material-symbols-outlined text-[18px]">toggle_off</span>
+</button>
+<button class="p-1.5 rounded-lg text-[#A1A1AA] hover:text-red-400 hover:bg-[#27272A] transition-colors" onclick="openRuleRN07Modal('Pablo Moreano', 3, 11)" title="Eliminar" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- 5. Table Footer -->
+<div class="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-[#33333B] bg-[#121212]/40 gap-3">
+<span class="text-sm text-[#A1A1AA]">
+              Mostrando <span class="text-[#F4F4F5] font-medium">3</span> de <span class="text-[#F4F4F5] font-medium">24</span> usuarios
+            </span>
+<div class="flex items-center gap-2">
+<button class="px-3.5 py-1.5 rounded-lg bg-[#1E1E24] border border-[#33333B] text-[#F4F4F5] text-xs font-medium hover:border-[#71717A] transition-colors flex items-center gap-1" onclick="showToast('Página previa', 'navigate_before')" type="button">
+<span class="material-symbols-outlined text-[16px]">chevron_left</span>
+<span class="">Anterior</span>
+</button>
+<button class="px-3.5 py-1.5 rounded-lg bg-[#1E1E24] border border-[#33333B] text-[#F4F4F5] text-xs font-medium hover:border-[#71717A] transition-colors flex items-center gap-1" onclick="showToast('Siguiente página de usuarios', 'navigate_next')" type="button">
+<span class="">Siguiente</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+<!-- 6. MODAL LAYER -->
+<!-- Modal 1: + Nuevo Usuario -->
+<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4" id="modalCreateUser">
+<div class="bg-[#1E1E24] border border-[#33333B] max-w-lg w-full rounded-xl overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
+<div class="px-6 py-4 border-b border-[#33333B] flex items-center justify-between bg-[#121212]">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-[#27272A] border border-[#33333B] flex items-center justify-center text-[#F4F4F5]">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-[#F4F4F5]">Crear Usuario</h3>
+<p class="text-xs text-[#A1A1AA]">Alta de nuevo operador en el sistema de auditoría</p>
+</div>
+</div>
+<button class="text-[#71717A] hover:text-[#F4F4F5] transition-colors" onclick="closeModal('modalCreateUser')" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<form class="p-6 space-y-4" id="formNewUser">
+<div class="space-y-1.5">
+<label class="text-xs font-semibold text-[#A1A1AA] uppercase">Nombres y Apellidos *</label>
+<input class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] placeholder-[#71717A] px-3.5 py-2 rounded-lg text-sm outline-none focus:border-[#A1A1AA]" placeholder="Ej. Carlos Mendoza Vera" required="" type="text">
+</div>
+<div class="space-y-1.5">
+<label class="text-xs font-semibold text-[#A1A1AA] uppercase">Correo Electrónico Institucional *</label>
+<input class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] placeholder-[#71717A] px-3.5 py-2 rounded-lg text-sm font-mono outline-none focus:border-[#A1A1AA]" placeholder="cmendozav@unemi.edu.ec" required="" type="email">
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="space-y-1.5">
+<label class="text-xs font-semibold text-[#A1A1AA] uppercase">Rol *</label>
+<select class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3 py-2 rounded-lg text-sm outline-none focus:border-[#A1A1AA]" required="">
+<option value="Evaluador TI">Evaluador TI</option>
+<option value="Administrador">Administrador</option>
+<option value="Superadministrador">Superadministrador</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="text-xs font-semibold text-[#A1A1AA] uppercase">Grupo *</label>
+<select class="w-full bg-[#121212] border border-[#33333B] text-[#F4F4F5] px-3 py-2 rounded-lg text-sm outline-none focus:border-[#A1A1AA]" required="">
+<option value="Equipo TICs UNEMI">Equipo TICs UNEMI</option>
+<option value="Departamento de Auditoría">Departamento de Auditoría</option>
+<option value="Dirección TICs MINTEL">Dirección TICs MINTEL</option>
+</select>
+</div>
+</div>
+<div class="p-3 bg-[#121212] rounded-lg border border-[#33333B]/60 text-xs text-[#A1A1AA] flex items-start gap-2">
+<span class="material-symbols-outlined text-[17px] text-[#F4F4F5] shrink-0 mt-0.5">info</span>
+<span class="">Se enviará un correo con token seguro de enrolamiento para configurar su contraseña y activar 2FA TOTP.</span>
+</div>
+<div class="flex items-center justify-end gap-3 pt-3 border-t border-[#33333B]">
+<button class="px-4 py-2 rounded-lg text-sm text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" onclick="closeModal('modalCreateUser')" type="button">
+            Cancelar
+          </button>
+<button class="bg-[#F4F4F5] text-[#121212] font-semibold text-sm rounded-lg px-4 py-2 hover:bg-[#E4E4E7] transition-all" type="submit">
+            Guardar Usuario
+          </button>
+</div>
+</form>
+</div>
+</div>
+<!-- Modal 2: Ver Detalle Usuario -->
+<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4" id="modalUserProfile">
+<div class="bg-[#1E1E24] border border-[#33333B] max-w-md w-full rounded-xl overflow-hidden shadow-2xl flex flex-col">
+<div class="px-6 py-4 border-b border-[#33333B] flex items-center justify-between bg-[#121212]">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#27272A] border border-[#33333B] text-[#F4F4F5] text-xs font-bold flex items-center justify-center" id="detailAvatar">
+            EG
+          </div>
+<div>
+<h3 class="text-base font-bold text-[#F4F4F5]" id="detailName">Erick Guaillas</h3>
+<span class="text-xs font-mono text-[#A1A1AA]" id="detailEmail">eguaillasv@unemi.edu.ec</span>
+</div>
+</div>
+<button class="text-[#71717A] hover:text-[#F4F4F5]" onclick="closeModal('modalUserProfile')" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="p-6 space-y-4">
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-[#121212] p-3 rounded-lg border border-[#33333B]">
+<span class="text-[10px] uppercase font-mono text-[#71717A] block">Rol Asignado</span>
+<span class="text-sm font-semibold text-[#F4F4F5]" id="detailRole">Superadministrador</span>
+</div>
+<div class="bg-[#121212] p-3 rounded-lg border border-[#33333B]">
+<span class="text-[10px] uppercase font-mono text-[#71717A] block">Estado</span>
+<span class="text-sm font-semibold text-emerald-400" id="detailStatus">Activo</span>
+</div>
+</div>
+<div class="bg-[#121212] p-3 rounded-lg border border-[#33333B] space-y-1">
+<span class="text-[10px] uppercase font-mono text-[#71717A] block">Grupo de Trabajo</span>
+<span class="text-xs text-[#F4F4F5]" id="detailGroup">Equipo TICs UNEMI</span>
+</div>
+<div class="bg-[#121212] p-3 rounded-lg border border-[#33333B] space-y-1">
+<span class="text-[10px] uppercase font-mono text-[#71717A] block">Factor de Doble Autenticación</span>
+<span class="text-xs text-[#10B981] flex items-center gap-1.5 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+            TOTP Habilitado y Sincronizado
+          </span>
+</div>
+</div>
+<div class="px-6 py-3 border-t border-[#33333B] bg-[#121212] flex justify-end">
+<button class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#27272A] text-[#F4F4F5] hover:bg-[#33333B] transition-colors" onclick="closeModal('modalUserProfile')" type="button">
+          Cerrar
+        </button>
+</div>
+</div>
+</div>
+<!-- Modal 3: Restricción Regla RN-07 (Eliminar) -->
+<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4" id="modalRuleRN07">
+<div class="bg-[#1E1E24] border border-[#33333B] max-w-md w-full rounded-xl overflow-hidden shadow-2xl flex flex-col">
+<div class="px-6 py-4 border-b border-[#33333B] flex items-center justify-between bg-[#121212]">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-[19px]">gavel</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-[#F4F4F5]">Acción Restringida (RN-07)</h3>
+<span class="text-xs text-[#A1A1AA]">Política de Integridad y Trazabilidad</span>
+</div>
+</div>
+<button class="text-[#71717A] hover:text-[#F4F4F5]" onclick="closeModal('modalRuleRN07')" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="p-6 space-y-4">
+<div class="bg-[#121212] border border-[#33333B] p-3.5 rounded-lg space-y-1">
+<span class="text-sm font-semibold text-[#F4F4F5]" id="rn07UserName">No es posible purgar a Erick Guaillas</span>
+<p class="text-xs text-[#A1A1AA] leading-relaxed">
+            El operador posee registros inmutables vinculados: <span class="font-mono text-[#F4F4F5] font-semibold" id="rn07CountEvals">12</span> evaluaciones metodológicas y <span class="font-mono text-[#F4F4F5] font-semibold" id="rn07CountLogs">45</span> eventos en la bitácora de auditoría.
+          </p>
+</div>
+<p class="text-xs text-[#71717A] leading-relaxed">
+          Para suspender permanentemente sus atribuciones sin quebrantar la cadena de custodia probatoria, proceda a inactivar la cuenta.
+        </p>
+<div class="flex items-center justify-end gap-3 pt-2">
+<button class="px-4 py-2 rounded-lg text-xs font-medium text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" onclick="closeModal('modalRuleRN07')" type="button">
+            Cancelar
+          </button>
+<button class="px-4 py-2 rounded-lg text-xs font-semibold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-colors" onclick="confirmDeactivateFromRN07()" type="button">
+            Inactivar Cuenta
+          </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Toast Notification Container -->
+<div class="fixed bottom-6 right-6 z-50 bg-[#1E1E24] border border-[#33333B] text-[#F4F4F5] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 transition-all duration-300 opacity-0 pointer-events-none translate-y-3" id="toastNotification">
+<span class="material-symbols-outlined text-[20px] text-[#F4F4F5]" id="toastIcon">check_circle</span>
+<span class="text-xs font-medium" id="toastMessage">Operación realizada con éxito</span>
+</div>
+<!-- Scripts -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // User Profile Dropdown toggle
+      const trigger = document.getElementById('userProfileTrigger');
+      const dropdown = document.getElementById('navbarUserDropdown');
+
+      if (trigger && dropdown) {
+        trigger.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dropdown.classList.toggle('hidden');
+          dropdown.classList.toggle('flex');
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!dropdown.contains(e.target) && !trigger.contains(e.target)) {
+            closeNavDropdown();
+          }
+        });
+      }
+
+      // Open Create User Modal
+      const openCreateBtn = document.getElementById('btnOpenCreateUser');
+      if (openCreateBtn) {
+        openCreateBtn.addEventListener('click', () => {
+          openModal('modalCreateUser');
+        });
+      }
+
+      // Handle Create User Submit
+      const formNewUser = document.getElementById('formNewUser');
+      if (formNewUser) {
+        formNewUser.addEventListener('submit', (e) => {
+          e.preventDefault();
+          closeModal('modalCreateUser');
+          showToast('Usuario creado con éxito y correo de enrolamiento enviado.', 'mark_email_read');
+          formNewUser.reset();
+        });
+      }
+
+      // Filter change listeners
+      const searchInput = document.getElementById('searchInput');
+      const roleSelect = document.getElementById('roleSelect');
+      const statusSelect = document.getElementById('statusSelect');
+
+      [searchInput, roleSelect, statusSelect].forEach(elem => {
+        if (elem) {
+          elem.addEventListener('input', () => {
+            // Instant feedback
+            const count = (searchInput.value ? 1 : 0) + (roleSelect.value ? 1 : 0) + (statusSelect.value ? 1 : 0);
+            if (count > 0) {
+              console.log(`Filtros activos: ${count}`);
+            }
+          });
+        }
+      });
+    });
+
+    function closeNavDropdown() {
+      const dropdown = document.getElementById('navbarUserDropdown');
+      if (dropdown) {
+        dropdown.classList.add('hidden');
+        dropdown.classList.remove('flex');
+      }
+    }
+
+    function openModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function openUserProfileModal(name, email, role, group, status) {
+      document.getElementById('detailName').innerText = name;
+      document.getElementById('detailEmail').innerText = email;
+      document.getElementById('detailRole').innerText = role;
+      document.getElementById('detailGroup').innerText = group;
+      
+      const statusElem = document.getElementById('detailStatus');
+      statusElem.innerText = status;
+      if (status === 'Activo') {
+        statusElem.className = 'text-sm font-semibold text-emerald-400';
+      } else {
+        statusElem.className = 'text-sm font-semibold text-red-400';
+      }
+
+      const initials = name.split(' ').map(p => p[0]).slice(0, 2).join('');
+      document.getElementById('detailAvatar').innerText = initials || 'US';
+
+      openModal('modalUserProfile');
+    }
+
+    function openRuleRN07Modal(userName, evalsCount, logsCount) {
+      document.getElementById('rn07UserName').innerText = `No es posible purgar a ${userName}`;
+      document.getElementById('rn07CountEvals').innerText = evalsCount;
+      document.getElementById('rn07CountLogs').innerText = logsCount;
+
+      openModal('modalRuleRN07');
+    }
+
+    function confirmDeactivateFromRN07() {
+      closeModal('modalRuleRN07');
+      showToast('La cuenta fue conmutada a Inactiva bajo regla RN-07', 'shield');
+    }
+
+    let toastTimer;
+    function showToast(message, icon = 'check_circle') {
+      const toast = document.getElementById('toastNotification');
+      const msgSpan = document.getElementById('toastMessage');
+      const iconSpan = document.getElementById('toastIcon');
+
+      if (!toast || !msgSpan) return;
+
+      msgSpan.innerText = message;
+      if (iconSpan) iconSpan.innerText = icon;
+
+      toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-3');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 3500);
+    }
+  </script>
+
+
+</body></html>

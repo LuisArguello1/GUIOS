@@ -9,6 +9,8 @@ existen y cuáles están activos para el rol seleccionado.
 
 GET /api/v1/core/permission-tree/
 """
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -27,16 +29,16 @@ class PermissionTreeViewSet(viewsets.ViewSet):
     [
       {
         "id": 1,
-        "name": "Atención",
+        "name": "Sistema",
         "order": 20,
         "modules": [
           {
             "id": 3,
-            "label": "Punto de Venta (POS)",
-            "path": "/pos",
+            "label": "Usuarios",
+            "path": "/dashboard/users",
             "permissions": [
-              {"id": 1, "codename": "pos.view",        "label": "Ver módulo POS",  "order": 1},
-              {"id": 2, "codename": "pos.create_sale", "label": "Crear ventas",    "order": 2},
+              {"id": 1, "codename": "users.view",   "label": "Ver usuarios",   "order": 1},
+              {"id": 2, "codename": "users.create", "label": "Crear usuarios", "order": 2},
               ...
             ]
           },
@@ -51,6 +53,7 @@ class PermissionTreeViewSet(viewsets.ViewSet):
         'list': ['settings.manage', 'settings.roles_view', 'settings.roles_manage'],
     }
 
+    @extend_schema(tags=['Roles y permisos'], summary="Árbol de permisos por categoría y módulo", request=None, responses=OpenApiTypes.OBJECT)
     def list(self, request):
         # Cargar todos los grupos con sus módulos y permisos de forma altamente optimizada
         from apps.core.selectors.menu import get_menu_groups_with_modules_and_permissions

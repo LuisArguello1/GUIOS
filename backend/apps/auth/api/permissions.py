@@ -14,13 +14,13 @@ class HasModulePermission(permissions.BasePermission):
     Las vistas definen qué permiso se requiere mediante:
 
         # Opción A — mismo permiso para todas las acciones:
-        required_permission = 'pos.create_sale'
+        required_permission = 'users.view'
 
         # Opción B — permiso por acción REST:
         required_permission = {
-            'list':    'sales.view_all',
-            'create':  'pos.create_sale',
-            'destroy': 'pos.cancel_sale',
+            'list':    'users.view',
+            'create':  'users.create',
+            'destroy': 'users.deactivate',
         }
 
     Niveles de evaluación:
@@ -82,79 +82,3 @@ class HasModulePermission(permissions.BasePermission):
             return perm
 
         return None
-
-
-# Alias de compatibilidad — se puede eliminar cuando no haya más imports
-HasGranularPermission = HasModulePermission
-
-
-class HasObjectPermission(permissions.BasePermission):
-    """
-    Permiso por propiedad de objeto.
-    Permite acceso si es superuser o si el usuario es propietario.
-    """
-
-    def has_object_permission(self, request, view, obj) -> bool:
-        user = request.user
-
-        if user.is_superuser:
-            return True
-
-        # Buscar campo de propietario en el objeto
-        owner = getattr(
-            obj, "user",
-            getattr(obj, "created_by",
-            getattr(obj, "user_open", None))
-        )
-
-        # Caso especial: modelos anclados a una venta
-        if not owner and hasattr(obj, "sale"):
-            owner = getattr(obj.sale, "user", None)
-
-        if owner and owner == user:
-            return True
-
-        is_sale = hasattr(obj, "payment_type") and hasattr(obj, "total") and hasattr(obj, "is_paid")
-        is_debt = hasattr(obj, "total_amount") and hasattr(obj, "paid_amount") and hasattr(obj, "is_paid")
-        is_cash = hasattr(obj, "initial_amount") or hasattr(obj, "cash_register")
-
-        # Permisos granulares para ver objetos de otros
-        if request.method in permissions.SAFE_METHODS:
-            if is_sale and user_has_permission(user, "sales.view_all"):
-                return True
-            if is_cash and user_has_permission(user, "cash.view_all"):
-                return True
-            if is_debt and user_has_permission(user, "debts.view_all"):
-                return True
-
-        # Permisos granulares para MODIFICAR objetos de otros
-        action = getattr(view, 'action', None)
-        if action:
-            if is_sale:
-                if action == 'cancel' and user_has_permission(user, "sales.cancel_any"):
-                    return True
-                if action == 'add_payment' and user_has_permission(user, "debts.register_payment"):
-                    return True
-                if action == 'mark_as_paid' and user_has_permission(user, "pos.create_sale"):
-                    return True
-            if is_cash:
-                # Si tiene permiso de ver todo (rol supervisor/manager), puede operar sobre otras cajas
-                if user_has_permission(user, "cash.view_all"):
-                    return True
-
-                # En modo Global (force_single_open_register), permitimos que cualquier usuario
-                # con los permisos adecuados opere sobre la caja abierta, aunque no la haya abierto él.
-                if hasattr(obj, 'status') and obj.status == 'ABIERTA':
-                    try:
-                        from apps.cashregister.services.cash_register import get_cash_runtime_config
-                        config = get_cash_runtime_config()
-                        if config.get('force_single_open_register'):
-                            return True
-                    except ImportError:
-                        pass
-
-            if is_debt:
-                if action == 'add_payment' and user_has_permission(user, "debts.register_payment"):
-                    return True
-
-        return False

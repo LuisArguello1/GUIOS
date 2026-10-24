@@ -6,7 +6,7 @@ from .dimension import Dimension
 class Factor(models.Model):
     """
     Criterio de evaluación de segundo nivel.
-    Cada factor tiene una Importancia Sistémica (IS) definida por la metodología.
+    Cada factor tiene una Importancia Sugerida (IS) definida por la metodología (Tabla 5.3).
     """
     SCOPE_INTERNAL = 'internal'
     SCOPE_EXTERNAL = 'external'
@@ -18,9 +18,17 @@ class Factor(models.Model):
         (SCOPE_BOTH, 'Ambos'),
     )
 
+    code = models.CharField(
+        max_length=20,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name="Código",
+        help_text="Clave estable del catálogo base (docs/catalogo_guios.json, p. ej. ORG-SOP). Nulo en registros creados desde la interfaz."
+    )
     dimension = models.ForeignKey(
         Dimension,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='factors',
         verbose_name="Dimensión"
     )
@@ -28,10 +36,15 @@ class Factor(models.Model):
         max_length=200,
         verbose_name="Nombre del factor"
     )
-    systemic_importance = models.PositiveSmallIntegerField(
+    description = models.TextField(
+        blank=True,
+        verbose_name="Descripción",
+        help_text="Descripción del factor (Tabla 5.1 de la tesis)."
+    )
+    suggested_importance = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(4)],
-        verbose_name="Importancia Sistémica (IS)",
-        help_text="Valor definido por la metodología o autocalculado cruzando (IL_base x IE)."
+        verbose_name="Importancia Sugerida / Sistémica (IS)",
+        help_text="Valor fijo definido por la metodología (1: Irrelevante, 2: Opcional, 3: Importante, 4: Fundamental) o cruzando (IL_base x IE)."
     )
     expert_importance = models.PositiveSmallIntegerField(
         default=3,
@@ -45,6 +58,15 @@ class Factor(models.Model):
         verbose_name="Importancia de la Literatura Base (IL)",
         help_text="Importancia de la Literatura base (IL: 1 a 4) calculada por cuartiles en el catálogo."
     )
+
+    @property
+    def systemic_importance(self) -> int:
+        return self.suggested_importance
+
+    @systemic_importance.setter
+    def systemic_importance(self, value: int):
+        self.suggested_importance = value
+
     scope = models.CharField(
         max_length=10,
         choices=SCOPE_CHOICES,

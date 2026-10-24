@@ -1,4 +1,6 @@
 from django.db.models import Prefetch
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -15,6 +17,7 @@ class MenuViewSet(viewsets.ViewSet):
     # Protegido por los permisos granulares globales
     permission_classes = [permissions.IsAuthenticated, HasModulePermission]
 
+    @extend_schema(tags=['Menú'], summary="Menú del usuario actual", request=None, responses=MenuGroupSerializer(many=True))
     def list(self, request):
         """
         GET /api/v1/core/menu/
@@ -25,6 +28,7 @@ class MenuViewSet(viewsets.ViewSet):
         serializer = MenuGroupSerializer(menu_tree, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(tags=['Menú'], summary="Árbol completo del menú activo", request=None, responses=MenuGroupSerializer(many=True))
     @action(detail=False, methods=['get'], url_path='tree')
     def tree(self, request):
         """

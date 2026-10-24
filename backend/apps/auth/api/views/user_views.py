@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -6,6 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from ..permissions import HasModulePermission
 from ..serializers.user_serializers import (
+    UserDeleteImpactSerializer,
     UserListSerializer,
     UserCreateSerializer,
     UserDetailSerializer,
@@ -17,6 +19,7 @@ from ...services.user import (
     user_create,
     user_update,
     user_update_profile,
+    user_delete_impact,
     user_delete_logic,
     toggle_user_active,
 )
@@ -35,6 +38,7 @@ class UserViewSet(viewsets.ModelViewSet):
         'update': 'users.edit',
         'partial_update': 'users.edit',
         'destroy': 'users.deactivate',
+        'delete_impact': 'users.deactivate',
         'toggle_active': 'users.deactivate',
         'me': None,
         'change_password': None,
@@ -134,13 +138,20 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # Siempre 200 con JSON (action: HARD_DELETE o SOFT_DELETE). Un 204 no puede
+        # llevar cuerpo: el navegador fallaba al leerlo aunque el borrado se hiciera.
         result = user_delete_logic(user=user)
-        response_status = (
-            status.HTTP_204_NO_CONTENT
-            if result['action'] == 'HARD_DELETE'
-            else status.HTTP_200_OK
-        )
-        return Response(result, status=response_status)
+        return Response(result, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Qué pasará al eliminar al usuario",
+        description="Borrado físico si no tiene registros vinculados; si los tiene, se desactiva. "
+                    "Usa la misma regla que DELETE.",
+        responses=UserDeleteImpactSerializer,
+    )
+    @action(detail=True, methods=['get'], url_path='delete-impact')
+    def delete_impact(self, request, pk=None):
+        return Response(UserDeleteImpactSerializer(user_delete_impact(user=self.get_object())).data)
 
     @action(detail=True, methods=['post'], url_path='toggle-active')
     def toggle_active(self, request, pk=None):

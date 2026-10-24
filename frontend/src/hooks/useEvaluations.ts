@@ -14,7 +14,7 @@ import evaluationService, {
     type AISourceItem,
     type EvaluationQueryParams,
 } from '../api/evaluationService';
-import useEvaluationStore from '../app/useEvaluationStore';
+import useEvaluationStore from '../app/useGuiosEvaluationsStore';
 import useToastStore from '../app/useToastStore';
 import { getErrorDetail } from '../utils/errorUtils';
 

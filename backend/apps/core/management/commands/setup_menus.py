@@ -33,6 +33,8 @@ ICONS = {
     "ASPIRANTE":   "UserCheck",
     "DOCENTE":     "BookOpen",
     "PLANTILLA":   "FileText",
+    "CATALOG":     "ListTree",
+    "EVALUATIONS": "ClipboardList",
 }
 
 class Command(BaseCommand):
@@ -50,14 +52,16 @@ class Command(BaseCommand):
                     {"label": "Dashboard", "icon": ICONS["DASHBOARD"], "path": "/dashboard", "order": 1},
                 ],
             },
-            # ── Metodología GUIOS ─────────────────────────────────────────────
+            # ── GUIOS (catálogo y evaluaciones) ───────────────────────────────
             {
-                "name": "Metodología GUIOS",
+                "name": "GUIOS",
                 "order": 20,
                 "modules": [
-                    {"label": "Dimensiones",   "icon": "Layers",         "path": "/dashboard/guios/dimensiones", "order": 1},
-                    {"label": "Factores",       "icon": "Sliders",        "path": "/dashboard/guios/factores",    "order": 2},
-                    {"label": "Evaluaciones",   "icon": "ClipboardCheck", "path": "/dashboard/guios/evaluaciones", "order": 3},
+                    {"label": "Catálogo",               "icon": ICONS["CATALOG"],     "path": "/dashboard/catalogo",          "order": 1},
+                    {"label": "Evaluaciones",           "icon": ICONS["EVALUATIONS"], "path": "/dashboard/evaluaciones",      "order": 2},
+                    {"label": "Dimensiones",            "icon": "Layers",             "path": "/dashboard/guios/dimensiones", "order": 3},
+                    {"label": "Factores",               "icon": "Sliders",            "path": "/dashboard/guios/factores",    "order": 4},
+                    {"label": "Evaluaciones GUIOS",      "icon": "ClipboardCheck",     "path": "/dashboard/guios/evaluaciones", "order": 5},
                 ],
             },
             # ── Configuración & Sistema ───────────────────────────────────────

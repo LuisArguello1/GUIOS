@@ -24,6 +24,8 @@ const Breadcrumbs = ({ className }: BreadcrumbsProps) => {
         users: 'Usuarios',
         auditoria: 'Auditoría',
         menu: 'Menú',
+        catalogo: 'Catálogo',
+        evaluaciones: 'Evaluaciones',
     };
 
     const isIdentifierSegment = (segment: string) => (

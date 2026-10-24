@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import MainLayout from './layouts/MainLayout';
+import PublicLayout from './layouts/PublicLayout';
 import ModuleGuard from './components/layouts/ModuleGuard';
 import Loading from './components/ui/Loading';
 import ToastProvider from './components/ui/ToastProvider';
@@ -10,6 +11,10 @@ const LoginPage = lazy(() => import('./features/auth/LoginPage'));
 const PasswordRecoveryPage = lazy(() => import('./features/auth/PasswordRecoveryPage'));
 const RoleSelectionPage = lazy(() => import('./features/auth/RoleSelectionPage'));
 const NoRolePage = lazy(() => import('./features/auth/NoRolePage'));
+
+const HomePage = lazy(() => import('./features/evaluation/pages/HomePage'));
+const StationPage = lazy(() => import('./features/evaluation/pages/StationPage'));
+const ResultsPage = lazy(() => import('./features/evaluation/pages/ResultsPage'));
 
 const DashboardPage = lazy(() => import('./features/dashboard/DashboardPage'));
 const ProfilePage = lazy(() => import('./features/dashboard/ProfilePage'));
@@ -21,7 +26,10 @@ const OrganizationPage = lazy(() => import('./features/settings/pages/Organizati
 const MenuSettingsPage = lazy(() => import('./features/settings/pages/MenuSettingsPage'));
 const DimensionsPage = lazy(() => import('./features/guios/dimensions/DimensionsPage'));
 const FactorsPage = lazy(() => import('./features/guios/factors/FactorsPage'));
-const EvaluationsPage = lazy(() => import('./features/guios/evaluations/EvaluationsPage'));
+const GuiosEvaluationsPage = lazy(() => import('./features/guios/evaluations/EvaluationsPage'));
+const CatalogPage = lazy(() => import('./features/catalog/CatalogPage'));
+const EvaluationsPage = lazy(() => import('./features/evaluations/EvaluationsPage'));
+const EvaluationDetailPage = lazy(() => import('./features/evaluations/EvaluationDetailPage'));
 
 function App() {
     return (
@@ -30,6 +38,13 @@ function App() {
 
             <Suspense fallback={<Loading fullPage label="Sincronizando..." />}>
                 <Routes>
+                    {/* Evaluación pública (sin sesión), fuera de /dashboard */}
+                    <Route element={<PublicLayout />}>
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/evaluacion/:uuid" element={<StationPage />} />
+                        <Route path="/evaluacion/:uuid/resultados" element={<ResultsPage />} />
+                    </Route>
+
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/recuperar-contrasena" element={<PasswordRecoveryPage />} />
                     <Route path="/select-role" element={<RoleSelectionPage />} />
@@ -58,7 +73,7 @@ function App() {
                             path="guios/evaluaciones"
                             element={
                                 <ModuleGuard requiredPath="/dashboard/guios/evaluaciones">
-                                    <EvaluationsPage />
+                                    <GuiosEvaluationsPage />
                                 </ModuleGuard>
                             }
                         />
@@ -75,6 +90,30 @@ function App() {
                             element={
                                 <ModuleGuard requiredPath="/dashboard/auditoria">
                                     <AuditPage />
+                                </ModuleGuard>
+                            }
+                        />
+                        <Route
+                            path="catalogo"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/catalogo">
+                                    <CatalogPage />
+                                </ModuleGuard>
+                            }
+                        />
+                        <Route
+                            path="evaluaciones"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/evaluaciones">
+                                    <EvaluationsPage />
+                                </ModuleGuard>
+                            }
+                        />
+                        <Route
+                            path="evaluaciones/:uuid"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/evaluaciones">
+                                    <EvaluationDetailPage />
                                 </ModuleGuard>
                             }
                         />
@@ -103,7 +142,6 @@ function App() {
                         />
                     </Route>
 
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
             </Suspense>

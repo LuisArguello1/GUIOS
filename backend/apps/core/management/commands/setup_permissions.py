@@ -30,7 +30,17 @@ PERMISSION_CATALOG: dict[str, list[tuple[str, str, str, int]]] = {
     ],
 
 
-    # ── Metodología GUIOS ─────────────────────────────────────────────
+    # ── Metodología GUIOS y Catálogo ──────────────────────────────────────────
+    "/dashboard/catalogo": [
+        ("catalog.view",   "Ver catálogo",       "Consulta dimensiones, factores y subfactores (incluidos los inactivos).", 1),
+        ("catalog.create", "Crear en catálogo",  "Crea dimensiones, factores y subfactores.",                                 2),
+        ("catalog.edit",   "Editar catálogo",    "Modifica, activa o desactiva elementos del catálogo.",                       3),
+        ("catalog.delete", "Eliminar del catálogo", "Elimina elementos sin evaluaciones ni dependencias (RN-07).",             4),
+    ],
+    "/dashboard/evaluaciones": [
+        ("evaluations.view",   "Ver evaluaciones",      "Consulta el historial y el detalle de las evaluaciones.", 1),
+        ("evaluations.export", "Exportar evaluaciones", "Exporta el historial en CSV y el detalle en PDF.",         2),
+    ],
     "/dashboard/guios/dimensiones": [
         ("guios.dimension_view",   "Ver dimensiones",     "Accede al listado y detalle de dimensiones del catálogo GUIOS.", 1),
         ("guios.dimension_create", "Crear dimensiones",   "Registra nuevas dimensiones de evaluación.",                      2),

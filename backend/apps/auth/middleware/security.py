@@ -19,6 +19,16 @@ class SessionSecurityMiddleware:
     }
     _HSTS_HEADER = 'max-age=31536000; includeSubDomains; preload'
 
+    # Swagger UI y ReDoc (servidos con drf-spectacular-sidecar desde /static/)
+    # necesitan estilos en línea, imágenes data: y un worker blob:. Ningún script
+    # externo ni en línea: Swagger usa SpectacularSwaggerSplitView. Solo aplica a
+    # estas rutas; el resto de /api/ conserva default-src 'self'.
+    _DOCS_PATHS = ('/api/docs/', '/api/redoc/')
+    _DOCS_CSP = (
+        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+        "worker-src 'self' blob:; frame-ancestors 'none'"
+    )
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -55,5 +65,7 @@ class SessionSecurityMiddleware:
             return
         for header, value in self._SECURITY_HEADERS.items():
             response[header] = value
+        if request.path in self._DOCS_PATHS:
+            response['Content-Security-Policy'] = self._DOCS_CSP
         if not settings.DEBUG:
             response['Strict-Transport-Security'] = self._HSTS_HEADER

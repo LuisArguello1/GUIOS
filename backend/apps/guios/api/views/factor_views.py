@@ -27,6 +27,7 @@ from apps.guios.exceptions import (
     FactorAlreadyExistsError,
     FactorCannotBeDeletedError,
 )
+from drf_spectacular.utils import extend_schema
 from ..serializers.factor_serializers import (
     FactorListSerializer,
     FactorDetailSerializer,
@@ -35,6 +36,7 @@ from ..serializers.factor_serializers import (
 )
 
 
+@extend_schema(exclude=True)
 class FactorViewSet(viewsets.GenericViewSet):
     """
     CRUD completo para el catálogo de Factores de la metodología GUIOS.

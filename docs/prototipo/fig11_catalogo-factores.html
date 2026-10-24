@@ -1,0 +1,602 @@
+<!DOCTYPE html><html class="dark" lang="es" style="width: 1280px; height: 1538px; overflow: hidden; position: relative;"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<meta content="web_dashboard" name="shell-type">
+<title>Catálogo: factores · GUIOS PRO</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            canvas: "#121212",
+            card: "#1E1E24",
+            border: "#33333B",
+            accent: "#27272A",
+            textMain: "#F4F4F5",
+            textMuted: "#A1A1AA"
+          },
+          fontFamily: {
+            sans: ["Geist", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #121212;
+        color: #F4F4F5;
+      }
+      body {
+        overscroll-behavior: none;
+      }
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+<body class="bg-[#121212] font-sans text-[#F4F4F5] antialiased min-h-screen">
+<!-- Left Sidebar -->
+<aside class="fixed left-0 top-0 h-screen w-[260px] bg-[#121212] border-r border-[#33333B] z-50 flex flex-col justify-between select-none"><div class="flex flex-col min-h-0"><div class="h-16 px-5 flex items-center justify-between border-b border-[#33333B]"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-lg bg-[#27272A] border border-[#33333B] flex items-center justify-center text-[#F4F4F5]"><span class="material-symbols-outlined text-[18px]">shield</span></div><div><span class="text-[15px] font-semibold text-[#F4F4F5] tracking-tight block leading-tight">GUIOS PRO</span><span class="text-[10px] font-mono text-[#A1A1AA] tracking-wider uppercase block">AUDITORÍA V2.4</span></div></div></div><nav class="flex-1 overflow-y-auto px-3 py-4 space-y-4"><div class="space-y-1"><p class="px-3 py-1 text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">PANEL PRINCIPAL</p><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#A1A1AA] hover:bg-[#1E1E24] hover:text-[#F4F4F5] transition-colors text-[13px]" data-path="tablero-principal" href="{{DATA:SCREEN:SCREEN_12}}"><span class="material-symbols-outlined text-[18px]">dashboard</span><span class="">Tablero Principal</span></a></div><div class="space-y-1"><p class="px-3 py-1 text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">GESTIÓN METODOLÓGICA</p><a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#27272A] text-[#F4F4F5] font-medium transition-colors border-l-2 border-white text-[13px]" data-path="catalogo-de-evaluacion" href="{{DATA:SCREEN:SCREEN_8}}"><span class="material-symbols-outlined text-[18px] text-[#F4F4F5]">menu_book</span><span class="">Catálogo de Evaluación</span></a><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#A1A1AA] hover:bg-[#1E1E24] hover:text-[#F4F4F5] transition-colors text-[13px]" data-path="historial-de-evaluaciones" href="#"><span class="material-symbols-outlined text-[18px]">history</span><span class="">Historial de Evaluaciones</span></a></div><div class="space-y-1"><p class="px-3 py-1 text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">SEGURIDAD Y ACCESO</p><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#A1A1AA] hover:bg-[#1E1E24] hover:text-[#F4F4F5] transition-colors text-[13px]" data-path="usuarios" href="#"><span class="material-symbols-outlined text-[18px]">person</span><span class="">Usuarios</span></a><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#A1A1AA] hover:bg-[#1E1E24] hover:text-[#F4F4F5] transition-colors text-[13px]" data-path="roles-y-permisos" href="#"><span class="material-symbols-outlined text-[18px]">admin_panel_settings</span><span class="">Roles y Permisos</span></a></div><div class="space-y-1"><p class="px-3 py-1 text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">CONFIGURACIÓN</p><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#A1A1AA] hover:bg-[#1E1E24] hover:text-[#F4F4F5] transition-colors text-[13px]" data-path="organizacion" href="#"><span class="material-symbols-outlined text-[18px]">corporate_fare</span><span class="">Organización</span></a><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#A1A1AA] hover:bg-[#1E1E24] hover:text-[#F4F4F5] transition-colors text-[13px]" data-path="estructura-del-menu" href="#"><span class="material-symbols-outlined text-[18px]">account_tree</span><span class="">Estructura del Menú</span></a></div><div class="space-y-1"><p class="px-3 py-1 text-[11px] font-mono uppercase tracking-wider text-[#A1A1AA]">TRAZABILIDAD</p><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#A1A1AA] hover:bg-[#1E1E24] hover:text-[#F4F4F5] transition-colors text-[13px]" data-path="auditoria" href="#"><span class="material-symbols-outlined text-[18px]">policy</span><span class="">Auditoría</span></a></div></nav></div><div class="p-3 border-t border-[#33333B] space-y-1"><button class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[#A1A1AA] hover:bg-[#1E1E24] hover:text-[#F4F4F5] transition-colors text-[13px]" type="button"><span class="flex items-center gap-3"><span class="material-symbols-outlined text-[18px]">keyboard_double_arrow_left</span><span class="">Colapsar Sidebar</span></span></button><a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#A1A1AA] hover:bg-[#1E1E24] hover:text-[#EF4444] transition-colors text-[13px]" data-path="cerrar-sesion" href="{{DATA:SCREEN:SCREEN_22}}"><span class="material-symbols-outlined text-[18px]">logout</span><span class="">Cerrar Sesión</span></a></div></aside>
+<!-- Main Layout Wrapper -->
+<div class="pl-[260px]">
+<!-- Top Navbar -->
+<header class="fixed top-0 left-[260px] right-0 h-16 bg-[#1E1E24] border-b border-[#33333B] z-40 flex items-center justify-between px-6"><div class="flex items-center gap-2 text-[13px] text-[#A1A1AA]"><span class="hover:text-[#F4F4F5] transition-colors">Inicio</span><span class="text-[#33333B]">/</span><span class="hover:text-[#F4F4F5] transition-colors">Gestión Metodológica</span><span class="text-[#33333B]">/</span><span class="text-[#F4F4F5] font-medium">Catálogo de Evaluación (Factores)</span></div><div class="flex items-center gap-3"><button aria-label="Notificaciones" class="relative p-2 text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors rounded-lg hover:bg-[#27272A]" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#EF4444]"></span></button><div class="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-[#121212] border border-[#33333B]"><div class="w-7 h-7 rounded-full bg-[#27272A] border border-[#33333B] flex items-center justify-center font-mono text-[13px] text-[#F4F4F5] font-semibold">A</div><div class="flex flex-col text-left"><span class="text-[12px] font-medium text-[#F4F4F5] leading-tight">Admin GUIOS</span><span class="text-[10px] text-[#A1A1AA] leading-tight font-mono">Superadministrador</span></div><span class="material-symbols-outlined text-[#A1A1AA] text-[16px]">expand_more</span></div></div></header>
+<!-- Main Content Area -->
+<main class="w-full pt-20 px-6 pb-12 bg-[#121212] min-h-screen"><div class="flex flex-col w-full"><div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-[#33333B]">
+  <div class="space-y-1">
+    <div class="flex items-center gap-2 text-[#A1A1AA] text-[11px] font-mono uppercase tracking-wider">
+      <span class="">Gestión Metodológica</span>
+      <span class="text-[#33333B]">/</span>
+      <span class="text-[#F4F4F5] font-semibold">Catálogo de Evaluación</span>
+    </div>
+    <h1 class="text-[24px] font-semibold text-[#F4F4F5] tracking-tight">Catálogo de Evaluación</h1>
+    <p class="text-[13px] text-[#A1A1AA]">
+      Gestión de la estructura metodológica base de GUIOS (Dimensiones, Factores y Subfactores).
+    </p>
+  </div>
+  <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3 px-4 py-2 rounded-lg bg-[#1E1E24] border border-[#33333B]">
+      <div class="w-8 h-8 rounded-md bg-[#27272A] flex items-center justify-center text-[#F4F4F5]">
+        <span class="material-symbols-outlined text-[18px]">analytics</span>
+      </div>
+      <div>
+        <p class="text-[10px] font-mono text-[#A1A1AA] uppercase tracking-wider">TOTAL FACTORES</p>
+        <p class="text-[14px] font-semibold font-mono text-[#F4F4F5]">18 / 18</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 px-4 py-2 rounded-lg bg-[#1E1E24] border border-[#33333B]">
+      <div class="w-8 h-8 rounded-md bg-[#27272A] flex items-center justify-center text-[#34D399]">
+        <span class="material-symbols-outlined text-[18px]">verified</span>
+      </div>
+      <div>
+        <p class="text-[10px] font-mono text-[#A1A1AA] uppercase tracking-wider">COBERTURA FODA</p>
+        <p class="text-[14px] font-semibold font-mono text-[#34D399]">100%</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="flex items-center justify-between pt-6 pb-6">
+  <div class="inline-flex items-center p-1 rounded-lg bg-[#1E1E24] border border-[#33333B] gap-1">
+    <a class="flex items-center gap-2 px-3 py-1.5 rounded text-[13px] text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" href="{{DATA:SCREEN:SCREEN_10}}">
+      <span class="">Dimensiones</span>
+      <span class="px-1.5 py-0.5 rounded bg-[#27272A] text-[11px] font-mono text-[#A1A1AA]">3</span>
+    </a>
+    <a class="flex items-center gap-2 px-3 py-1.5 rounded bg-[#27272A] text-[13px] font-medium text-[#F4F4F5] border border-[#33333B] transition-colors" href="{{DATA:SCREEN:SCREEN_8}}">
+      <span class="">Factores</span>
+      <span class="px-1.5 py-0.5 rounded bg-[#121212] text-[11px] font-mono text-[#F4F4F5]">18</span>
+    </a>
+    <a class="flex items-center gap-2 px-3 py-1.5 rounded text-[13px] text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" href="{{DATA:SCREEN:SCREEN_2}}">
+      <span class="">Subfactores</span>
+      <span class="px-1.5 py-0.5 rounded bg-[#27272A] text-[11px] font-mono text-[#A1A1AA]">61</span>
+    </a>
+  </div>
+</div>
+
+<div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 mb-6">
+  <div class="flex-1 relative">
+    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#A1A1AA] text-[18px]">search</span>
+    <input class="w-full bg-[#121212] border border-[#33333B] rounded-lg pl-9 pr-4 py-2 text-[#F4F4F5] placeholder:text-[#A1A1AA] text-[13px] focus:outline-none focus:border-[#F4F4F5] transition-colors" placeholder="Buscar por nombre de factor o clave..." type="text">
+  </div>
+  <div class="flex flex-wrap items-center gap-2">
+    <div class="relative">
+      <select class="bg-[#121212] border border-[#33333B] rounded-lg px-3 py-2 pr-8 text-[#F4F4F5] text-[13px] appearance-none focus:outline-none focus:border-[#F4F4F5] transition-colors">
+        <option>Todas las Dimensiones</option>
+        <option>Tecnológica (11)</option>
+        <option>Organizacional (4)</option>
+        <option>Económica (3)</option>
+      </select>
+      <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#A1A1AA] text-[18px]">expand_more</span>
+    </div>
+    <div class="relative">
+      <select class="bg-[#121212] border border-[#33333B] rounded-lg px-3 py-2 pr-8 text-[#F4F4F5] text-[13px] appearance-none focus:outline-none focus:border-[#F4F4F5] transition-colors">
+        <option>Todos los Ámbitos</option>
+        <option>Externo (O/A)</option>
+        <option>Interno (F/D)</option>
+        <option>Híbrido (Interno/Externo)</option>
+      </select>
+      <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#A1A1AA] text-[18px]">expand_more</span>
+    </div>
+    <div class="relative">
+      <select class="bg-[#121212] border border-[#33333B] rounded-lg px-3 py-2 pr-8 text-[#F4F4F5] text-[13px] appearance-none focus:outline-none focus:border-[#F4F4F5] transition-colors">
+        <option>Estado: Activo (18)</option>
+        <option>Estado: Inactivo (0)</option>
+      </select>
+      <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#A1A1AA] text-[18px]">expand_more</span>
+    </div>
+    <button class="flex items-center gap-2 bg-[#F4F4F5] text-[#121212] hover:bg-white px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors whitespace-nowrap" type="button">
+      <span class="material-symbols-outlined text-[18px]">add</span>
+      <span class="">Nuevo Factor</span>
+    </button>
+  </div>
+</div>
+
+<div class="bg-[#1E1E24] border border-[#33333B] rounded-xl overflow-hidden shadow-sm mb-6">
+  <div class="overflow-x-auto w-full">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="border-b border-[#33333B] text-[11px] font-mono text-[#A1A1AA] uppercase tracking-wider bg-[#1E1E24]">
+          <th class="py-3 px-4 font-medium">ID</th>
+          <th class="py-3 px-4 font-medium">DIMENSIÓN PERTENECIENTE</th>
+          <th class="py-3 px-4 font-medium">NOMBRE DEL FACTOR Y ALCANCE</th>
+          <th class="py-3 px-4 font-medium">IMPORTANCIA (IS)</th>
+          <th class="py-3 px-4 font-medium">ÁMBITO FODA</th>
+          <th class="py-3 px-4 font-medium">SOPORTE CONFIGURABLE</th>
+          <th class="py-3 px-4 font-medium">ESTADO</th>
+          <th class="py-3 px-4 text-right font-medium">ACCIONES</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-[#33333B] text-[13px]">
+        <tr class="hover:bg-[#27272A]/50 transition-colors group">
+          <td class="py-3.5 px-4 font-mono text-[12px] text-[#A1A1AA]">FAC-001</td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono uppercase font-semibold border border-[#2D6A4F] bg-[rgba(45,106,79,0.25)] text-[#34D399]">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#34D399]"></span>
+              Tecnológica
+            </span>
+          </td>
+          <td class="py-3.5 px-4">
+            <div class="flex flex-col">
+              <span class="font-medium text-[#F4F4F5]">Compatibilidad</span>
+              <span class="text-[11px] text-[#A1A1AA]">FAC-TEC-001 • Interoperabilidad, APIs y acoplamiento estructural</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#121212] border border-[#33333B]">
+              <span class="font-mono font-semibold text-[12px] text-[#F4F4F5]">3</span>
+              <span class="text-[11px] text-[#A1A1AA]">Importante</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap text-[#A1A1AA]">
+            <span class="">Externo <span class="font-mono text-[11px] text-[#A1A1AA]">(O/A)</span></span>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap text-[#A1A1AA] font-mono text-[12px]">
+            No
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono border border-[#2D6A4F] bg-[rgba(45,106,79,0.25)] text-[#34D399]">
+              <span class="w-1 h-1 rounded-full bg-[#34D399]"></span>
+              ACTIVO
+            </span>
+          </td>
+          <td class="py-3.5 px-4 text-right whitespace-nowrap">
+            <div class="flex items-center justify-end gap-1"><a class="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#121212] hover:bg-[#27272A] border border-[#33333B] text-[11px] font-mono text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors mr-1" href="{{DATA:SCREEN:SCREEN_2}}" title="Ver Subfactores"><span class="material-symbols-outlined text-[14px]">checklist</span><span class="hidden xl:inline">Subfactores</span><span class="material-symbols-outlined text-[12px]">arrow_forward</span></a>
+              <button class="p-1.5 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" title="Editar Factor">
+                <span class="material-symbols-outlined text-[16px]">edit</span>
+              </button>
+              <button class="p-1.5 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#EF4444] transition-colors" title="Eliminar Factor">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <tr class="hover:bg-[#27272A]/50 transition-colors group">
+          <td class="py-3.5 px-4 font-mono text-[12px] text-[#A1A1AA]">FAC-002</td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono uppercase font-semibold border border-[#2D6A4F] bg-[rgba(45,106,79,0.25)] text-[#34D399]">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#34D399]"></span>
+              Tecnológica
+            </span>
+          </td>
+          <td class="py-3.5 px-4">
+            <div class="flex flex-col">
+              <span class="font-medium text-[#F4F4F5]">Fiabilidad</span>
+              <span class="text-[11px] text-[#A1A1AA]">FAC-TEC-002 • Tolerancia a fallos, resiliencia y madurez</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#121212] border border-[#33333B]">
+              <span class="font-mono font-semibold text-[12px] text-[#F4F4F5]">3</span>
+              <span class="text-[11px] text-[#A1A1AA]">Importante</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap text-[#A1A1AA]">
+            <span class="">Externo <span class="font-mono text-[11px] text-[#A1A1AA]">(O/A)</span></span>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap text-[#A1A1AA] font-mono text-[12px]">
+            No
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono border border-[#2D6A4F] bg-[rgba(45,106,79,0.25)] text-[#34D399]">
+              <span class="w-1 h-1 rounded-full bg-[#34D399]"></span>
+              ACTIVO
+            </span>
+          </td>
+          <td class="py-3.5 px-4 text-right whitespace-nowrap">
+            <div class="flex items-center justify-end gap-1"><a class="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#121212] hover:bg-[#27272A] border border-[#33333B] text-[11px] font-mono text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors mr-1" href="{{DATA:SCREEN:SCREEN_2}}" title="Ver Subfactores"><span class="material-symbols-outlined text-[14px]">checklist</span><span class="hidden xl:inline">Subfactores</span><span class="material-symbols-outlined text-[12px]">arrow_forward</span></a>
+              <button class="p-1.5 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" title="Editar Factor">
+                <span class="material-symbols-outlined text-[16px]">edit</span>
+              </button>
+              <button class="p-1.5 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#EF4444] transition-colors" title="Eliminar Factor">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <tr class="hover:bg-[#27272A]/50 transition-colors group">
+          <td class="py-3.5 px-4 font-mono text-[12px] text-[#A1A1AA]">FAC-003</td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono uppercase font-semibold border border-[#D97706] bg-[rgba(217,119,6,0.15)] text-[#FBBF24]">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#FBBF24]"></span>
+              Organizacional
+            </span>
+          </td>
+          <td class="py-3.5 px-4">
+            <div class="flex flex-col">
+              <span class="font-medium text-[#F4F4F5]">Soporte y Garantías</span>
+              <span class="text-[11px] text-[#A1A1AA]">FAC-ORG-001 • Acompañamiento técnico de proveedores y SLA</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#121212] border border-[#33333B]">
+              <span class="font-mono font-semibold text-[12px] text-[#F4F4F5]">3</span>
+              <span class="text-[11px] text-[#A1A1AA]">Importante</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap text-[#A1A1AA]">
+            <span class="">Interno/Externo <span class="font-mono text-[11px] text-[#A1A1AA]">(F/D/O/A)</span></span>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded border border-[#D97706] bg-[rgba(217,119,6,0.15)] text-[#FBBF24]">
+              Sí (Editable)
+            </span>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono border border-[#2D6A4F] bg-[rgba(45,106,79,0.25)] text-[#34D399]">
+              <span class="w-1 h-1 rounded-full bg-[#34D399]"></span>
+              ACTIVO
+            </span>
+          </td>
+          <td class="py-3.5 px-4 text-right whitespace-nowrap">
+            <div class="flex items-center justify-end gap-1"><a class="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#121212] hover:bg-[#27272A] border border-[#33333B] text-[11px] font-mono text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors mr-1" href="{{DATA:SCREEN:SCREEN_2}}" title="Ver Subfactores"><span class="material-symbols-outlined text-[14px]">checklist</span><span class="hidden xl:inline">Subfactores</span><span class="material-symbols-outlined text-[12px]">arrow_forward</span></a>
+              <button class="p-1.5 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" title="Editar Factor">
+                <span class="material-symbols-outlined text-[16px]">edit</span>
+              </button>
+              <button class="p-1.5 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#EF4444] transition-colors" title="Eliminar Factor">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <tr class="hover:bg-[#27272A]/50 transition-colors group">
+          <td class="py-3.5 px-4 font-mono text-[12px] text-[#A1A1AA]">FAC-004</td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono uppercase font-semibold border border-[#8B5CF6] bg-[rgba(139,92,246,0.15)] text-[#C4B5FD]">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#C4B5FD]"></span>
+              Económica
+            </span>
+          </td>
+          <td class="py-3.5 px-4">
+            <div class="flex flex-col">
+              <span class="font-medium text-[#F4F4F5]">Coste total de propiedad (TCO)</span>
+              <span class="text-[11px] text-[#A1A1AA]">FAC-ECO-001 • Inversión CAPEX/OPEX y depreciación de licencias</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#121212] border border-[#33333B]">
+              <span class="font-mono font-semibold text-[12px] text-[#F4F4F5]">3</span>
+              <span class="text-[11px] text-[#A1A1AA]">Importante</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap text-[#A1A1AA]">
+            <span class="">Interno <span class="font-mono text-[11px] text-[#A1A1AA]">(F/D)</span></span>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap text-[#A1A1AA] font-mono text-[12px]">
+            No
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono border border-[#2D6A4F] bg-[rgba(45,106,79,0.25)] text-[#34D399]">
+              <span class="w-1 h-1 rounded-full bg-[#34D399]"></span>
+              ACTIVO
+            </span>
+          </td>
+          <td class="py-3.5 px-4 text-right whitespace-nowrap">
+            <div class="flex items-center justify-end gap-1"><a class="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#121212] hover:bg-[#27272A] border border-[#33333B] text-[11px] font-mono text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors mr-1" href="{{DATA:SCREEN:SCREEN_2}}" title="Ver Subfactores"><span class="material-symbols-outlined text-[14px]">checklist</span><span class="hidden xl:inline">Subfactores</span><span class="material-symbols-outlined text-[12px]">arrow_forward</span></a>
+              <button class="p-1.5 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" title="Editar Factor">
+                <span class="material-symbols-outlined text-[16px]">edit</span>
+              </button>
+              <button class="p-1.5 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#EF4444] transition-colors" title="Eliminar Factor">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <tr class="hover:bg-[#27272A]/50 transition-colors group">
+          <td class="py-3.5 px-4 font-mono text-[12px] text-[#A1A1AA]">FAC-005</td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono uppercase font-semibold border border-[#2D6A4F] bg-[rgba(45,106,79,0.25)] text-[#34D399]">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#34D399]"></span>
+              Tecnológica
+            </span>
+          </td>
+          <td class="py-3.5 px-4">
+            <div class="flex flex-col">
+              <span class="font-medium text-[#F4F4F5]">Mantenibilidad</span>
+              <span class="text-[11px] text-[#A1A1AA]">FAC-TEC-003 • Modularidad, deuda técnica y portabilidad</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#121212] border border-[#33333B]">
+              <span class="font-mono font-semibold text-[12px] text-[#F4F4F5]">3</span>
+              <span class="text-[11px] text-[#A1A1AA]">Importante</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap text-[#A1A1AA]">
+            <span class="">Externo <span class="font-mono text-[11px] text-[#A1A1AA]">(O/A)</span></span>
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap text-[#A1A1AA] font-mono text-[12px]">
+            No
+          </td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono border border-[#2D6A4F] bg-[rgba(45,106,79,0.25)] text-[#34D399]">
+              <span class="w-1 h-1 rounded-full bg-[#34D399]"></span>
+              ACTIVO
+            </span>
+          </td>
+          <td class="py-3.5 px-4 text-right whitespace-nowrap">
+            <div class="flex items-center justify-end gap-1"><a class="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#121212] hover:bg-[#27272A] border border-[#33333B] text-[11px] font-mono text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors mr-1" href="{{DATA:SCREEN:SCREEN_2}}" title="Ver Subfactores"><span class="material-symbols-outlined text-[14px]">checklist</span><span class="hidden xl:inline">Subfactores</span><span class="material-symbols-outlined text-[12px]">arrow_forward</span></a>
+              <button class="p-1.5 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#F4F4F5] transition-colors" title="Editar Factor">
+                <span class="material-symbols-outlined text-[16px]">edit</span>
+              </button>
+              <button class="p-1.5 rounded hover:bg-[#27272A] text-[#A1A1AA] hover:text-[#EF4444] transition-colors" title="Eliminar Factor">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="px-4 py-3 border-t border-[#33333B] flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-[#A1A1AA]">
+    <div class="text-[12px]">
+      Mostrando <span class="text-[#F4F4F5] font-semibold font-mono">5</span> de <span class="text-[#F4F4F5] font-semibold font-mono">18</span> factores del catálogo activo
+    </div>
+    <div class="flex items-center gap-1 font-mono text-[12px]">
+      <button class="p-1 rounded bg-[#121212] border border-[#33333B] text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors disabled:opacity-50" disabled="">
+        <span class="material-symbols-outlined text-[16px]">chevron_left</span>
+      </button>
+      <button class="px-2.5 py-1 rounded bg-[#27272A] text-[#F4F4F5] border border-[#33333B]">1</button>
+      <button class="px-2.5 py-1 rounded bg-[#121212] border border-[#33333B] text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors">2</button>
+      <button class="px-2.5 py-1 rounded bg-[#121212] border border-[#33333B] text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors">3</button>
+      <button class="px-2.5 py-1 rounded bg-[#121212] border border-[#33333B] text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors">4</button>
+      <button class="p-1 rounded bg-[#121212] border border-[#33333B] text-[#A1A1AA] hover:text-[#F4F4F5] hover:bg-[#27272A] transition-colors">
+        <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div class="p-4 rounded-xl bg-[#1E1E24] border border-[#33333B]">
+    <div class="flex items-center gap-2 text-[#F4F4F5] font-medium text-[14px] mb-2">
+      <span class="material-symbols-outlined text-[18px] text-[#34D399]">linear_scale</span>
+      Importancia Sugerida (IS 1-4)
+    </div>
+    <p class="text-[12px] text-[#A1A1AA] leading-relaxed">
+      Pondera la criticidad metodológica del factor en el stack. Nivel 4 implica requerimientos de arquitectura esenciales no negociables.
+    </p>
+  </div>
+  <div class="p-4 rounded-xl bg-[#1E1E24] border border-[#33333B]">
+    <div class="flex items-center gap-2 text-[#F4F4F5] font-medium text-[14px] mb-2">
+      <span class="material-symbols-outlined text-[18px] text-[#EF4444]">shield</span>
+      Regla de Integridad RN-07
+    </div>
+    <p class="text-[12px] text-[#A1A1AA] leading-relaxed">
+      Protección contra borrado: ningún factor con subfactores vinculados o evaluaciones en curso puede ser eliminado sin desvincularlos previamente.
+    </p>
+  </div>
+  <div class="p-4 rounded-xl bg-[#1E1E24] border border-[#33333B]">
+    <div class="flex items-center gap-2 text-[#F4F4F5] font-medium text-[14px] mb-2">
+      <span class="material-symbols-outlined text-[18px] text-[#C4B5FD]">schema</span>
+      Mapeo Metodológico FODA
+    </div>
+    <p class="text-[12px] text-[#A1A1AA] leading-relaxed">
+      Modificar factores y su asignación FODA recalcula automáticamente las matrices de diagnóstico y las recomendaciones en tiempo real.
+    </p>
+  </div>
+</div></div>
+<script>
+  (function() {
+    // Dynamic Filter & Search Logic
+    const searchInput = document.getElementById('search-factor-input');
+    const clearSearch = document.getElementById('clear-search');
+    const filterDimension = document.getElementById('filter-dimension');
+    const filterFoda = document.getElementById('filter-foda');
+    const filterIs = document.getElementById('filter-is');
+    const tableBody = document.getElementById('factors-table-body');
+    const rows = tableBody ? Array.from(tableBody.querySelectorAll('tr')) : [];
+    const visibleCount = document.getElementById('visible-count');
+    const noResultsMsg = document.getElementById('no-results-msg');
+    const activeFilterIndicator = document.getElementById('active-filter-indicator');
+    const btnResetFilters = document.getElementById('btn-reset-filters');
+
+    function applyFilters() {
+      if (!tableBody) return;
+      const query = (searchInput.value || '').trim().toLowerCase();
+      const dim = filterDimension.value;
+      const foda = filterFoda.value;
+      const isVal = filterIs.value;
+
+      if (query.length > 0) {
+        clearSearch.classList.remove('hidden');
+      } else {
+        clearSearch.classList.add('hidden');
+      }
+
+      let count = 0;
+      const activeFilters = [];
+      if (query) activeFilters.push(`"${query}"`);
+      if (dim) activeFilters.push(dim);
+      if (foda) activeFilters.push(foda);
+      if (isVal) activeFilters.push(`IS-${isVal}`);
+
+      activeFilterIndicator.textContent = activeFilters.length > 0 ? activeFilters.join(' • ') : 'Ninguno';
+
+      rows.forEach(row => {
+        const rowName = (row.getAttribute('data-name') || '').toLowerCase();
+        const rowDim = row.getAttribute('data-dimension') || '';
+        const rowFoda = row.getAttribute('data-foda') || '';
+        const rowIs = row.getAttribute('data-is') || '';
+
+        const matchesQuery = !query || rowName.includes(query);
+        const matchesDim = !dim || rowDim === dim;
+        const matchesFoda = !foda || rowFoda === foda || (foda === 'Ambos' && rowFoda === 'Ambos');
+        const matchesIs = !isVal || rowIs === isVal;
+
+        if (matchesQuery && matchesDim && matchesFoda && matchesIs) {
+          row.style.display = '';
+          count++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      if (visibleCount) visibleCount.textContent = count;
+      if (noResultsMsg) {
+        if (count === 0) {
+          noResultsMsg.classList.remove('hidden');
+          noResultsMsg.classList.add('flex');
+        } else {
+          noResultsMsg.classList.add('hidden');
+          noResultsMsg.classList.remove('flex');
+        }
+      }
+    }
+
+    if (searchInput) searchInput.addEventListener('input', applyFilters);
+    if (filterDimension) filterDimension.addEventListener('change', applyFilters);
+    if (filterFoda) filterFoda.addEventListener('change', applyFilters);
+    if (filterIs) filterIs.addEventListener('change', applyFilters);
+
+    if (clearSearch) {
+      clearSearch.addEventListener('click', () => {
+        searchInput.value = '';
+        applyFilters();
+      });
+    }
+
+    if (btnResetFilters) {
+      btnResetFilters.addEventListener('click', () => {
+        if (searchInput) searchInput.value = '';
+        if (filterDimension) filterDimension.value = '';
+        if (filterFoda) filterFoda.value = '';
+        if (filterIs) filterIs.value = '';
+        applyFilters();
+      });
+    }
+
+    // Modal Handlers
+    const modal = document.getElementById('new-factor-modal');
+    const btnNew = document.getElementById('btn-new-factor');
+    const btnClose = document.getElementById('btn-close-modal');
+    const btnCancel = document.getElementById('btn-cancel-modal');
+    const newFactorForm = document.getElementById('new-factor-form');
+
+    function openModal() {
+      if (modal) modal.classList.remove('hidden');
+    }
+    function closeModal() {
+      if (modal) modal.classList.add('hidden');
+    }
+
+    if (btnNew) btnNew.addEventListener('click', openModal);
+    if (btnClose) btnClose.addEventListener('click', closeModal);
+    if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+    if (newFactorForm) {
+      newFactorForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        closeModal();
+      });
+    }
+
+    // Compact View Toggle
+    const btnDensity = document.getElementById('btn-density-toggle');
+    let isCompact = false;
+    if (btnDensity) {
+      btnDensity.addEventListener('click', () => {
+        isCompact = !isCompact;
+        rows.forEach(r => {
+          r.querySelectorAll('td').forEach(td => {
+            if (isCompact) {
+              td.classList.remove('py-3.5');
+              td.classList.add('py-2');
+            } else {
+              td.classList.remove('py-2');
+              td.classList.add('py-3.5');
+            }
+          });
+        });
+        btnDensity.innerHTML = isCompact 
+          ? '<span class="material-symbols-outlined text-[16px]">density_medium</span><span>Vista Normal</span>'
+          : '<span class="material-symbols-outlined text-[16px]">density_small</span><span>Vista Compacta</span>';
+      });
+    }
+  })();
+</script></main>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const exportBtn = document.getElementById('quick-export-btn');
+      if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+          const originalContent = exportBtn.innerHTML;
+          exportBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span><span>Generando...</span>';
+          exportBtn.disabled = true;
+          setTimeout(() => {
+            exportBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] text-[#34D399]">check</span><span>¡Descargado!</span>';
+            setTimeout(() => {
+              exportBtn.innerHTML = originalContent;
+              exportBtn.disabled = false;
+            }, 1800);
+          }, 1000);
+        });
+      }
+    });
+  </script>
+
+
+
+
+
+
+
+
+</body></html>

@@ -5,9 +5,12 @@ Capa de selectores para Evaluaciones Metodológicas GUIOS.
 ÚNICA capa responsable de ejecutar consultas ORM sobre Evaluation y modelos satélite.
 Implementa optimizaciones anti N+1 con select_related y prefetch_related explícitos.
 """
-
+import hashlib
+import hmac
 from typing import Optional
+from uuid import UUID
 from django.db.models import QuerySet, Q
+
 from apps.guios.models import (
     Evaluation,
     EvaluationFactor,
@@ -17,6 +20,8 @@ from apps.guios.models import (
 )
 from apps.guios.exceptions import EvaluationNotFoundError
 
+
+# ── Selectors para el módulo administrativo y API REST ──────────────────────
 
 def get_evaluations_queryset(
     *,
@@ -32,7 +37,6 @@ def get_evaluations_queryset(
     qs = Evaluation.objects.select_related('created_by', 'verdict').all()
 
     if user and not user.is_staff and not user.is_superuser:
-        # Los usuarios no administradores solo visualizan sus propias evaluaciones
         qs = qs.filter(created_by=user)
 
     if status:
@@ -53,9 +57,6 @@ def get_evaluations_queryset(
 
 
 def get_evaluation_or_error(evaluation_id: int | str) -> Evaluation:
-    """
-    Retorna la instancia de evaluación por su ID primario o lanza EvaluationNotFoundError.
-    """
     try:
         return Evaluation.objects.select_related('created_by', 'verdict').get(pk=evaluation_id)
     except (Evaluation.DoesNotExist, ValueError):
@@ -63,9 +64,6 @@ def get_evaluation_or_error(evaluation_id: int | str) -> Evaluation:
 
 
 def get_evaluation_by_uuid_or_error(uuid_str: str) -> Evaluation:
-    """
-    Retorna la instancia de evaluación por su UUID público o lanza EvaluationNotFoundError.
-    """
     try:
         return Evaluation.objects.select_related('created_by', 'verdict').get(uuid=uuid_str)
     except (Evaluation.DoesNotExist, ValueError):
@@ -73,13 +71,6 @@ def get_evaluation_by_uuid_or_error(uuid_str: str) -> Evaluation:
 
 
 def get_evaluation_detail_or_error(evaluation_id: int | str) -> Evaluation:
-    """
-    Retorna la evaluación con TODA su jerarquía precargada en memoria (anti N+1):
-    - Creador y veredicto (select_related)
-    - Factores evaluados con dimensión padre (prefetch_related)
-    - Subfactores evaluados con factor (prefetch_related)
-    - Resultados FODA con factor (prefetch_related)
-    """
     try:
         return (
             Evaluation.objects.select_related('created_by', 'verdict')
@@ -95,9 +86,6 @@ def get_evaluation_detail_or_error(evaluation_id: int | str) -> Evaluation:
 
 
 def get_evaluation_factors_queryset(evaluation_id: int | str) -> QuerySet[EvaluationFactor]:
-    """
-    Retorna los factores de evaluación vinculados a la sesión, ordenados por dimensión y factor.
-    """
     return (
         EvaluationFactor.objects.filter(evaluation_id=evaluation_id)
         .select_related('factor__dimension')
@@ -109,9 +97,6 @@ def get_evaluation_subfactors_queryset(
     evaluation_id: int | str,
     factor_id: Optional[int] = None,
 ) -> QuerySet[EvaluationSubfactor]:
-    """
-    Retorna los subfactores de evaluación vinculados a la sesión, opcionalmente filtrados por factor.
-    """
     qs = (
         EvaluationSubfactor.objects.filter(evaluation_id=evaluation_id)
         .select_related('subfactor__factor__dimension')
@@ -123,9 +108,6 @@ def get_evaluation_subfactors_queryset(
 
 
 def get_evaluation_results_queryset(evaluation_id: int | str) -> QuerySet[EvaluationResult]:
-    """
-    Retorna los resultados FODA calculados para los factores relevantes de la evaluación.
-    """
     return (
         EvaluationResult.objects.filter(evaluation_id=evaluation_id)
         .select_related('factor__dimension')
@@ -134,7 +116,79 @@ def get_evaluation_results_queryset(evaluation_id: int | str) -> QuerySet[Evalua
 
 
 def get_evaluation_verdict_or_none(evaluation_id: int | str) -> Optional[EvaluationVerdict]:
-    """
-    Retorna el veredicto final emitido para la evaluación o None si aún no se ha concluido.
-    """
     return EvaluationVerdict.objects.filter(evaluation_id=evaluation_id).first()
+
+
+# ── Selectors para la evaluación pública (flujo wizard) ─────────────────────
+
+def hash_session_token(token: str) -> str:
+    """En la base solo se guarda el SHA-256 del token de sesión anónima."""
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
+def get_evaluation_by_token(evaluation_uuid: UUID, token: str) -> Optional[Evaluation]:
+    """Devuelve la evaluación solo si el token corresponde; si no, None."""
+    evaluation = Evaluation.objects.filter(uuid=evaluation_uuid).first()
+    if evaluation is None or not evaluation.session_token:
+        return None
+    if not hmac.compare_digest(evaluation.session_token, hash_session_token(token)):
+        return None
+    return evaluation
+
+
+def evaluation_factors(evaluation: Evaluation):
+    """Factores de la evaluación en el orden del catálogo, con sus subfactores."""
+    subfactors = (
+        EvaluationSubfactor.objects
+        .select_related('subfactor')
+        .order_by('subfactor__order', 'subfactor_id')
+    )
+    factors = list(
+        EvaluationFactor.objects
+        .filter(evaluation=evaluation)
+        .select_related('factor', 'factor__dimension')
+        .order_by('factor__dimension__order', 'factor__dimension_id', 'factor__order', 'factor_id')
+    )
+    by_factor = {}
+    for item in subfactors.filter(evaluation=evaluation):
+        by_factor.setdefault(item.subfactor.factor_id, []).append(item)
+    for item in factors:
+        item.items = by_factor.get(item.factor_id, [])
+    return factors
+
+
+def get_evaluation_factor(evaluation: Evaluation, factor_id: int) -> Optional[EvaluationFactor]:
+    return (
+        EvaluationFactor.objects
+        .select_related('factor')
+        .filter(evaluation=evaluation, factor_id=factor_id)
+        .first()
+    )
+
+
+def get_evaluation_subfactor(evaluation: Evaluation, subfactor_id: int) -> Optional[EvaluationSubfactor]:
+    return EvaluationSubfactor.objects.filter(evaluation=evaluation, subfactor_id=subfactor_id).first()
+
+
+def build_engine_inputs(factors) -> list:
+    """
+    Entradas del motor a partir de las instantáneas de la evaluación (RN-08):
+    IS, nombre del factor y texto del subfactor no dependen del catálogo vivo.
+    Los códigos del motor son los ids del catálogo, para volver a los registros.
+    """
+    from apps.guios.services.engine import FactorInput, SubfactorInput
+    return [
+        FactorInput(
+            code=str(item.factor_id),
+            name=item.factor_name_snapshot,
+            suggested_importance=item.suggested_importance_snapshot,
+            decisor_importance=item.decisor_importance,
+            scope=item.scope_used or None,
+            scope_configurable=item.factor.scope_configurable,
+            subfactors=tuple(
+                SubfactorInput(str(sub.subfactor_id), sub.description_snapshot, sub.rating)
+                for sub in item.items
+            ),
+        )
+        for item in factors
+    ]

@@ -27,6 +27,7 @@ from apps.guios.exceptions import (
     SubfactorAlreadyExistsError,
     SubfactorCannotBeDeletedError,
 )
+from drf_spectacular.utils import extend_schema
 from ..serializers.subfactor_serializers import (
     SubfactorListSerializer,
     SubfactorDetailSerializer,
@@ -35,6 +36,7 @@ from ..serializers.subfactor_serializers import (
 )
 
 
+@extend_schema(exclude=True)
 class SubfactorViewSet(viewsets.GenericViewSet):
     """
     CRUD completo para los Subfactores de evaluación de la metodología GUIOS.

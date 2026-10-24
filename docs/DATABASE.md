@@ -49,8 +49,8 @@ Organization        (Singleton)
 [Dominio de evaluación]
 Dimension (1) ------- (N) Factor
 Factor (1) ---------- (N) Subfactor
-Evaluation (1) ------ (N) EvaluationFactor    [1 por cada Factor del catálogo activo]
-Evaluation (1) ------ (N) EvaluationSubfactor [1 por cada Subfactor calificado]
+Evaluation (1) ------ (N) EvaluationFactor    [1 por cada Factor evaluable al crear la evaluación]
+Evaluation (1) ------ (N) EvaluationSubfactor [1 por cada Subfactor activo al crear la evaluación]
 Evaluation (1) ------ (N) EvaluationResult    [1 por cada Factor relevante calificado]
 Evaluation (1) ------ (1) EvaluationVerdict
 Evaluation (1) ------ (N) AIAssistanceLog
@@ -263,18 +263,21 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 ## Módulo de evaluación GUIOS
 
+> **Nota (Paso 2 del plan, `docs/ANALISIS_GUIOS_ORIGINAL.md` §8):** los modelos de esta sección ya coinciden con el código. La migración `0002_suggested_importance_protect_unrated` aplicó los cambios respecto a la `0001`: renombre a `suggested_importance` (con `RenameField`), `PROTECT` en dimensión→factor y factor→subfactor, valores nulos para "sin calificar", `factor_name_snapshot` y las etiquetas A/B/C de la tesis. La migración `0003_catalog_code` (Paso 3) agregó `code` a `Dimension`, `Factor` y `Subfactor` y `description` a `Factor`; el catálogo base se carga con `python backend/manage.py seed_guios_catalog`. "Implementado (modelo)" significa que existen el modelo y su migración; la lógica (motor, API, pantallas) llega en los pasos siguientes.
+
 ---
 
 ### 10. Dimension — `Dimension`
 
 - **Tabla en BD:** `guios_dimension`
 - **Ubicación:** `apps.guios.models.dimension.Dimension`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Agrupador de primer nivel del catálogo GUIOS: Tecnológica, Organizacional, Económica. El catálogo base proviene de la tesis doctoral. Cubre RF-ADM-31 (CRUD de dimensiones).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
 | :--- | :--- | :--- | :--- |
 | `id` | `BigAutoField` | No (PK) | Identificador único autoincremental. |
+| `code` | `CharField(20)` | Sí (Unique) | Clave estable del catálogo base (`codigo` en `docs/catalogo_guios.json`, p. ej. `TEC`). La usa `seed_guios_catalog`. Nulo en registros creados desde la interfaz. |
 | `name` | `CharField(150)` | No (Unique) | Nombre de la dimensión. |
 | `description` | `TextField` | Sí (Blank) | Descripción del alcance de la dimensión. |
 | `order` | `PositiveSmallIntegerField` | No (Default: 0) | Orden de presentación en la evaluación. |
@@ -290,16 +293,18 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_factor`
 - **Ubicación:** `apps.guios.models.factor.Factor`
-- **Estado:** Pendiente de implementación
-- **Descripción:** Criterio de evaluación de segundo nivel. Cada factor tiene una Importancia Sistémica (IS) definida por la metodología. Cubre RF-ADM-32 (CRUD de factores), RF-PUB-02 (Paso 1-2) y RN-06 (ámbito de Soporte).
+- **Estado:** Implementado (modelo)
+- **Descripción:** Criterio de evaluación de segundo nivel. Cada factor tiene una Importancia Sugerida (IS) definida por la metodología (Tabla 5.3 de la tesis). Cubre RF-ADM-32 (CRUD de factores), RF-PUB-02 (Paso 1-2) y RN-06 (ámbito de Soporte).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
 | :--- | :--- | :--- | :--- |
 | `id` | `BigAutoField` | No (PK) | Identificador único autoincremental. |
-| `dimension` | `ForeignKey(Dimension)` | No (CASCADE) | Dimensión a la que pertenece. |
+| `code` | `CharField(20)` | Sí (Unique) | Clave estable del catálogo base (`codigo` en `docs/catalogo_guios.json`, p. ej. `ORG-SOP`). La usa `seed_guios_catalog`. Nulo en registros creados desde la interfaz. |
+| `dimension` | `ForeignKey(Dimension)` | No (PROTECT) | Dimensión a la que pertenece. PROTECT impide borrar una dimensión con factores (RF-ADM-31). |
 | `name` | `CharField(200)` | No | Nombre del factor. |
-| `systemic_importance` | `PositiveSmallIntegerField` | No | IS definida por la metodología. Valores: 1, 2, 3, 4. |
-| `scope` | `CharField(10)` | No | Ámbito FODA: `internal`, `external` o `both`. |
+| `description` | `TextField` | Sí (Blank) | Descripción del factor (Tabla 5.1 de la tesis). |
+| `suggested_importance` | `PositiveSmallIntegerField` | No | IS de la guía (Tabla 5.3). Valores: 1, 2, 3, 4. Se muestra al evaluador como referencia. |
+| `scope` | `CharField(10)` | No (Default: `internal`) | Ámbito FODA: `internal`, `external` o `both`. |
 | `scope_configurable` | `BooleanField` | No (Default: False) | `True` únicamente para el factor "Soporte" (RF-PUB-02, RN-06). |
 | `order` | `PositiveSmallIntegerField` | No (Default: 0) | Orden dentro de la dimensión. |
 | `is_base` | `BooleanField` | No (Default: False) | Pertenece al catálogo base de la tesis. No eliminable si `True`. |
@@ -308,7 +313,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 | `updated_at` | `DateTimeField` | No (auto_now) | Timestamp de modificación. |
 
 **Restricciones:**
-- `systemic_importance` acepta únicamente valores [1, 4]. (RNF-07)
+- `suggested_importance` acepta únicamente valores [1, 4]. (RNF-07)
 - `scope` acepta únicamente `internal`, `external` o `both`.
 - Solo puede eliminarse si no tiene subfactores ni registros en `EvaluationFactor`. (RF-ADM-32, RN-07)
 
@@ -318,13 +323,14 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_subfactor`
 - **Ubicación:** `apps.guios.models.subfactor.Subfactor`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Criterio de tercer nivel que el evaluador califica individualmente. Texto redactado como afirmación verificable. Cubre RF-ADM-33 (CRUD) y RF-PUB-04 (Paso 3-4).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
 | :--- | :--- | :--- | :--- |
 | `id` | `BigAutoField` | No (PK) | Identificador único autoincremental. |
-| `factor` | `ForeignKey(Factor)` | No (CASCADE) | Factor al que pertenece. |
+| `code` | `CharField(20)` | Sí (Unique) | Clave estable del catálogo base (`codigo` en `docs/catalogo_guios.json`, p. ej. `ORG-ACT-02`). La usa `seed_guios_catalog`. Nulo en registros creados desde la interfaz. |
+| `factor` | `ForeignKey(Factor)` | No (PROTECT) | Factor al que pertenece. PROTECT impide borrar un factor con subfactores (RF-ADM-32). |
 | `description` | `TextField` | No | Texto del criterio redactado como afirmación verificable. |
 | `order` | `PositiveSmallIntegerField` | No (Default: 0) | Orden dentro del factor. |
 | `is_base` | `BooleanField` | No (Default: False) | Pertenece al catálogo base de la tesis. |
@@ -340,7 +346,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_evaluation`
 - **Ubicación:** `apps.guios.models.evaluation.Evaluation`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Registro principal de una sesión de evaluación. Actúa como cabecera de todos los registros de detalle. Cubre RF-PUB-01 (datos del modal de inicio), RF-PUB-06 (persistencia), RF-ADM-34 y 35 (historial).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -354,11 +360,11 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 | `org_sector` | `CharField(150)` | Sí (Blank) | Sector o rubro de la organización. RF-PUB-01. |
 | `org_description` | `TextField` | Sí (Blank) | Descripción de la organización y sus necesidades de TI. Insumo principal para la IA. RF-PUB-01, RF-IA-01. |
 | `ai_enabled` | `BooleanField` | No (Default: False) | IA fue activada en esta evaluación. RF-IA-01. |
-| `status` | `CharField(20)` | No (Default: `in_progress`) | Estado: `in_progress` o `completed`. RF-ADM-34. |
+| `status` | `CharField(20)` | No (Default: `in_progress`) | Estado: `in_progress` o `completed`. Con `completed` (dictamen emitido) la evaluación queda bloqueada: no admite cambios. RF-ADM-34. |
 | `created_by` | `ForeignKey(CustomUser)` | Sí (SET_NULL) | Usuario del panel que inició la evaluación. `NULL` para evaluaciones públicas anónimas. |
 | `started_at` | `DateTimeField` | No (auto_now_add) | Fecha y hora de inicio. |
 | `completed_at` | `DateTimeField` | Sí | Fecha y hora en que se emitió el dictamen. |
-| `session_token` | `CharField(64)` | Sí (Unique, Index) | Token de sesión anónima del navegador. Identifica evaluaciones públicas sin usuario. RF-PUB-06. |
+| `session_token` | `CharField(64)` | Sí (Unique, Index) | SHA-256 del token de sesión anónima. El token en claro se entrega una sola vez al crear la evaluación y se envía en la cabecera `X-Evaluation-Token`; en la base solo queda su hash. RF-PUB-06. |
 
 ---
 
@@ -366,7 +372,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_evaluationfactor`
 - **Ubicación:** `apps.guios.models.evaluation_factor.EvaluationFactor`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Configuración asignada por el evaluador a cada factor en el Paso 1-2. Incluye snapshot del IS para proteger el historial si el catálogo cambia (RN-08). Cubre RF-PUB-02, RF-PUB-03, RF-IA-02, RN-01, RN-08.
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -374,14 +380,15 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 | `id` | `BigAutoField` | No (PK) | Identificador único autoincremental. |
 | `evaluation` | `ForeignKey(Evaluation)` | No (CASCADE) | Evaluación a la que pertenece. |
 | `factor` | `ForeignKey(Factor)` | No (PROTECT) | Factor configurado. PROTECT protege el historial (RN-07). |
-| `systemic_importance_snapshot` | `PositiveSmallIntegerField` | No | Copia del IS del factor en el momento de la evaluación. Valores: 1-4. (RN-08, RNF-09) |
-| `decisor_importance` | `PositiveSmallIntegerField` | No | ID asignado por el evaluador. Valores: 1-4. (RF-PUB-02, RNF-07) |
-| `relative_importance` | `PositiveSmallIntegerField` | No | IR calculada por el motor: `floor((IS_idx + ID_idx) / 2)` mapeada a [1-4]. (RNF-08) |
-| `is_relevant` | `BooleanField` | No | `True` si IR > Irrelevante. Determina si el factor pasa al Paso 3-4. (RF-PUB-03, RN-01) |
-| `scope_used` | `CharField(10)` | No | Ámbito efectivo: `internal` o `external`. Para "Soporte" lo asigna el evaluador. (RN-06) |
+| `suggested_importance_snapshot` | `PositiveSmallIntegerField` | No | Copia de la IS del factor en el momento de la evaluación. Valores: 1-4. (RN-08, RNF-09) |
+| `factor_name_snapshot` | `CharField(200)` | No | Copia del nombre del factor en el momento de la evaluación. (RN-08) |
+| `decisor_importance` | `PositiveSmallIntegerField` | Sí | ID asignado por el evaluador. Valores: 1-4. `NULL` = "sin calificar" (RN-12). (RF-PUB-02, RNF-07) |
+| `relative_importance` | `PositiveSmallIntegerField` | Sí | IR calculada por el motor con la matriz de la Figura 5.10 (equivale a `floor((IS_idx + ID_idx) / 2)` mapeada a [1-4]). `NULL` mientras la ID esté sin calificar. (RNF-08, RN-13) |
+| `is_relevant` | `BooleanField` | Sí | `True` si IR > Irrelevante. Determina si el factor pasa al Paso 3-4. `NULL` mientras la ID esté sin calificar. (RF-PUB-03, RN-01) |
+| `scope_used` | `CharField(10)` | Sí (Blank) | Ámbito efectivo: `internal` o `external`. Para los factores con ámbito fijo se copia del catálogo; para "Soporte" lo elige el evaluador y queda vacío mientras esté sin calificar. (RN-06, RN-12) |
 | `ai_suggested_id` | `PositiveSmallIntegerField` | Sí | ID sugerido por la IA. `NULL` si la IA no fue invocada. (RF-IA-02) |
 | `ai_id_justification` | `TextField` | Sí (Blank) | Justificación de la IA para el ID sugerido. |
-| `id_was_ai_accepted` | `BooleanField` | No (Default: False) | `True` si el evaluador no modificó el valor sugerido por la IA. (RN-05) |
+| `id_was_ai_accepted` | `BooleanField` | No (Default: False) | `True` si el evaluador aceptó la sugerencia de la IA sin cambios. (RN-05) |
 
 **Restricción de unicidad:** `(evaluation, factor)`.
 
@@ -391,8 +398,8 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_evaluationsubfactor`
 - **Ubicación:** `apps.guios.models.evaluation_subfactor.EvaluationSubfactor`
-- **Estado:** Pendiente de implementación
-- **Descripción:** Calificación asignada a cada subfactor en el Paso 3-4. Incluye snapshot del texto del subfactor para proteger el historial (RN-08). Cubre RF-PUB-04, RF-IA-03, RN-08.
+- **Estado:** Implementado (modelo)
+- **Descripción:** Calificación asignada a cada subfactor en el Paso 3-4. Se crea "sin calificar" para cada subfactor activo al iniciar la evaluación. Incluye snapshot del texto del subfactor para proteger el historial (RN-08). Cubre RF-PUB-04, RF-IA-03, RN-08.
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
 | :--- | :--- | :--- | :--- |
@@ -400,10 +407,10 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 | `evaluation` | `ForeignKey(Evaluation)` | No (CASCADE) | Evaluación a la que pertenece. |
 | `subfactor` | `ForeignKey(Subfactor)` | No (PROTECT) | Subfactor calificado. PROTECT protege el historial (RN-07). |
 | `description_snapshot` | `TextField` | No | Copia del texto del subfactor en el momento de la evaluación. (RN-08, RNF-09) |
-| `rating` | `PositiveSmallIntegerField` | No | Calificación final del evaluador. Valores: 1-4. (RF-PUB-04, RNF-07) |
+| `rating` | `PositiveSmallIntegerField` | Sí | Calificación final del evaluador. Valores: 1-4. `NULL` = "sin calificar" (p. ej., la IA ya sugirió pero el evaluador aún no decide) (RN-12). (RF-PUB-04, RNF-07) |
 | `ai_suggested_rating` | `PositiveSmallIntegerField` | Sí | Calificación sugerida por la IA. `NULL` si no fue invocada. (RF-IA-03) |
 | `ai_rating_justification` | `TextField` | Sí (Blank) | Justificación de la IA para la calificación sugerida. |
-| `rating_was_ai_accepted` | `BooleanField` | No (Default: False) | `True` si el evaluador no modificó el valor sugerido. (RN-05) |
+| `rating_was_ai_accepted` | `BooleanField` | No (Default: False) | `True` si el evaluador aceptó la sugerencia de la IA sin cambios. (RN-05) |
 | `saved_at` | `DateTimeField` | No (auto_now) | Fecha y hora del último guardado. |
 
 **Restricción de unicidad:** `(evaluation, subfactor)`.
@@ -414,7 +421,7 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 
 - **Tabla en BD:** `guios_evaluationresult`
 - **Ubicación:** `apps.guios.models.evaluation_result.EvaluationResult`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Resultados calculados por el motor matemático para cada factor relevante: Ponderación Media (PM) y clasificación FODA. Cubre RF-PUB-05 (Paso 5-6), RNF-08 (determinismo).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -426,6 +433,8 @@ CustomUser (1) ------ (N) Evaluation          [evaluaciones iniciadas desde el p
 | `meets_threshold` | `BooleanField` | No | `True` si `weighted_average >= 3.0`. |
 | `foda_classification` | `CharField(12)` | No | Resultado FODA: `strength`, `weakness`, `opportunity` o `threat`. |
 | `calculated_at` | `DateTimeField` | No (auto_now) | Fecha y hora del último cálculo. |
+
+Solo existe resultado para un factor relevante con **todos** sus subfactores calificados (RN-02). Se recalcula cada vez que cambia una calificación, la ID o el ámbito del factor (RN-13).
 
 **Lógica de clasificación (motor matemático, no IA):**
 
@@ -444,33 +453,35 @@ scope_used = 'external' y meets_threshold = False ->  threat      (Amenaza)
 
 - **Tabla en BD:** `guios_evaluationverdict`
 - **Ubicación:** `apps.guios.models.evaluation_verdict.EvaluationVerdict`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Dictamen final emitido por el motor matemático. Relación OneToOne con Evaluation. Almacena opcionalmente el resumen ejecutivo y plan de mitigación de la IA. Cubre RF-PUB-05, RF-IA-04, RN-03 y RN-04.
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
 | :--- | :--- | :--- | :--- |
 | `id` | `BigAutoField` | No (PK) | Identificador único autoincremental. |
 | `evaluation` | `OneToOneField(Evaluation)` | No (CASCADE) | Evaluación a la que corresponde el dictamen. |
-| `recommendation` | `CharField(1)` | No | Tipo de recomendación: `A`, `B` o `C`. |
+| `recommendation` | `CharField(1)` | No | Tipo de recomendación según la tesis (págs. 104-106): `A` Adoptar, `B` Es posible adoptar con matices, `C` Analizar y posponer la adopción. |
 | `explanation_text` | `TextField` | No | Texto explicativo del dictamen. Generado por el motor matemático, no por la IA. |
-| `ai_executive_summary` | `TextField` | Sí (Blank) | Resumen ejecutivo generado por el servicio de IA. `NULL` si IA no fue invocada. (RF-IA-04) |
-| `ai_mitigation_plan` | `TextField` | Sí (Blank) | Plan de mitigación de la IA para dictámenes A o B. `NULL` si no aplica. (RF-IA-04) |
+| `ai_executive_summary` | `TextField` | No (Blank, Default: `""`) | Resumen ejecutivo generado por el servicio de IA. Vacío (`""`) si la IA no fue invocada. (RF-IA-04) |
+| `ai_mitigation_plan` | `TextField` | No (Blank, Default: `""`) | Plan de mitigación de la IA para dictámenes B o C. Vacío (`""`) si no aplica. (RF-IA-04) |
 | `calculated_at` | `DateTimeField` | No (auto_now_add) | Fecha y hora de emisión del dictamen. |
 
 **Lógica del dictamen (motor matemático):**
 
 ```
-Recomendación A:  Existe algún EvaluationResult con foda_classification IN ('weakness','threat')
+Precondición (RN-04): todos los factores relevantes tienen EvaluationResult.
+
+Recomendación C:  Existe algún EvaluationResult con foda_classification IN ('weakness','threat')
                   Y su EvaluationFactor.relative_importance IN (3, 4) [Importante o Fundamental]
 
 Recomendación B:  Existe algún EvaluationResult con foda_classification IN ('weakness','threat')
                   Y su EvaluationFactor.relative_importance = 2 [Opcional]
-                  Y NO existe ningún caso de Recomendación A
+                  Y NO existe ningún caso de Recomendación C
 
-Recomendación C:  Todos los EvaluationResult tienen foda_classification IN ('strength','opportunity')
+Recomendación A:  Todos los EvaluationResult tienen foda_classification IN ('strength','opportunity')
 ```
 
-> RN-03: El dictamen A tiene prioridad sobre el B. RN-04: Si no hay ningún EvaluationResult, no se emite dictamen.
+> RN-03: El dictamen C tiene prioridad sobre el B. RN-04: Mientras falte algún factor relevante por evaluar, no se emite dictamen. RN-14: el dictamen no depende de la IA. `explanation_text` nombra los factores que causan el dictamen (RF-PUB-05).
 
 ---
 
@@ -478,7 +489,7 @@ Recomendación C:  Todos los EvaluationResult tienen foda_classification IN ('st
 
 - **Tabla en BD:** `guios_aiassistancelog`
 - **Ubicación:** `apps.guios.models.ai_log.AIAssistanceLog`
-- **Estado:** Pendiente de implementación
+- **Estado:** Implementado (modelo)
 - **Descripción:** Registro de cada llamada al servicio de IA durante una evaluación. Permite trazabilidad completa de las interacciones con el servicio externo. Cubre RF-IA-05 (errores/timeout), RF-IA-06 (formato JSON), RNF-03 (timeout), RNF-19 (independencia).
 
 | Campo | Tipo de Dato | Nulo / Opcional | Descripción |
@@ -509,18 +520,18 @@ Recomendación C:  Todos los EvaluationResult tienen foda_classification IN ('st
 | 7 | `MenuModule` | `core_menumodule` | Implementado | RF-ADM-15, 16, 17, 18, 24 |
 | 8 | `ModulePermission` | `core_modulepermission` | Implementado | RF-ADM-15, 23, RN-09 |
 | 9 | `Organization` | `core_organization` | Implementado | RF-ADM-22, RN-10 |
-| 10 | `Dimension` | `guios_dimension` | Pendiente | RF-ADM-31 |
-| 11 | `Factor` | `guios_factor` | Pendiente | RF-ADM-32, RF-PUB-02, RN-06, RN-07 |
-| 12 | `Subfactor` | `guios_subfactor` | Pendiente | RF-ADM-33, RF-PUB-04, RN-07 |
-| 13 | `Evaluation` | `guios_evaluation` | Pendiente | RF-PUB-01, 06, RF-ADM-34, 35 |
-| 14 | `EvaluationFactor` | `guios_evaluationfactor` | Pendiente | RF-PUB-02, 03, RF-IA-02, RN-01, RN-05, RN-06, RN-08 |
-| 15 | `EvaluationSubfactor` | `guios_evaluationsubfactor` | Pendiente | RF-PUB-04, RF-IA-03, RN-02, RN-05, RN-08 |
-| 16 | `EvaluationResult` | `guios_evaluationresult` | Pendiente | RF-PUB-05, RN-02, RNF-08 |
-| 17 | `EvaluationVerdict` | `guios_evaluationverdict` | Pendiente | RF-PUB-05, RF-IA-04, RN-03, RN-04 |
-| 18 | `AIAssistanceLog` | `guios_aiassistancelog` | Pendiente | RF-IA-05, RF-IA-06, RNF-03, RNF-19 |
+| 10 | `Dimension` | `guios_dimension` | Implementado (modelo) | RF-ADM-31 |
+| 11 | `Factor` | `guios_factor` | Implementado (modelo) | RF-ADM-32, RF-PUB-02, RN-06, RN-07 |
+| 12 | `Subfactor` | `guios_subfactor` | Implementado (modelo) | RF-ADM-33, RF-PUB-04, RN-07 |
+| 13 | `Evaluation` | `guios_evaluation` | Implementado (modelo) | RF-PUB-01, 06, RF-ADM-34, 35 |
+| 14 | `EvaluationFactor` | `guios_evaluationfactor` | Implementado (modelo) | RF-PUB-02, 03, RF-IA-02, RN-01, RN-05, RN-06, RN-08 |
+| 15 | `EvaluationSubfactor` | `guios_evaluationsubfactor` | Implementado (modelo) | RF-PUB-04, RF-IA-03, RN-02, RN-05, RN-08 |
+| 16 | `EvaluationResult` | `guios_evaluationresult` | Implementado (modelo) | RF-PUB-05, RN-02, RNF-08 |
+| 17 | `EvaluationVerdict` | `guios_evaluationverdict` | Implementado (modelo) | RF-PUB-05, RF-IA-04, RN-03, RN-04 |
+| 18 | `AIAssistanceLog` | `guios_aiassistancelog` | Implementado (modelo) | RF-IA-05, RF-IA-06, RNF-03, RNF-19 |
 
 ---
 
 *Documento elaborado en el marco del Sprint 0 del proyecto GUIOS PRO.*
 *Los modelos de la columna "Implementado" provienen del módulo de infraestructura del backend Django.*
-*Los modelos "Pendiente" corresponden al dominio de evaluación a desarrollar en los Sprints 1-4.*
+*Los modelos "Implementado (modelo)" corresponden al dominio de evaluación: su lógica se desarrolla en los Sprints 1-4.*

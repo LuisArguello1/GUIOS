@@ -14,33 +14,45 @@ from .models import (
 
 @admin.register(Dimension)
 class DimensionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'order', 'is_base', 'created_at')
+    list_display = ('id', 'code', 'name', 'order', 'is_base', 'created_at')
     list_filter = ('is_base',)
-    search_fields = ('name', 'description')
+    search_fields = ('code', 'name', 'description')
     ordering = ('order', 'id')
 
 
 class SubfactorInline(admin.TabularInline):
     model = Subfactor
     extra = 1
-    fields = ('description', 'base_citations_count', 'keywords_ia', 'order', 'is_base', 'is_active')
+    fields = ('code', 'description', 'base_citations_count', 'keywords_ia', 'order', 'is_base', 'is_active')
 
 
 @admin.register(Factor)
 class FactorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'dimension', 'systemic_importance', 'expert_importance', 'literature_importance_base', 'scope', 'scope_configurable', 'order', 'is_active')
+    list_display = (
+        'id',
+        'code',
+        'name',
+        'dimension',
+        'suggested_importance',
+        'expert_importance',
+        'literature_importance_base',
+        'scope',
+        'scope_configurable',
+        'order',
+        'is_active',
+    )
     list_filter = ('dimension', 'scope', 'scope_configurable', 'is_active', 'is_base')
-    search_fields = ('name', 'dimension__name')
+    search_fields = ('code', 'name', 'dimension__name')
     ordering = ('dimension__order', 'order', 'id')
     inlines = [SubfactorInline]
 
 
 @admin.register(Subfactor)
 class SubfactorAdmin(admin.ModelAdmin):
-    list_display = ('id', 'factor', 'description_short', 'base_citations_count', 'order', 'is_base', 'is_active')
+    list_display = ('id', 'code', 'factor', 'description_short', 'base_citations_count', 'order', 'is_base', 'is_active')
     list_filter = ('factor__dimension', 'factor', 'is_active', 'is_base')
-    search_fields = ('description', 'factor__name', 'keywords_ia')
-    ordering = ('factor__order', 'order', 'id')
+    search_fields = ('code', 'description', 'factor__name', 'keywords_ia')
+    ordering = ('factor__dimension__order', 'factor__order', 'order', 'id')
 
     def description_short(self, obj):
         return obj.description[:60] + ('...' if len(obj.description) > 60 else '')
@@ -51,7 +63,8 @@ class EvaluationFactorInline(admin.TabularInline):
     model = EvaluationFactor
     extra = 0
     readonly_fields = (
-        'systemic_importance_snapshot',
+        'suggested_importance_snapshot',
+        'factor_name_snapshot',
         'citations_count',
         'citation_ratio',
         'literature_importance_calculated',
@@ -89,21 +102,20 @@ class EvaluationFactorAdmin(admin.ModelAdmin):
         'id',
         'evaluation',
         'factor',
+        'suggested_importance_snapshot',
         'citations_count',
         'citation_ratio',
         'literature_importance_calculated',
-        'expert_importance_snapshot',
-        'systemic_importance_snapshot',
         'decisor_importance',
         'relative_importance',
         'is_relevant',
         'scope_used',
     )
-    list_filter = ('is_relevant', 'scope_used', 'relative_importance', 'literature_importance_calculated')
+    list_filter = ('is_relevant', 'scope_used', 'relative_importance')
     search_fields = ('evaluation__software_name', 'factor__name')
 
 
-@admin.register(EvaluationSubfactor)
+@admin.register(EvaluationSubfactorAdmin if False else EvaluationSubfactor)
 class EvaluationSubfactorAdmin(admin.ModelAdmin):
     list_display = ('id', 'evaluation', 'subfactor', 'ai_citations_count', 'rating', 'rating_was_ai_accepted', 'saved_at')
     list_filter = ('rating', 'rating_was_ai_accepted')
@@ -114,14 +126,12 @@ class EvaluationSubfactorAdmin(admin.ModelAdmin):
 class EvaluationResultAdmin(admin.ModelAdmin):
     list_display = ('id', 'evaluation', 'factor', 'weighted_average', 'meets_threshold', 'foda_classification', 'calculated_at')
     list_filter = ('foda_classification', 'meets_threshold')
-    search_fields = ('evaluation__software_name', 'factor__name')
 
 
 @admin.register(EvaluationVerdict)
 class EvaluationVerdictAdmin(admin.ModelAdmin):
     list_display = ('id', 'evaluation', 'recommendation', 'calculated_at')
-    list_filter = ('recommendation', 'calculated_at')
-    search_fields = ('evaluation__software_name', 'explanation_text')
+    list_filter = ('recommendation',)
 
 
 @admin.register(AIAssistanceLog)

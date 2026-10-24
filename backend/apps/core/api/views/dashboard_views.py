@@ -1,3 +1,5 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -15,6 +17,7 @@ class DashboardView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(tags=['Panel'], summary="Estado general del panel", request=None, responses=OpenApiTypes.OBJECT)
     def get(self, request):
         now = timezone.localtime()
         active_users_count = User.objects.filter(is_active=True).count()
@@ -35,6 +38,7 @@ class DashboardExportView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(tags=['Panel'], summary="Exportación del panel (no requerida)", request=None, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         return Response({"status": "ok", "detail": "Exportación no requerida."}, status=status.HTTP_200_OK)
 
@@ -45,5 +49,6 @@ class DashboardExportStatusView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(tags=['Panel'], summary="Estado de la exportación del panel", request=None, responses=OpenApiTypes.OBJECT)
     def get(self, request):
         return Response({"status": "SUCCESS"}, status=status.HTTP_200_OK)
