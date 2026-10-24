@@ -6,14 +6,6 @@ class Dimension(models.Model):
     Agrupador de primer nivel del catálogo GUIOS: Tecnológica, Organizacional, Económica.
     El catálogo base proviene de la tesis doctoral.
     """
-    code = models.CharField(
-        max_length=20,
-        unique=True,
-        null=True,
-        blank=True,
-        verbose_name="Código",
-        help_text="Clave estable del catálogo base (docs/catalogo_guios.json, p. ej. TEC). Nulo en registros creados desde la interfaz."
-    )
     name = models.CharField(
         max_length=150,
         unique=True,

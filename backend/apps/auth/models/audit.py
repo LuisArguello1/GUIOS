@@ -6,7 +6,6 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.conf import settings
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -82,8 +81,7 @@ class AuditLog(models.Model):
     checksum    = models.CharField(_('checksum'), max_length=64, blank=True)
 
     # ── Cuándo ───────────────────────────────────────────────────
-    # default (no auto_now_add): auto_now_add pisaría al insertar la hora usada en el checksum.
-    timestamp   = models.DateTimeField(_('fecha y hora'), default=timezone.now, editable=False, db_index=True)
+    timestamp   = models.DateTimeField(_('fecha y hora'), auto_now_add=True, db_index=True)
 
     class Meta:
         verbose_name        = _('registro de auditoría')
@@ -121,9 +119,11 @@ class AuditLog(models.Model):
         return self.content_type.model if self.content_type else ''
 
     def save(self, *args, **kwargs):
-        # El checksum se calcula sólo en la creación, con la misma hora que se
-        # guarda en timestamp (default=timezone.now, asignado al instanciar).
+        # El checksum se calcula sólo en la creación (auto_now_add no está
+        # disponible en save(), así que lo calculamos antes del primer INSERT).
         if not self.pk and not self.checksum:
+            # timestamp aún no está seteado; lo aproximamos con now()
+            from django.utils import timezone
             self.timestamp = self.timestamp or timezone.now()
             self.checksum = self.compute_checksum()
         super().save(*args, **kwargs)

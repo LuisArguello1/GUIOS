@@ -209,13 +209,11 @@ const ProfilePage = () => {
             </ListCard>
 
             {/* ── Grid de dos columnas ─────────────────────────────────────── */}
-            {/* El <form> envuelve solo los datos personales: los modales de la
-                columna de Seguridad (2FA) se montan en un portal, pero React
-                propaga su submit por el árbol y guardaría el perfil. */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <form onSubmit={handleUpdate}>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
                     {/* ── Columna izquierda: Datos personales ─────────────── */}
-                    <form onSubmit={handleUpdate}>
+                    <div>
                         <SectionTitle>Identidad</SectionTitle>
                         <ListCard>
                             <InputRow
@@ -277,7 +275,7 @@ const ProfilePage = () => {
                                 </Button>
                             </div>
                         )}
-                    </form>
+                    </div>
 
                     {/* ── Columna derecha: Seguridad + Cumplimiento ────────── */}
                     <div>
@@ -316,7 +314,8 @@ const ProfilePage = () => {
                             </button>
                         </div>
                     </div>
-            </div>
+                </div>
+            </form>
 
             <ChangePasswordModal
                 isOpen={isPasswordModalOpen}

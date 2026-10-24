@@ -26,7 +26,6 @@ import useToastStore from '../../app/useToastStore';
 import usePermissions from '../../hooks/usePermissions';
 import { getImageUrl } from '../../utils/imageUtils';
 import { getErrorDetail } from '../../utils/errorUtils';
-import { deleteConfirmText, deleteMessage, type DeleteImpactState } from './deleteMessage';
 import type { User as StoredUser } from '../../app/useUserStore';
 
 /* ─── Types ──────────────────────────────────────────────────────────────────── */
@@ -66,29 +65,12 @@ const UsersPage = () => {
         type: 'toggle' | 'delete' | null;
         user: UserListItem | null;
     }>({ isOpen: false, type: null, user: null });
-    // Al abrir el modal de eliminar se consulta qué pasará (borrar o desactivar).
-    // El resultado se guarda con el id del usuario: mientras no coincida, "cargando".
-    const [impactResult, setImpactResult] = useState<{ userId: UserListItem['id']; state: DeleteImpactState } | null>(null);
-    const deleteTarget = confirmModal.isOpen && confirmModal.type === 'delete' ? confirmModal.user : null;
-    const deleteImpact: DeleteImpactState = deleteTarget && impactResult?.userId === deleteTarget.id
-        ? impactResult.state
-        : { status: 'loading' };
-    useEffect(() => {
-        if (!deleteTarget) return;
-        let active = true;
-        const userId = deleteTarget.id;
-        userService.getDeleteImpact(userId)
-            .then((impact) => { if (active) setImpactResult({ userId, state: { status: 'ready', impact } }); })
-            .catch(() => { if (active) setImpactResult({ userId, state: { status: 'error' } }); });
-        return () => { active = false; };
-    }, [deleteTarget]);
 
     const canReadAction = useMemo(() => isSuperuser || has('users.view'), [isSuperuser, has]);
     const canCreateAction = useMemo(() => isSuperuser || has('users.create'), [isSuperuser, has]);
     const canModifyAction = useMemo(() => isSuperuser || has('users.edit'), [isSuperuser, has]);
     const canDeactivateAction = useMemo(() => isSuperuser || has('users.deactivate'), [isSuperuser, has]);
-    // El backend exige users.deactivate para DELETE (borra o desactiva según los registros); users.delete no existe.
-    const canDeleteAction = canDeactivateAction;
+    const canDeleteAction = useMemo(() => isSuperuser || has('users.delete'), [isSuperuser, has]);
 
     /* ── Fetch ── */
     const fetchData = useCallback(async (page = 1) => {
@@ -144,12 +126,12 @@ const UsersPage = () => {
             } else if (confirmModal.type === 'delete') {
                 const response = await userService.delete(confirmModal.user.id);
                 addToast({
-                    type: response.action === 'SOFT_DELETE' ? 'info' : 'success',
-                    message: response.message,
+                    type: 'success',
+                    message: response?.message || 'Usuario eliminado.'
                 });
             }
             setConfirmModal({ isOpen: false, type: null, user: null });
-            await fetchData(currentPage);
+            fetchData(currentPage);
         } catch (error: unknown) {
             const msg = getErrorDetail(error, 'Error al ejecutar la acción.');
             addToast({ type: 'error', message: msg });
@@ -496,15 +478,15 @@ const UsersPage = () => {
                 isOpen={confirmModal.isOpen}
                 onClose={() => setConfirmModal({ isOpen: false, type: null, user: null })}
                 onConfirm={executeAction}
-                isLoading={isActioning || (confirmModal.type === 'delete' && deleteImpact.status === 'loading')}
+                isLoading={isActioning}
                 title={confirmModal.type === 'delete' ? 'Eliminar usuario' : 'Cambiar estado'}
                 message={
                     confirmModal.type === 'delete'
-                        ? deleteMessage(confirmModal.user?.full_name || confirmModal.user?.email || 'el usuario', deleteImpact)
+                        ? `¿Eliminar permanentemente a ${confirmModal.user?.full_name || confirmModal.user?.email}?`
                         : `¿Deseas ${confirmModal.user?.is_active ? 'suspender' : 'activar'} el acceso para ${confirmModal.user?.full_name || confirmModal.user?.email}?`
                 }
                 variant={confirmModal.type === 'delete' ? 'danger' : 'warning'}
-                confirmText={confirmModal.type === 'delete' ? deleteConfirmText(deleteImpact) : 'Confirmar cambio'}
+                confirmText={confirmModal.type === 'delete' ? 'Eliminar definitivamente' : 'Confirmar cambio'}
             />
 
             <GenericHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} title="Gestión de personal">

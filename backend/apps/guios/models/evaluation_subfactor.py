@@ -43,7 +43,7 @@ class EvaluationSubfactor(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(4)],
         choices=RATING_CHOICES,
         verbose_name="Calificación del evaluador",
-        help_text="1: No cumple, 2: Desconozco, 3: Cumple parcialmente, 4: Cumple. Nulo = sin calificar (RN-12)."
+        help_text="1: No cumple, 2: Desconozco, 3: Cumple parcialmente, 4: Cumple (Paso 3)."
     )
     ai_suggested_rating = models.PositiveSmallIntegerField(
         null=True,

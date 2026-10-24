@@ -10,8 +10,6 @@ interface ToggleProps {
     className?: string;
     /** Si true, renderiza el toggle inline sin card wrapper */
     inline?: boolean;
-    /** id de un texto que describe el control (p. ej., el motivo por el que está deshabilitado). */
-    describedBy?: string;
 }
 
 const Toggle: React.FC<ToggleProps> = ({
@@ -22,7 +20,6 @@ const Toggle: React.FC<ToggleProps> = ({
     disabled = false,
     className,
     inline = false,
-    describedBy,
 }) => {
     const id = useId();
 
@@ -33,7 +30,6 @@ const Toggle: React.FC<ToggleProps> = ({
             type="button"
             role="switch"
             aria-checked={checked}
-            aria-describedby={describedBy}
             disabled={disabled}
             onClick={() => !disabled && onChange(!checked)}
             className={clsx(

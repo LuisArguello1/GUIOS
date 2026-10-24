@@ -67,12 +67,6 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        // La API pública de GUIOS nunca refresca el token del panel ni lleva al login
-        // (normalmente usa publicAxios; esto protege si alguien usa `api` por error).
-        if (originalRequest.url?.includes('/guios/public/')) {
-            return Promise.reject(error);
-        }
-
         // Manejo Global de 401 Unauthorized
         if (response?.status === 401 && !originalRequest._retry) {
             if (isRefreshing) {

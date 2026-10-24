@@ -38,8 +38,6 @@ const HEADER_NAME_MAP: Record<string, string> = {
     users: 'Usuarios',
     auditoria: 'Auditoría',
     menu: 'Menú del Sistema',
-    catalogo: 'Catálogo',
-    evaluaciones: 'Evaluaciones',
 };
 
 const isIdentifierSegment = (segment: string) =>

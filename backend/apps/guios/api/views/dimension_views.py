@@ -26,7 +26,6 @@ from apps.guios.exceptions import (
     DimensionAlreadyExistsError,
     DimensionCannotBeDeletedError,
 )
-from drf_spectacular.utils import extend_schema
 from ..serializers.dimension_serializers import (
     DimensionListSerializer,
     DimensionDetailSerializer,
@@ -35,7 +34,6 @@ from ..serializers.dimension_serializers import (
 )
 
 
-@extend_schema(exclude=True)
 class DimensionViewSet(viewsets.GenericViewSet):
     """
     CRUD completo para el catálogo de Dimensiones de la metodología GUIOS.

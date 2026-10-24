@@ -6,7 +6,6 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from ..models.user import CustomUser
-from ..selectors.user import user_linked_records
 
 logger = logging.getLogger(__name__)
 
@@ -93,49 +92,81 @@ def user_update_profile(*, user: CustomUser, **data: Any) -> CustomUser:
     return user
 
 
-def user_delete_impact(*, user: CustomUser) -> Dict[str, Any]:
-    """
-    Qué pasará al eliminar al usuario: borrado físico si no tiene registros
-    vinculados; si los tiene, se desactiva para conservar la autoría del
-    historial. Lo usan el aviso del modal y el borrado, para que coincidan.
-    """
-    items = user_linked_records(user)
-    return {
-        'action': 'SOFT_DELETE' if items else 'HARD_DELETE',
-        'total': sum(item['count'] for item in items),
-        'items': items,
-        'summary': ', '.join(f"{item['count']} {item['label']}" for item in items),
-    }
-
-
 def user_delete_logic(*, user: CustomUser) -> Dict[str, Any]:
     """
-    Soft delete (desactivar) si el usuario tiene registros vinculados (su
-    auditoría como autor, evaluaciones creadas u otras relaciones); si no,
-    borrado físico. El 2FA, los códigos de recuperación y los grupos se
-    borran con el usuario.
+    Soft delete (desactivar) o hard delete según si el usuario tiene
+    relaciones importantes en otras tablas.
+
+    CORRECCIÓN: Se reemplaza Collector de Django por una verificación
+    explícita de relaciones. Collector solo detecta objetos que serían
+    eliminados en CASCADE — no detecta relaciones SET_NULL o PROTECT,
+    que también representan "datos vinculados" desde el punto de vista
+    del negocio.
+
+    La lógica ahora inspecciona los related managers directamente
+    para decidir si hay historial real.
     """
-    impact = user_delete_impact(user=user)
+    # Modelos internos que no representan "datos de negocio" del usuario
+    _IGNORED_RELATED = frozenset({
+        'password_reset_otps',  # OTPs propios del flujo de reset
+        'audit_logs',           # Logs de auditoría (se mantienen por trazabilidad)
+        'logentry_set',         # Log interno de Django admin
+    })
+
+    # Modelos internos o relaciones que no impiden el borrado físico (CASCADE)
+    _IGNORED_FIELDS = _IGNORED_RELATED | {'groups', 'user_permissions'}
+
+    linked_models: list[str] = []
+
+    # Usamos get_fields() para capturar TODAS las relaciones (directas, inversas, M2M)
+    for field in user._meta.get_fields():
+        if not field.is_relation:
+            continue
+            
+        accessor = field.get_accessor_name() if hasattr(field, 'get_accessor_name') else field.name
+        if not accessor or accessor in _IGNORED_FIELDS:
+            continue
+
+        try:
+            # Caso 1: Relación inversa (OneToManyRel, ManyToManyRel, OneToOneRel)
+            if hasattr(field, 'related_model'):
+                if hasattr(field, 'one_to_one') and field.one_to_one:
+                    if hasattr(user, accessor) and getattr(user, accessor) is not None:
+                        linked_models.append(field.related_model._meta.verbose_name_plural or field.related_model.__name__)
+                else:
+                    manager = getattr(user, accessor, None)
+                    if manager and hasattr(manager, 'exists') and manager.exists():
+                        linked_models.append(field.related_model._meta.verbose_name_plural or field.related_model.__name__)
+            
+            # Caso 2: Campo directo (ForeignKey o OneToOneField en el propio modelo CustomUser)
+            # Nota: Esto es menos común para "bloquear" borrado de usuarios, pero lo cubrimos.
+            elif hasattr(user, field.name) and getattr(user, field.name) is not None:
+                # Si el campo apunta a algo, evaluamos si cuenta como "vínculo"
+                pass 
+        except Exception:
+            pass
+
     try:
         with transaction.atomic():
-            if impact['action'] == 'SOFT_DELETE':
+            if linked_models:
                 user.is_active = False
                 user.save(update_fields=['is_active'])
                 return {
                     'action': 'SOFT_DELETE',
-                    'message': f"Usuario desactivado en lugar de borrado: tiene {impact['summary']}.",
-                    'detail': [item['label'] for item in impact['items']],
+                    'message': f'Usuario desactivado por tener datos vinculados en: {", ".join(set(linked_models))}',
+                    'detail': list(set(linked_models)),
                 }
-            email = user.email
-            user.delete()
-            logger.info('user_delete_logic: usuario %s eliminado permanentemente.', email)
-            return {
-                'action': 'HARD_DELETE',
-                'message': f'Usuario ({email}) eliminado permanentemente.',
-                'detail': [],
-            }
+            else:
+                email = user.email
+                user.delete()
+                logger.info('user_delete_logic: usuario %s eliminado permanentemente.', email)
+                return {
+                    'action': 'HARD_DELETE',
+                    'message': f'Usuario ({email}) eliminado permanentemente.',
+                    'detail': [],
+                }
     except Exception as exc:
-        # Si algo falla en el borrado físico (ej. ProtectedError no detectado),
+        # Si algo falla en el borrado físico (ej. ProtectedError no detectado), 
         # forzamos el Soft Delete por seguridad.
         user.is_active = False
         user.save(update_fields=['is_active'])

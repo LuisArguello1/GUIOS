@@ -1,10 +1,3 @@
-> **⚠️ Resumen NO normativo.** Este archivo es un resumen de la tesis escrito a mano y contiene errores conocidos. **No lo uses para programar ni para tomar decisiones.** Las fuentes válidas son, en este orden: la tesis original (Rea Sánchez, 2022), `docs/REQUISITOS.md`, `docs/catalogo_guios.json` y `docs/ANALISIS_GUIOS_ORIGINAL.md` (ver hallazgo R-05).
->
-> **Errores conocidos en este archivo:**
-> - El caso UNEMI (LibreOffice) dio **Recomendación C**, no A (Figura 6.5, pág. 104).
-> - Las recomendaciones son: A Adoptar, B Es posible adoptar con matices, C Analizar y posponer la adopción (págs. 104-106). Las definiciones de este archivo no coinciden.
-> - El orden de los pasos es el de la Figura 6.1 (pág. 96): la Importancia Relativa (IR) se calcula en el Paso 1, no en el Paso 4.
-
 # Módulo 6: Herramienta GUIOS PRO y Validación en Caso de Estudio Real
 
 **Capítulo 6 del Documento de Tesis Doctoral**  
