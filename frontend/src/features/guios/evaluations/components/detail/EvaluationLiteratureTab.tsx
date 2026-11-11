@@ -17,7 +17,7 @@ import {
     ExternalLink,
 } from 'lucide-react';
 import type { EvaluationDetail, EvaluationFactorItem } from '../../../../../api/evaluationService';
-import { getFactorCode } from './FactorMethodologyAuditCard';
+import { getFactorCode } from '../../utils/factorCodes';
 
 interface EvaluationLiteratureTabProps {
     evaluation: EvaluationDetail;

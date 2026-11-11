@@ -87,7 +87,16 @@ export const AdoptionVerdictDonut: React.FC<AdoptionVerdictDonutProps> = ({
     }));
 
     // Render de líneas conectoras y badges flotantes (% leader lines)
-    const renderLeaderLabel = (props: any) => {
+    interface LeaderLabelProps {
+        cx?: number;
+        cy?: number;
+        midAngle?: number;
+        outerRadius?: number;
+        percent?: number;
+        value?: number;
+    }
+
+    const renderLeaderLabel = (props: LeaderLabelProps) => {
         const { cx, cy, midAngle, outerRadius, percent, value } = props;
         if (!value || value === 0 || !percent) return null;
 

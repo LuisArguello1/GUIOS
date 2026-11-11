@@ -29,17 +29,18 @@ export const LandingHero: React.FC<Props> = memo(({ scrollProgress }) => {
     }, []);
 
     // Pausar el video cuando la sección ya no es visible para liberar recursos de GPU/CPU en móviles y laptops
+    const isOffscreen = scrollProgress >= 1;
     useEffect(() => {
         const v = videoRef.current;
         if (!v) return;
-        if (scrollProgress >= 1) {
+        if (isOffscreen) {
             if (!v.paused) v.pause();
         } else {
             if (v.paused) {
                 v.play().catch(() => {});
             }
         }
-    }, [scrollProgress >= 1]);
+    }, [isOffscreen]);
 
     // Desvanecimiento suave del texto editorial al iniciar el scroll
     const textOpacity = Math.max(0, 1 - scrollProgress * 3.5);

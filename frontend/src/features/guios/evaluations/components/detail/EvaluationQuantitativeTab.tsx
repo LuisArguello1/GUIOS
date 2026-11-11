@@ -25,7 +25,7 @@ import type {
     EvaluationSubfactorItem,
     EvaluationResultItem,
 } from '../../../../../api/evaluationService';
-import { getFactorCode } from './FactorMethodologyAuditCard';
+import { getFactorCode } from '../../utils/factorCodes';
 
 interface EvaluationQuantitativeTabProps {
     evaluation: EvaluationDetail;
@@ -35,7 +35,6 @@ interface EvaluationQuantitativeTabProps {
 }
 
 export const EvaluationQuantitativeTab: React.FC<EvaluationQuantitativeTabProps> = ({
-    evaluation: _evaluation,
     factors,
     subfactors,
     results,

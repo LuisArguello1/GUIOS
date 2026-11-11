@@ -47,18 +47,8 @@ export const LandingKineticLetters: React.FC<Props> = memo(({
     viewportHeight,
     mouseTilt = { x: 0, y: 0 },
 }) => {
-    // Si la Metodología ya entró por completo, desmontar las letras del DOM
-    if (exitProgress >= 0.98) {
-        return null;
-    }
-
     const isMobile = viewportWidth < 768;
     const isTablet = viewportWidth >= 768 && viewportWidth < 1024;
-
-    // En móviles/tablets, una vez que las letras se han disuelto completamente, desmontar del DOM
-    if ((isMobile || isTablet) && scrollProgress >= 0.55) {
-        return null;
-    }
 
     // Desvanecimiento y vuelo de salida hacia la izquierda al entrar la Sección 3
     const exitOpacity = Math.max(0, 1 - exitProgress * 1.3);
@@ -139,6 +129,11 @@ export const LandingKineticLetters: React.FC<Props> = memo(({
             };
         });
     }, [scrollProgress, viewportWidth, viewportHeight, isMobile, isTablet, mouseTilt]);
+
+    // Si la Metodología ya entró por completo o se disolvieron en móvil/tablet, desmontar del DOM
+    if (exitProgress >= 0.98 || ((isMobile || isTablet) && scrollProgress >= 0.55)) {
+        return null;
+    }
 
     return (
         <div

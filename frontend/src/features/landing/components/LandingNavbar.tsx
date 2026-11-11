@@ -26,7 +26,7 @@ interface NavSection {
     desc: string;
 }
 
-export const NAV_SECTIONS: NavSection[] = [
+const NAV_SECTIONS: NavSection[] = [
     {
         id: 'inicio',
         label: 'Inicio',

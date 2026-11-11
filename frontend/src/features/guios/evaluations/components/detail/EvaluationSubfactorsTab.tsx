@@ -28,10 +28,11 @@ import type {
     EvaluationSubfactorItem,
     EvaluationResultItem,
 } from '../../../../../api/evaluationService';
-import FactorMethodologyAuditCard, {
+import FactorMethodologyAuditCard from './FactorMethodologyAuditCard';
+import {
     getFactorCode,
     getSubfactorCode,
-} from './FactorMethodologyAuditCard';
+} from '../../utils/factorCodes';
 
 interface EvaluationSubfactorsTabProps {
     factors: EvaluationFactorItem[];

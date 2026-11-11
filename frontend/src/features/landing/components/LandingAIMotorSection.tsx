@@ -75,11 +75,6 @@ export const LandingAIMotorSection: React.FC<Props> = memo(({
     exitProgress = 0,
     viewportWidth = 1440,
 }) => {
-    // Si la sección no está montada o ya salió completamente, no renderizar
-    if (mountProgress <= 0.01 || exitProgress >= 0.99) {
-        return null;
-    }
-
     // Transición de entrada suave de la sección general
     const baseOpacity = Math.min(Math.max((mountProgress - 0.1) / 0.9, 0), 1);
     const exitFade = Math.max(1 - exitProgress * 1.5, 0);
@@ -158,6 +153,11 @@ export const LandingAIMotorSection: React.FC<Props> = memo(({
             };
         });
     }, [stepProgress, isDesktop, offsetToCenter]);
+
+    // Si la sección no está montada o ya salió completamente, no renderizar
+    if (mountProgress <= 0.01 || exitProgress >= 0.99) {
+        return null;
+    }
 
     return (
         <section
