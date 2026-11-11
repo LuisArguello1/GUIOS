@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import {
     Users, UserPlus, Search,
-    Phone, RefreshCw, HelpCircle,
+    Phone, RefreshCw, HelpCircle, Crown,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -35,7 +35,10 @@ type UserListItem = StoredUser & {
     last_name?: string;
     phone?: string | null;
     avatar?: string | null;
+    is_staff?: boolean;
+    is_superuser?: boolean;
     groups_names?: string[];
+    groups_details?: { id: number; name: string }[];
 };
 
 
@@ -97,10 +100,17 @@ const UsersPage = () => {
     /* ── Filtros ── */
     const filteredUsers = useMemo(() => users.filter(u => {
         const term = searchTerm.toLowerCase();
+        const roleNames = [
+            ...(u.groups_names || []),
+            ...(u.groups_details?.map(g => g.name) || []),
+            u.is_superuser ? ['Superusuario', 'Administrador'] : []
+        ].flat().map(r => r.toLowerCase());
+
         return (
             u.email.toLowerCase().includes(term) ||
             (u.full_name?.toLowerCase().includes(term) ?? false) ||
-            (`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim().toLowerCase().includes(term))
+            (`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim().toLowerCase().includes(term)) ||
+            roleNames.some(r => r.includes(term))
         );
     }), [users, searchTerm]);
 
@@ -172,19 +182,40 @@ const UsersPage = () => {
         },
         {
             header: 'Roles',
-            render: (row) => (
-                <div className="flex flex-wrap gap-1">
-                    {row.groups_names?.length ? (
-                        row.groups_names.map((name: string, i: number) => (
-                            <span key={i} className="px-1.5 py-0.5 rounded bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] text-[10px] font-medium border border-[var(--color-border-subtle)]">
-                                {name}
+            render: (row) => {
+                const roles: string[] = [];
+                if (Array.isArray(row.groups_names) && row.groups_names.length > 0) {
+                    roles.push(...row.groups_names);
+                } else if (Array.isArray(row.groups_details) && row.groups_details.length > 0) {
+                    roles.push(...row.groups_details.map(g => g.name));
+                } else if (Array.isArray(row.groups) && row.groups.length > 0) {
+                    row.groups.forEach(g => {
+                        if (typeof g === 'object' && g && 'name' in g) {
+                            roles.push((g as { name: string }).name);
+                        }
+                    });
+                }
+
+                return (
+                    <div className="flex flex-wrap items-center gap-1">
+                        {row.is_superuser && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-semibold border border-amber-500/20 flex items-center gap-1 shadow-sm">
+                                <Crown size={10} className="shrink-0" />
+                                Superusuario
                             </span>
-                        ))
-                    ) : (
-                        <span className="text-[10px] text-[var(--color-text-disabled)] italic">Sin roles</span>
-                    )}
-                </div>
-            ),
+                        )}
+                        {roles.length > 0 ? (
+                            roles.map((name: string, i: number) => (
+                                <span key={i} className="px-1.5 py-0.5 rounded bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)] text-[10px] font-medium border border-[var(--color-border-subtle)]">
+                                    {name}
+                                </span>
+                            ))
+                        ) : !row.is_superuser ? (
+                            <span className="text-[10px] text-[var(--color-text-disabled)] italic">Sin roles</span>
+                        ) : null}
+                    </div>
+                );
+            },
         },
         {
             header: 'Estado',

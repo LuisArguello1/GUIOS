@@ -350,8 +350,28 @@ LOGGING = {
             'filename': str(LOGS_DIR / 'auth.log'),
             'formatter': 'verbose',
         },
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': str(LOGS_DIR / 'error.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'error_file'],
+        'level': 'INFO',
     },
     'loggers': {
+        'django.request': {
+            'handlers': ['console', 'error_file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'apps': {
+            'handlers': ['console', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
         'apps.auth': {
             'handlers': ['auth_file'],
             'level': 'INFO',
@@ -363,8 +383,8 @@ LOGGING = {
 # ==============================================================================
 # CELERY & REDIS CONFIGURATION
 # ==============================================================================
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'))
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'))
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'))
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'))
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -375,9 +395,21 @@ CELERY_TASK_TIME_LIMIT = 30 * 60
 # ==============================================================================
 # AI ENGINE CONFIGURATION (GUIOS)
 # ==============================================================================
-AI_PROVIDER = os.getenv('AI_PROVIDER', 'groq')
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'azure')
+AZURE_OPENAI_ENDPOINT = os.getenv('AZURE_OPENAI_ENDPOINT', '')
+AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY', '')
+AZURE_OPENAI_MODEL = os.getenv('AZURE_OPENAI_MODEL', 'gpt-5-mini')
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 GROQ_MODEL = os.getenv('GROQ_MODEL', 'qwen/qwen3.8-27b')
 COHERE_API_KEY = os.getenv('COHERE_API_KEY', '')
 COHERE_MODEL = os.getenv('COHERE_MODEL', 'command-r-plus-08-2024')
 AI_TIMEOUT_SECONDS = int(os.getenv('AI_TIMEOUT_SECONDS', 30))
+
+# ==============================================================================
+# BIBLIOMETRIC ENGINE CONFIGURATION (OPENALEX)
+# ==============================================================================
+OPENALEX_API_URL = os.getenv('OPENALEX_API_URL', 'https://api.openalex.org/works')
+OPENALEX_MAILTO = os.getenv('OPENALEX_MAILTO', os.getenv('DEFAULT_FROM_EMAIL', 'soporte@guios.org'))
+OPENALEX_TIMEOUT_SECONDS = int(os.getenv('OPENALEX_TIMEOUT_SECONDS', 15))
+OPENALEX_MAX_RESULTS = int(os.getenv('OPENALEX_MAX_RESULTS', 80))
+OPENALEX_API_KEY = os.getenv('OPENALEX_API_KEY', '')

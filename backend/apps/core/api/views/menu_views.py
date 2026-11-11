@@ -20,8 +20,10 @@ class MenuViewSet(viewsets.ViewSet):
         GET /api/v1/core/menu/
         
         Obtiene las categorías y módulos permitidos para el usuario actual.
+        Soporta filtrado por role_id vía query param o header X-Role-Id.
         """
-        menu_tree = get_menu_tree_for_user(request.user)
+        role_id = request.query_params.get('role_id') or request.headers.get('X-Role-Id')
+        menu_tree = get_menu_tree_for_user(request.user, role_id=role_id)
         serializer = MenuGroupSerializer(menu_tree, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

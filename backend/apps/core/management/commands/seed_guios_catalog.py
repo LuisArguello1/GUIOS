@@ -18,7 +18,7 @@ Uso:
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from apps.guios.models import Dimension, Factor, Subfactor
-from apps.guios.services.methodology import combine_importance
+from apps.guios.services.calculations.matrix import combine_importance
 
 
 GUIOS_CATALOGO = [

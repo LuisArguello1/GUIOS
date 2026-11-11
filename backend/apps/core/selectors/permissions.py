@@ -32,8 +32,10 @@ def get_user_permission_codenames(user: "AbstractBaseUser") -> frozenset[str]:
         return frozenset()
 
     if user.is_superuser:
-        # El superuser bypasea todos los checks; no necesita lista
-        return frozenset()
+        # El superuser tiene acceso a todos los permisos
+        all_perms = set(ModulePermission.objects.values_list("codename", flat=True))
+        all_perms.add("*")
+        return frozenset(all_perms)
 
     group_ids = list(user.groups.values_list("id", flat=True))
     if not group_ids:

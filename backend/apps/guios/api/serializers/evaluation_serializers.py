@@ -32,8 +32,28 @@ class EvaluationCreateInputSerializer(serializers.Serializer):
     software_description = serializers.CharField(required=False, allow_blank=True, default="")
     org_sector = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
     org_description = serializers.CharField(required=False, allow_blank=True, default="")
+    org_size = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    it_staff = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    replaced_software = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    target_timeline = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
+    current_platforms = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    main_goal = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
     ai_enabled = serializers.BooleanField(required=False, default=False)
     auto_compute_literature = serializers.BooleanField(required=False, default=True)
+    data_storage_consent = serializers.BooleanField(required=True)
+    ai_processing_consent = serializers.BooleanField(required=False, default=False)
+    privacy_policy_version = serializers.CharField(max_length=20, required=False, default="1.0")
+
+    def validate(self, attrs):
+        if not attrs.get('data_storage_consent'):
+            raise serializers.ValidationError({
+                'data_storage_consent': 'Debe otorgar su consentimiento para el almacenamiento y análisis estadístico anónimo para iniciar la evaluación.'
+            })
+        if attrs.get('ai_enabled') and not attrs.get('ai_processing_consent'):
+            raise serializers.ValidationError({
+                'ai_processing_consent': 'Para utilizar la asistencia de Inteligencia Artificial, debe autorizar el procesamiento de la información técnica por los modelos cognitivos.'
+            })
+        return attrs
 
 
 class EvaluationUpdateInputSerializer(serializers.Serializer):
@@ -46,6 +66,12 @@ class EvaluationUpdateInputSerializer(serializers.Serializer):
     software_description = serializers.CharField(required=False, allow_blank=True)
     org_sector = serializers.CharField(max_length=150, required=False, allow_blank=True)
     org_description = serializers.CharField(required=False, allow_blank=True)
+    org_size = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    it_staff = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    replaced_software = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    target_timeline = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    current_platforms = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    main_goal = serializers.CharField(max_length=200, required=False, allow_blank=True)
 
 
 class CalculateLiteratureInputSerializer(serializers.Serializer):
@@ -265,8 +291,10 @@ class EvaluationListOutputSerializer(serializers.ModelSerializer):
 
     def get_recommendation(self, obj) -> str | None:
         """Accede al veredicto precargado sin generar consulta N+1."""
-        verdict = getattr(obj, 'verdict', None)
-        return verdict.recommendation if verdict else None
+        try:
+            return obj.verdict.recommendation if hasattr(obj, 'verdict') and obj.verdict else None
+        except Exception:
+            return None
 
 
 class EvaluationDetailOutputSerializer(serializers.ModelSerializer):
@@ -279,6 +307,8 @@ class EvaluationDetailOutputSerializer(serializers.ModelSerializer):
     subfactors = EvaluationSubfactorOutputSerializer(source='evaluation_subfactors', many=True, read_only=True)
     results = EvaluationResultOutputSerializer(source='evaluation_results', many=True, read_only=True)
     verdict = EvaluationVerdictOutputSerializer(read_only=True)
+    recommendation = serializers.SerializerMethodField()
+    recommendation_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Evaluation
@@ -293,6 +323,12 @@ class EvaluationDetailOutputSerializer(serializers.ModelSerializer):
             'org_name',
             'org_sector',
             'org_description',
+            'org_size',
+            'it_staff',
+            'replaced_software',
+            'target_timeline',
+            'current_platforms',
+            'main_goal',
             'ai_enabled',
             'ai_status',
             'status',
@@ -303,9 +339,27 @@ class EvaluationDetailOutputSerializer(serializers.ModelSerializer):
             'created_by_username',
             'started_at',
             'completed_at',
+            'data_storage_consent',
+            'ai_processing_consent',
+            'consent_timestamp',
+            'privacy_policy_version',
+            'recommendation',
+            'recommendation_display',
             'factors',
             'subfactors',
             'results',
             'verdict',
         ]
         read_only_fields = fields
+
+    def get_recommendation(self, obj) -> str | None:
+        try:
+            return obj.verdict.recommendation if hasattr(obj, 'verdict') and obj.verdict else None
+        except Exception:
+            return None
+
+    def get_recommendation_display(self, obj) -> str | None:
+        try:
+            return obj.verdict.get_recommendation_display() if hasattr(obj, 'verdict') and obj.verdict else None
+        except Exception:
+            return None

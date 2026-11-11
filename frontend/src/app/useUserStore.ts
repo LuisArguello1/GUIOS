@@ -16,6 +16,8 @@ export interface User {
     updated_at?: string;
     last_login?: string | null;
     groups?: number[];
+    groups_names?: string[];
+    groups_details?: { id: number; name: string }[];
 }
 
 export interface UserFilters {

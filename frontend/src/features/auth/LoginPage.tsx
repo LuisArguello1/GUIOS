@@ -14,6 +14,7 @@ import Alert from '../../components/ui/Alert';
 import isotipo from '../../assets/img/Isotipo.webp';
 import useCoreStore from '../../app/useCoreStore';
 import useThemeStore from '../../app/useThemeStore';
+import ScientificPhysicsLab from './components/ScientificPhysicsLab';
 
 // ─── Animaciones ──────────────────────────────────────────────────────────────
 const formVariants: Variants = {
@@ -145,11 +146,11 @@ const LoginPage = () => {
     const is2FAEnabled = (useRecoveryCode ? recoveryCodeInput.trim().length > 0 : code.join('').length === 6) && !isLoading;
 
     return (
-        <div className="min-h-screen w-full flex flex-col justify-between bg-[var(--color-bg-page)] text-[var(--color-text-primary)] transition-colors duration-200">
+        <div className="min-h-screen md:h-screen md:max-h-screen w-full flex flex-col justify-between bg-[var(--color-bg-page)] text-[var(--color-text-primary)] transition-colors duration-200 md:overflow-hidden">
             {/* ════════════════════════════════════════
                 1. HEADER SUPERIOR TIKTOK STYLE
             ════════════════════════════════════════ */}
-            <header className="w-full flex items-center justify-between px-6 sm:px-10 py-4 h-16 shrink-0">
+            <header className="w-full flex items-center justify-between px-6 sm:px-10 py-3 sm:py-4 h-14 sm:h-16 shrink-0">
                 <Link to="/" className="flex items-center gap-2.5 group select-none">
                     <div
                         className="relative inline-flex items-center justify-center shrink-0 select-none"
@@ -187,9 +188,14 @@ const LoginPage = () => {
             </header>
 
             {/* ════════════════════════════════════════
-                2. CONTENIDO PRINCIPAL CENTRADO
+                2. CONTENIDO DIVIDIDO: TEXTO TÉCNICO CON FÍSICAS + FORMULARIO
             ════════════════════════════════════════ */}
-            <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 w-full max-w-[400px] mx-auto">
+            <div className="flex-1 flex flex-col md:flex-row items-stretch w-full min-h-0 overflow-hidden">
+                <div className="w-full md:w-[54%] lg:w-[58%] flex border-b md:border-b-0 md:border-r border-[var(--color-border-subtle)] min-h-0 overflow-hidden">
+                    <ScientificPhysicsLab />
+                </div>
+
+                <main className="flex-1 flex flex-col items-center justify-center px-4 py-4 sm:py-6 w-full max-w-[400px] mx-auto min-h-0 overflow-y-auto md:overflow-hidden">
                 <AnimatePresence mode="wait">
                     {/* ── PASO 1: LOGIN (EMAIL + PASSWORD) ── */}
                     {step === 1 && (
@@ -373,14 +379,15 @@ const LoginPage = () => {
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </main>
+                </main>
+            </div>
 
             {/* ════════════════════════════════════════
                 3. SECCIÓN DE ACCESO / RECUPERACIÓN & FOOTER
             ════════════════════════════════════════ */}
-            <div className="w-full border-t border-[var(--color-border-subtle)]">
+            <div className="w-full border-t border-[var(--color-border-subtle)] shrink-0 bg-[var(--color-bg-page)]">
                 {/* Fila de Ayuda / Recuperación */}
-                <div className="py-4 text-center text-xs sm:text-sm text-[var(--color-text-secondary)]">
+                <div className="py-3 text-center text-xs sm:text-sm text-[var(--color-text-secondary)]">
                     <span>¿Problemas para acceder a tu cuenta? </span>
                     <Link
                         to="/recuperar-contrasena"
@@ -390,13 +397,6 @@ const LoginPage = () => {
                     </Link>
                 </div>
 
-                {/* Footer Inferior Oficial */}
-                <footer className="w-full bg-[var(--color-bg-page)] border-t border-[var(--color-border-subtle)] px-6 sm:px-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--color-text-tertiary)]">
-
-                    <div className="font-medium text-center sm:text-right">
-                        © {new Date().getFullYear()} GUIOS
-                    </div>
-                </footer>
             </div>
         </div>
     );

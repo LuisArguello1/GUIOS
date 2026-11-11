@@ -1,0 +1,104 @@
+/**
+ * features/landing/components/TabletMockup.css
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Estilos para el componente TabletMockup (orientación horizontal).
+ *
+ * Características:
+ * - Proporción exacta 16 / 9 (7668x4308) para respetar al 100% las capturas del sistema.
+ * - Sin distorsión, sin recortes y con nitidez optimizada (contrast rendering).
+ * - Bisel oscuro (#08090d) compacto de 10px con border-radius de 22px.
+ * - Borde interior de 1px (rgba(255,255,255,0.08)).
+ * - Cámara frontal de 5px con aro óptico esmeralda.
+ * - Sombra profunda y resplandor sutil verde esmeralda (#10b981).
+ * - Efecto hover suave de elevación (-4px) con transición de 0.3s.
+ * - Responsive: en pantallas < 600px bisel de 6px y border-radius de 14px.
+ */
+
+.tablet-mockup-wrapper {
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.tablet-mockup-frame {
+    position: relative;
+    width: 100%;
+    background: linear-gradient(145deg, #13141c 0%, #08090d 100%);
+    padding: 10px;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 
+        0 20px 50px rgba(0, 0, 0, 0.8),
+        0 0 30px rgba(16, 185, 129, 0.14),
+        inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+    will-change: transform, box-shadow;
+}
+
+.tablet-mockup-frame:hover {
+    transform: translateY(-4px);
+    box-shadow: 
+        0 28px 65px rgba(0, 0, 0, 0.9),
+        0 0 40px rgba(16, 185, 129, 0.22),
+        inset 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+
+/* Cámara frontal centrada en el borde superior del bisel */
+.tablet-mockup-camera {
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #10b981 15%, #182329 45%, #05070a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 4px rgba(16, 185, 129, 0.35);
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* Área de la pantalla de la tablet: PROPORCIÓN EXACTA 16/9 PARA CAPTURAS GUIOS */
+.tablet-mockup-screen {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    overflow: hidden;
+    background-color: #05070a;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Imagen de la captura de pantalla: CERO DISTORSIÓN */
+.tablet-mockup-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center top;
+    display: block;
+    user-select: none;
+    -webkit-user-drag: none;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: high-quality;
+}
+
+/* Ajustes Responsive para pantallas menores a 600px */
+@media (max-width: 600px) {
+    .tablet-mockup-frame {
+        padding: 6px;
+        border-radius: 14px;
+    }
+
+    .tablet-mockup-camera {
+        top: 2px;
+        width: 4px;
+        height: 4px;
+    }
+
+    .tablet-mockup-screen {
+        border-radius: 8px;
+    }
+}

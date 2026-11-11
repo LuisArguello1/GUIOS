@@ -604,7 +604,7 @@ export default function UserFormPage({
                                                         <div className={clsx(
                                                             'w-5 h-5 rounded-[6px] border flex items-center justify-center shrink-0 transition-colors',
                                                             isSelected
-                                                                ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white'
+                                                                ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-text-on-primary)]'
                                                                 : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)]',
                                                         )}>
                                                             {isSelected && <Check size={12} strokeWidth={3} />}

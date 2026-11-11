@@ -65,7 +65,7 @@ export const DimensionsFilters: React.FC<DimensionsFiltersProps> = ({
                         className={clsx(
                             'px-2.5 py-1 text-[11px] font-medium rounded-[2px] transition-all cursor-pointer',
                             filters.is_base === undefined
-                                ? 'bg-[var(--color-primary)] text-white shadow-xs font-semibold'
+                                ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] shadow-xs font-semibold'
                                 : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                         )}
                     >
@@ -77,7 +77,7 @@ export const DimensionsFilters: React.FC<DimensionsFiltersProps> = ({
                         className={clsx(
                             'px-2.5 py-1 text-[11px] font-medium rounded-[2px] transition-all cursor-pointer',
                             filters.is_base === true
-                                ? 'bg-[var(--color-primary)] text-white shadow-xs font-semibold'
+                                ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] shadow-xs font-semibold'
                                 : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                         )}
                     >
@@ -89,7 +89,7 @@ export const DimensionsFilters: React.FC<DimensionsFiltersProps> = ({
                         className={clsx(
                             'px-2.5 py-1 text-[11px] font-medium rounded-[2px] transition-all cursor-pointer',
                             filters.is_base === false
-                                ? 'bg-[var(--color-primary)] text-white shadow-xs font-semibold'
+                                ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] shadow-xs font-semibold'
                                 : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                         )}
                     >

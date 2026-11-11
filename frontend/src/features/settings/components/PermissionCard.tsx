@@ -44,7 +44,7 @@ const PermissionCard = memo(({ module, isActive, onToggle, disabled }: Permissio
       <div className={clsx(
         'w-[30px] h-[30px] rounded-[8px] flex items-center justify-center shrink-0 transition-colors',
         isActive
-          ? 'bg-[var(--color-primary)] text-white'
+          ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)]'
           : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]'
       )}>
         <Icon size={15} strokeWidth={2} />

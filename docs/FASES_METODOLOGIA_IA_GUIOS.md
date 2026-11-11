@@ -64,17 +64,20 @@ flowchart TD
 
 ---
 
-### Fase 2: Motor de IA - Búsqueda Académica y Mapeo Semántico
+### Fase 2: Motor de IA - Búsqueda Académica con OpenAlex y Mapeo Semántico
+*(Ver especificación técnica completa y validación en [INTEGRACION_OPENALEX_LITERATURA.md](file:///c:/Proyectos/Guios/docs/INTEGRACION_OPENALEX_LITERATURA.md))*.
+
 Al crear una nueva evaluación ingresando `software_name`, `software_category`, `software_repo_url`, `org_sector` y `org_description`:
-1. **Generación de Consulta**: La IA genera una sintaxis de búsqueda orientada a adopción académica:
-   ```text
-   ("adopt*" OR "acceptance" OR "migration" OR "evaluation") AND ("open source" OR "FLOSS") AND ("{software_name}")
-   ```
-2. **Consulta a Fuentes Científicas / Web**:
-   * Invocación a APIs académicas abiertas (Semantic Scholar, OpenAlex, CrossRef) o búsqueda web académica con grounding.
-3. **Mapeo Semántico Artículo $\leftrightarrow$ Subfactor**:
-   * La IA analiza los resúmenes/abstracts y determina si abordan alguno de los subfactores activos del catálogo.
-   * Genera el conteo de citas $c_i$ por subfactor y almacena los títulos, DOIs, fragmentos justificativos y nivel de confianza.
+1. **Recuperación Bibliográfica Primaria con OpenAlex (`openalex.py`)**:
+   * **Limpieza de Nombre Raíz**: `extract_root_software_name` remueve sufijos de distribución como *"Community"*, *"Enterprise"*, *"Server"*, *"CE"*, etc.
+   * **Estrategia en 4 Etapas**: Consulta progresiva (Exacta con contexto $\rightarrow$ Raíz con contexto $\rightarrow$ Raíz entrecomillada $\rightarrow$ Búsqueda amplia).
+   * **Filtro de Relevancia Temática**: Valida que el software se mencione explícitamente en el título o en el abstract reconstruido (`abstract_inverted_index`).
+   * **Polite Pool y DOI**: Peticiones autenticadas por correo institucional y filtro estricto `filter=has_doi:true` recuperando hasta 20 publicaciones indexadas.
+2. **Mapeo Semántico Multi-Criterio con LLM (`literature_evidence.py`)**:
+   * Se alimenta al LLM (Azure OpenAI `gpt-5-mini`, Groq `Llama 3.3` o Cohere) con los 61 subfactores del catálogo y la colección de artículos de OpenAlex con sus resúmenes y DOIs.
+   * El LLM realiza un mapeo exhaustivo: un artículo con arquitectura integral puede respaldar múltiples subfactores simultáneos (seguridad, integración, arquitectura, usabilidad).
+   * Se extrae para cada subfactor: el `doi`, `url`, título y un fragmento textual justificativo (*snippet*).
+   * Se asigna `evidence_origin = "openalex"`. Si OpenAlex no arrojase resultados, se activa la degradación elegante a documentación técnica oficial (`evidence_origin = "model"`) o contingencia heurística doctoral (`evidence_origin = "catalog_baseline"`).
 
 ---
 

@@ -20,7 +20,7 @@ interface CoreState {
     // Estado de UI efímero
     isMobileOpen: boolean;
 
-    fetchMenu: (options?: { force?: boolean }) => Promise<void>;
+    fetchMenu: (options?: { force?: boolean; roleId?: number | string }) => Promise<void>;
     fetchOrganization: () => Promise<void>;
     updateOrganization: (data: Partial<Organization>) => Promise<void>;
     setOrganization: (data: Organization | null) => void;
@@ -51,7 +51,7 @@ const useCoreStore = create<CoreState>()(
 
                 set({ loadingMenu: true, menuError: null });
                 try {
-                    const data = await coreService.getMenu();
+                    const data = await coreService.getMenu(options?.roleId);
                     set({ menu: data, menuLoaded: true });
                 } catch (err) {
                     const msg = err instanceof Error ? err.message : 'Error al cargar el menú';

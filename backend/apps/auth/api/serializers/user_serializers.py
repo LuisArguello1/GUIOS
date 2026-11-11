@@ -6,8 +6,11 @@ from ...models.user import CustomUser
 
 
 class UserListSerializer(serializers.ModelSerializer):
-    """Serializador resumido para listado de usuarios."""
+    """Serializador resumido para listado de usuarios con soporte completo de roles y metadatos."""
     full_name = serializers.CharField(source='get_full_name', read_only=True)
+    groups = serializers.SerializerMethodField()
+    groups_names = serializers.SerializerMethodField()
+    groups_details = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -15,13 +18,30 @@ class UserListSerializer(serializers.ModelSerializer):
             'id',
             'email',
             'username',
+            'first_name',
+            'last_name',
             'full_name',
             'phone',
+            'avatar',
             'is_active',
             'is_staff',
+            'is_superuser',
             'created_at',
+            'updated_at',
+            'last_login',
             'groups',
+            'groups_names',
+            'groups_details',
         )
+
+    def get_groups(self, obj):
+        return [g.id for g in obj.groups.all()]
+
+    def get_groups_names(self, obj):
+        return [g.name for g in obj.groups.all()]
+
+    def get_groups_details(self, obj):
+        return [{"id": g.id, "name": g.name} for g in obj.groups.all()]
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -41,6 +61,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = (
+            'id',
             'email',
             'username',
             'first_name',
@@ -52,6 +73,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
             'is_superuser',
             'groups',
         )
+        read_only_fields = ('id',)
         extra_kwargs = {
             'username': {'required': False},
             'groups': {'required': False},
@@ -95,6 +117,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = (
+            'id',
             'email',
             'first_name',
             'last_name',
@@ -106,6 +129,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             'groups',
             'password',
         )
+        read_only_fields = ('id',)
         extra_kwargs = {
             'groups': {'required': False},
         }
@@ -173,6 +197,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
     """Serializador de solo lectura para el detalle completo de un usuario."""
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     groups = serializers.SerializerMethodField()
+    groups_names = serializers.SerializerMethodField()
+    groups_details = serializers.SerializerMethodField()
     permissions_details = serializers.SerializerMethodField()
     modules_details = serializers.SerializerMethodField()
 
@@ -191,6 +217,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'is_staff',
             'is_superuser',
             'groups',
+            'groups_names',
+            'groups_details',
             'permissions',
             'permissions_details',
             'modules_details',
@@ -201,6 +229,12 @@ class UserDetailSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_groups(self, obj):
+        return [{"id": g.id, "name": g.name} for g in obj.groups.all()]
+
+    def get_groups_names(self, obj):
+        return [g.name for g in obj.groups.all()]
+
+    def get_groups_details(self, obj):
         return [{"id": g.id, "name": g.name} for g in obj.groups.all()]
 
     def get_permissions_details(self, obj):

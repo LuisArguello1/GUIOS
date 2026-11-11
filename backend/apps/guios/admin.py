@@ -75,10 +75,20 @@ class EvaluationVerdictInline(admin.StackedInline):
 
 @admin.register(Evaluation)
 class EvaluationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'software_name', 'software_category', 'software_version', 'org_name', 'status', 'ai_status', 'ai_enabled', 'started_at', 'completed_at')
-    list_filter = ('status', 'ai_status', 'ai_enabled', 'software_category', 'started_at')
-    search_fields = ('software_name', 'software_category', 'org_name', 'uuid', 'session_token')
-    readonly_fields = ('uuid', 'started_at', 'q1_threshold', 'q2_threshold', 'q3_threshold', 'q4_threshold')
+    list_display = (
+        'id', 'software_name', 'software_category', 'org_name',
+        'status', 'ai_status', 'ai_enabled', 'data_storage_consent',
+        'ai_processing_consent', 'started_at', 'completed_at'
+    )
+    list_filter = (
+        'status', 'ai_status', 'ai_enabled', 'data_storage_consent',
+        'ai_processing_consent', 'software_category', 'started_at'
+    )
+    search_fields = ('software_name', 'software_category', 'org_name', 'replaced_software', 'uuid', 'session_token', 'consent_ip_hash')
+    readonly_fields = (
+        'uuid', 'started_at', 'q1_threshold', 'q2_threshold', 'q3_threshold', 'q4_threshold',
+        'consent_timestamp', 'consent_ip_hash', 'privacy_policy_version'
+    )
     ordering = ('-started_at',)
     inlines = [EvaluationFactorInline, EvaluationResultInline, EvaluationVerdictInline]
 

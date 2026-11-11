@@ -98,7 +98,7 @@ const SettingsNavItem = memo(({ label, path, icon: Icon, description, isFirst, i
                 <div className={clsx(
                     'w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 transition-colors',
                     isActive
-                        ? 'bg-[var(--color-primary)] text-white'
+                        ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)]'
                         : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]',
                 )}>
                     <Icon size={15} strokeWidth={2} />
@@ -154,7 +154,7 @@ const MobileNavTrigger = memo(({ activeItem, onClick }: MobileNavTriggerProps) =
             onClick={onClick}
             className="w-full flex items-center gap-3 px-4 py-3 bg-[var(--color-bg-primary)] border border-[var(--color-border-subtle)] rounded-[var(--radius-md)] transition-colors active:bg-[var(--color-bg-secondary)]"
         >
-            <div className="w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 bg-[var(--color-primary)] text-white">
+            <div className="w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 bg-[var(--color-primary)] text-[var(--color-text-on-primary)]">
                 <Icon size={15} strokeWidth={2} />
             </div>
 
@@ -276,7 +276,7 @@ const BottomSheet = memo(({ open, onClose, activePath, onNavigate, groups }: Bot
                                         <div className={clsx(
                                             'w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0',
                                             isActive
-                                                ? 'bg-[var(--color-primary)] text-white'
+                                                ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)]'
                                                 : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]',
                                         )}>
                                             <Icon size={15} strokeWidth={2} />
@@ -504,7 +504,7 @@ const SettingsPage = ({ isLoading = false }: { isLoading?: boolean }) => {
                             onClick={toggleCollapse}
                             className={clsx(
                                 "absolute top-2 -right-3 z-10 flex items-center justify-center w-6 h-6 rounded-full",
-                                "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90 shadow-[var(--shadow-sm)]",
+                                "bg-[var(--color-primary)] text-[var(--color-text-on-primary)] hover:bg-[var(--color-primary)]/90 shadow-[var(--shadow-sm)]",
                                 "transition-all duration-[var(--transition-fast)] cursor-pointer"
                             )}
                             title={isCollapsed ? "Expandir menú de configuración" : "Contraer menú de configuración"}

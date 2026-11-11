@@ -67,8 +67,8 @@ export const FodaBalanceWidget: React.FC<FodaBalanceWidgetProps> = ({
     const isHealthy = fodaRatio >= 1.0;
 
     return (
-        <div className="flex h-full flex-col rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-primary)] p-4 shadow-xs">
-            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-2">
+        <div className="flex h-full flex-col rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-primary)] p-5 shadow-xs transition-shadow hover:shadow-sm">
+            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] pb-3">
                 <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-primary)]">
                         Balance Estratégico FODA

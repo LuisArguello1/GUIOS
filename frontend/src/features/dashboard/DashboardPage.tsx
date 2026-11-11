@@ -190,22 +190,18 @@ const DashboardPage = () => {
                     <DashboardKpiCards kpis={stats.kpis} />
 
                     {/* ── 3. Gráficos Analíticos de Adopción FLOSS ── */}
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                        {/* Donut de Veredictos (A / B / C) */}
-                        <div className="lg:col-span-1">
+                    {/* Fila A: Donut de Veredictos (Estilo Card + Donut con Leader Lines) y Balance Estratégico FODA */}
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                        {/* Donut de Veredictos (A / B / C) — 7 columnas para dar amplitud a tarjetas laterales y llamadas flotantes */}
+                        <div className="lg:col-span-7">
                             <AdoptionVerdictDonut
                                 data={stats.verdict_distribution}
                                 totalWithVerdict={stats.kpis.total_with_verdict}
                             />
                         </div>
 
-                        {/* Comparativo de Rendimiento por Dimensión */}
-                        <div className="lg:col-span-1">
-                            <DimensionRadarChart data={stats.dimension_averages} />
-                        </div>
-
-                        {/* Balance Estratégico FODA */}
-                        <div className="lg:col-span-1">
+                        {/* Balance Estratégico FODA — 5 columnas */}
+                        <div className="lg:col-span-5">
                             <FodaBalanceWidget
                                 data={stats.foda_distribution}
                                 fodaRatio={stats.kpis.foda_ratio}
@@ -213,6 +209,11 @@ const DashboardPage = () => {
                                 totalWeaknesses={stats.kpis.foda_weaknesses}
                             />
                         </div>
+                    </div>
+
+                    {/* Fila B: Rendimiento por Dimensión en Cascada Escalonada (Ancho Completo para Máximo Detalle y Organización) */}
+                    <div className="w-full">
+                        <DimensionRadarChart data={stats.dimension_averages} />
                     </div>
 
                     {/* ── 4. Cartera de Software con Descarga Directa de Expedientes ── */}

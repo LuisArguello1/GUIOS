@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import { clsx } from 'clsx';
 import {
     Clock,
     CheckCircle2,
@@ -14,6 +15,7 @@ import {
     Cpu,
     FileDown,
     FileSpreadsheet,
+    ArrowLeftRight,
 } from 'lucide-react';
 import Loading from '../../../../components/ui/Loading';
 import PermissionGuard from '../../../../components/ui/PermissionGuard';
@@ -29,6 +31,8 @@ interface EvaluationsTableProps {
     onViewDetail: (evaluation: EvaluationItem) => void;
     onDelete: (evaluation: EvaluationItem) => void;
     onViewAILogs: (evaluation: EvaluationItem) => void;
+    selectedIds?: number[];
+    onToggleSelect?: (id: number) => void;
 }
 
 const RecommendationBadge: React.FC<{ recommendation: RecommendationType | null }> = ({ recommendation }) => {
@@ -72,6 +76,8 @@ export const EvaluationsTable: React.FC<EvaluationsTableProps> = ({
     onViewDetail,
     onDelete,
     onViewAILogs,
+    selectedIds = [],
+    onToggleSelect,
 }) => {
     const { addToast } = useToastStore();
     const [downloadingId, setDownloadingId] = React.useState<number | null>(null);
@@ -140,6 +146,10 @@ export const EvaluationsTable: React.FC<EvaluationsTableProps> = ({
             <table className="w-full text-left border-collapse text-xs">
                 <thead>
                     <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)] text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                        <th className="px-3 py-2.5 text-center w-10" title="Seleccionar para comparar (máx. 2)">
+                            <span className="sr-only">Comparar</span>
+                            <ArrowLeftRight size={13} className="mx-auto text-[var(--color-text-tertiary)]" />
+                        </th>
                         <th className="px-3.5 py-2.5">Software Candidato</th>
                         <th className="px-3 py-2.5">Organización Evaluadora</th>
                         <th className="px-3 py-2.5 text-center">Estado Metodológico</th>
@@ -150,14 +160,40 @@ export const EvaluationsTable: React.FC<EvaluationsTableProps> = ({
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border-subtle)]">
-                    {evaluations.map((item) => (
-                        <tr
-                            key={item.id}
-                            className="hover:bg-[var(--color-bg-elevated)] transition-colors group cursor-pointer"
-                            onClick={() => onViewDetail(item)}
-                        >
-                            {/* Software Candidato */}
-                            <td className="px-3.5 py-3">
+                    {evaluations.map((item) => {
+                        const isSelected = selectedIds.includes(item.id);
+                        const isMaxReached = selectedIds.length >= 2;
+                        const isDisabled = !isSelected && isMaxReached;
+
+                        return (
+                            <tr
+                                key={item.id}
+                                className={clsx(
+                                    'hover:bg-[var(--color-bg-elevated)] transition-colors group cursor-pointer',
+                                    isSelected && 'bg-[var(--color-primary-soft-bg)]/40 border-l-2 border-l-[var(--color-primary)]'
+                                )}
+                                onClick={() => onViewDetail(item)}
+                            >
+                                {/* Checkbox de Comparación */}
+                                <td className="px-3 py-3 text-center w-10" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        disabled={isDisabled}
+                                        onChange={() => onToggleSelect?.(item.id)}
+                                        className="w-4 h-4 rounded border-[var(--color-border-strong)] text-[var(--color-primary)] focus:ring-[var(--color-primary)]/30 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all accent-[var(--color-primary)]"
+                                        title={
+                                            isDisabled
+                                                ? 'Solo se pueden comparar 2 evaluaciones a la vez'
+                                                : isSelected
+                                                ? 'Deseleccionar de la comparación'
+                                                : 'Seleccionar para comparar'
+                                        }
+                                    />
+                                </td>
+
+                                {/* Software Candidato */}
+                                <td className="px-3.5 py-3">
                                 <div className="flex items-start gap-2">
                                     <div className="p-1 rounded-[2px] bg-[var(--color-primary-soft-bg)] text-[var(--color-primary)] shrink-0 mt-0.5">
                                         <Layers size={14} />
@@ -290,7 +326,8 @@ export const EvaluationsTable: React.FC<EvaluationsTableProps> = ({
                                 </div>
                             </td>
                         </tr>
-                    ))}
+                        );
+                    })}
                 </tbody>
             </table>
         </div>

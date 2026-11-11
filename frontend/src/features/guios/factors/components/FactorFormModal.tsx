@@ -5,6 +5,7 @@ import Button from '../../../../components/ui/Button';
 import Input from '../../../../components/ui/Input';
 import type { Factor, FactorInput, FactorScope } from '../../../../api/factorService';
 import type { Dimension } from '../../../../api/dimensionService';
+import { calculateSuggestedImportance } from '../../../../calculations/combinationMatrix';
 
 interface FactorFormModalProps {
     isOpen: boolean;
@@ -20,20 +21,6 @@ interface FactorFormContentProps {
     dimensions: Dimension[];
     onSubmit: (data: FactorInput) => Promise<boolean>;
 }
-
-// Matriz oficial Figura 5.10 de la Tesis (Rea Sánchez)
-const COMBINATION_MATRIX: Record<number, Record<number, number>> = {
-    1: { 1: 1, 2: 1, 3: 2, 4: 2 },
-    2: { 1: 1, 2: 2, 3: 2, 4: 3 },
-    3: { 1: 2, 2: 2, 3: 3, 4: 3 },
-    4: { 1: 2, 2: 3, 3: 3, 4: 4 },
-};
-
-const getCalculatedIS = (il: number, ie: number): number => {
-    const row = Math.max(1, Math.min(4, ie));
-    const col = Math.max(1, Math.min(4, il));
-    return COMBINATION_MATRIX[row]?.[col] ?? 3;
-};
 
 const IMPORTANCE_LABELS: Record<number, string> = {
     1: '1 - Irrelevante',
@@ -51,7 +38,7 @@ const FactorFormContent: React.FC<FactorFormContentProps> = ({
     const isEditing = !!factorToEdit;
 
     const initialAutoIS = factorToEdit
-        ? getCalculatedIS(factorToEdit.literature_importance_base, factorToEdit.expert_importance)
+        ? calculateSuggestedImportance(factorToEdit.literature_importance_base, factorToEdit.expert_importance)
         : 3;
     const initialIsCustom = factorToEdit ? factorToEdit.systemic_importance !== initialAutoIS : false;
 
@@ -72,7 +59,7 @@ const FactorFormContent: React.FC<FactorFormContentProps> = ({
 
     // Calcular en tiempo real el IS según matriz 5.10
     const calculatedIS = useMemo(
-        () => getCalculatedIS(literatureImportanceBase, expertImportance),
+        () => calculateSuggestedImportance(literatureImportanceBase, expertImportance),
         [literatureImportanceBase, expertImportance]
     );
 

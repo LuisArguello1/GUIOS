@@ -66,6 +66,48 @@ class Evaluation(models.Model):
         default="",
         verbose_name="Descripción de necesidades y contexto TI"
     )
+    org_size = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Tamaño de la organización",
+        help_text="Información complementaria opcional (no altera el dictamen)."
+    )
+    it_staff = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Personal de TI",
+        help_text="Información complementaria opcional (no altera el dictamen)."
+    )
+    replaced_software = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        verbose_name="Software que se reemplaza",
+        help_text="Información complementaria opcional (no altera el dictamen)."
+    )
+    target_timeline = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Plazo previsto",
+        help_text="Información complementaria opcional (no altera el dictamen)."
+    )
+    current_platforms = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        verbose_name="Plataformas actuales",
+        help_text="Información complementaria opcional (no altera el dictamen)."
+    )
+    main_goal = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        verbose_name="Objetivo principal",
+        help_text="Información complementaria opcional (no altera el dictamen)."
+    )
     ai_enabled = models.BooleanField(
         default=False,
         verbose_name="Asistencia de IA activada"
@@ -150,6 +192,34 @@ class Evaluation(models.Model):
         unique=True,
         db_index=True,
         verbose_name="Token de sesión anónima"
+    )
+    data_storage_consent = models.BooleanField(
+        default=False,
+        verbose_name="Consentimiento de almacenamiento y estadísticas",
+        help_text="Indica si el evaluador autorizó el almacenamiento anónimo de los datos para fines estadísticos e investigación."
+    )
+    ai_processing_consent = models.BooleanField(
+        default=False,
+        verbose_name="Consentimiento de procesamiento por IA",
+        help_text="Indica si el evaluador autorizó el procesamiento de los datos técnicos mediante modelos de IA."
+    )
+    consent_timestamp = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha y hora del consentimiento",
+        help_text="Marca de tiempo en la que el usuario otorgó los consentimientos informados."
+    )
+    consent_ip_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="Hash anonimizado de IP",
+        help_text="Hash SHA-256 de la dirección IP con salt para trazabilidad y auditoría sin almacenar PII."
+    )
+    privacy_policy_version = models.CharField(
+        max_length=20,
+        default="1.0",
+        verbose_name="Versión de política aceptada"
     )
 
     class Meta:

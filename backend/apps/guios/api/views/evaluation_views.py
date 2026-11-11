@@ -20,6 +20,7 @@ from apps.guios.selectors.evaluation import (
     get_evaluation_or_error,
     get_evaluation_detail_or_error,
 )
+from .security_utils import get_client_ip_hash
 from apps.guios.services.evaluation import (
     create_evaluation,
     update_evaluation,
@@ -28,6 +29,8 @@ from apps.guios.services.evaluation import (
     save_subfactor_ratings,
     generate_evaluation_verdict,
     delete_evaluation,
+    store_factor_rating_suggestions,
+    restore_ai_suggestions_from_logs,
 )
 from apps.guios.exceptions import (
     EvaluationNotFoundError,
@@ -104,6 +107,7 @@ class EvaluationViewSet(viewsets.GenericViewSet):
         except EvaluationNotFoundError as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
+        restore_ai_suggestions_from_logs(evaluation)
         serializer = EvaluationDetailOutputSerializer(evaluation)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -112,9 +116,12 @@ class EvaluationViewSet(viewsets.GenericViewSet):
         serializer = EvaluationCreateInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        consent_ip_hash = get_client_ip_hash(request)
+
         try:
             evaluation = create_evaluation(
                 user=request.user,
+                consent_ip_hash=consent_ip_hash,
                 **serializer.validated_data,
             )
         except EvaluationValidationError as e:
@@ -325,6 +332,41 @@ class EvaluationViewSet(viewsets.GenericViewSet):
         eval_subfactor.save(update_fields=['ai_suggested_rating', 'ai_rating_justification'])
 
         return Response(suggestion, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='ai-suggest-factor-ratings')
+    def ai_suggest_factor_ratings(self, request, pk=None):
+        """
+        POST /api/v1/guios/evaluations/{id}/ai-suggest-factor-ratings/
+        Califica con IA todos los subfactores del factor indicado, no el catálogo entero.
+        """
+        serializer = AISuggestImportanceInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        factor_id = serializer.validated_data['factor_id']
+
+        try:
+            evaluation = get_evaluation_or_error(pk)
+            rows = list(
+                EvaluationSubfactor.objects.select_related('subfactor', 'subfactor__factor').filter(
+                    evaluation=evaluation,
+                    subfactor__factor_id=factor_id,
+                )
+            )
+        except EvaluationNotFoundError as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        if not rows:
+            return Response(
+                {'error': f'El factor #{factor_id} no tiene subfactores en esta evaluación.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        suggestion = ai_service.suggest_factor_ratings(
+            evaluation=evaluation,
+            factor=rows[0].subfactor.factor,
+            subfactors=[row.subfactor for row in rows],
+        )
+        stored = store_factor_rating_suggestions(rows, suggestion.get('ratings') or {})
+        return Response({'factor_id': factor_id, 'ratings': stored}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], url_path='ai-logs')
     def ai_logs(self, request, pk=None):

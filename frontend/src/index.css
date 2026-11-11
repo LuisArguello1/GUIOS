@@ -12,24 +12,24 @@
 @import "@fontsource/material-icons";
 
 :root {
-  /* ===== GUIOS Brand Theme — Verde Menta (Light Mode) ===== */
+  /* ===== GUIOS Brand Theme — Monocromo Titanio / Grafito Puro (Light Mode) ===== */
 
-  /* Colores principales Verde Menta */
-  --color-primary: #059669;          /* Verde Menta / Emerald 600 */
-  --color-primary-hover: #047857;    /* Verde Menta Intenso / Emerald 700 */
-  --color-primary-active: #065f46;   /* Verde Menta Profundo / Emerald 800 */
-  --color-primary-soft-bg: #ecfdf5;  /* Verde Menta Suave / Emerald 50 */
+  /* Colores principales Monocromo Grafito */
+  --color-primary: #18181B;          /* Negro Grafito / Zinc 900 */
+  --color-primary-hover: #27272A;    /* Zinc 800 */
+  --color-primary-active: #09090B;   /* Zinc 950 */
+  --color-primary-soft-bg: #F4F4F5;  /* Zinc 100 suave */
 
-  --color-secondary: #10b981;        /* Verde Esmeralda / Emerald 500 */
-  --color-secondary-hover: #059669;
-  --color-secondary-active: #047857;
+  --color-secondary: #3F3F46;        /* Zinc 700 */
+  --color-secondary-hover: #27272A;
+  --color-secondary-active: #18181B;
 
-  --color-tertiary: #0d9488;         /* Teal Menta / Teal 600 */
-  --color-tertiary-hover: #0f766e;
+  --color-tertiary: #52525B;         /* Zinc 600 */
+  --color-tertiary-hover: #3F3F46;
 
-  --color-accent: #059669;           /* Acento Verde Menta */
-  --color-tag-bg: #ecfdf5;           /* Fondo suave para badges */
-  --color-tag-text: #065f46;
+  --color-accent: #18181B;           /* Acento Grafito */
+  --color-tag-bg: #F4F4F5;           /* Fondo suave para badges */
+  --color-tag-text: #18181B;
 
   /* ===== Fondos ===== */
   --color-bg-page: #F8F8F9;
@@ -50,9 +50,9 @@
 
   /* ===== Bordes ===== */
   --color-border-subtle: #E8E8EA;
-  --color-border-default: #D9D9DC;
+  --color-border-default: #9b9b9b;
   --color-border-strong: #B5B6BB;
-  --color-border-focus: #059669;
+  --color-border-focus: #18181B;
 
   /* ===== Estados ===== */
   --color-success: #059669;
@@ -67,9 +67,9 @@
   --color-danger-bg: #FFF0F3;
   --color-danger-text: #DC2626;
 
-  --color-info: #0284C7;
-  --color-info-bg: #E6F7FF;
-  --color-info-text: #0369A1;
+  --color-info: #475569;
+  --color-info-bg: #F1F5F9;
+  --color-info-text: #334155;
 
   /* ===== Sombras ===== */
   --shadow-sm: 0 1px 2px rgba(22, 24, 35, 0.04);
@@ -89,34 +89,65 @@
   --transition-fast: 100ms ease;
   --transition-base: 160ms ease;
   --transition-slow: 240ms ease;
+
+  /* ===== GUIOS Landing Page — Luxury Editorial Dark Palette ===== */
+  --landing-bg-void: #000000;
+  --landing-bg-abyss: #030508;
+  --landing-bg-surface: #070a0f;
+  --landing-bg-elevated: #0d121a;
+  --landing-bg-card: rgba(13, 18, 26, 0.65);
+
+  /* Navbar blur y glassmorphism editorial (coincide con el tono de fondo del video niebla) */
+  --landing-nav-bg: rgba(0, 0, 0, 0.45);
+  --landing-nav-border: rgba(255, 255, 255, 0.08);
+
+  /* Verde Menta / Esmeralda de Lujo (Alta Joyería / Haute Couture) */
+  --landing-accent: #10b981;
+  --landing-accent-hover: #34d399;
+  --landing-accent-glow: rgba(16, 185, 129, 0.25);
+  --landing-accent-glow-strong: rgba(16, 185, 129, 0.45);
+  --landing-accent-subtle: rgba(16, 185, 129, 0.08);
+  --landing-accent-border: rgba(16, 185, 129, 0.3);
+
+  /* Tipografía Editorial: Platino, Plata y Grafito */
+  --landing-text-display: #ffffff;
+  --landing-text-primary: #f1f5f9;
+  --landing-text-secondary: #94a3b8;
+  --landing-text-muted: #64748b;
+  --landing-text-faint: #334155;
+
+  /* Bordes de precisión hairline */
+  --landing-border-subtle: rgba(255, 255, 255, 0.07);
+  --landing-border-medium: rgba(255, 255, 255, 0.12);
+  --landing-border-strong: rgba(255, 255, 255, 0.22);
 }
 
 :root.dark {
-  /* ===== GUIOS Brand Theme — Verde Menta (Dark Mode) ===== */
+  /* ===== GUIOS Brand Theme — Monocromo Titanio / Platino (Dark Mode) ===== */
 
-  /* Colores principales Verde Menta */
-  --color-primary: #10b981;          /* Verde Menta Luminoso / Emerald 500 */
-  --color-primary-hover: #34d399;    /* Verde Menta Claro / Emerald 400 */
-  --color-primary-active: #059669;   /* Verde Menta Medio / Emerald 600 */
-  --color-primary-soft-bg: rgba(16, 185, 129, 0.14);
+  /* Colores principales Monocromo Platino (Alto contraste noble) */
+  --color-primary: #F4F4F5;          /* Blanco Platino / Zinc 100 — nítido, sobrio, sin color de tinte */
+  --color-primary-hover: #FFFFFF;    /* Blanco puro */
+  --color-primary-active: #E4E4E7;   /* Zinc 200 */
+  --color-primary-soft-bg: rgba(255, 255, 255, 0.08); /* Sutil halo translúcido */
 
-  --color-secondary: #34d399;
-  --color-secondary-hover: #6ee7b7;
-  --color-secondary-active: #10b981;
+  --color-secondary: #E4E4E7;        /* Zinc 200 */
+  --color-secondary-hover: #FFFFFF;
+  --color-secondary-active: #F4F4F5;
 
-  --color-tertiary: #14b8a6;
-  --color-tertiary-hover: #2dd4bf;
+  --color-tertiary: #D4D4D8;         /* Zinc 300 */
+  --color-tertiary-hover: #E4E4E7;
 
-  --color-accent: #10b981;
-  --color-tag-bg: rgba(16, 185, 129, 0.16);
-  --color-tag-text: #6ee7b7;
+  --color-accent: #F4F4F5;
+  --color-tag-bg: rgba(255, 255, 255, 0.10);
+  --color-tag-text: #F4F4F5;
 
   /* ===== Fondos ===== */
   --color-bg-page: #0f0f0f;          /* Negro profundo */
   --color-bg-primary: #010101;
   --color-bg-secondary: #121212;
   --color-bg-tertiary: #1E202B;
-  --color-bg-elevated: #1e1f25;      /* Superficie de tarjetas */
+  --color-bg-elevated: #000000;      /* Superficie de tarjetas */
 
   /* ===== Texto ===== */
   --color-text-primary: #FFFFFF;
@@ -125,14 +156,14 @@
   --color-text-disabled: #44464E;
 
   --color-text-inverse: #010101;
-  --color-text-on-primary: #FFFFFF;
+  --color-text-on-primary: #09090B;  /* Contraste perfecto: texto oscuro sobre botón blanco platino */
   --color-text-on-secondary: #FFFFFF;
 
   /* ===== Bordes ===== */
-  --color-border-subtle: rgba(255, 255, 255, 0.226);
-  --color-border-default: rgba(255, 255, 255, 0.14);
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-default: rgba(255, 255, 255, 0.593);
   --color-border-strong: rgba(255, 255, 255, 0.24);
-  --color-border-focus: #10b981;
+  --color-border-focus: #F4F4F5;
 
   /* ===== Estados ===== */
   --color-success: #10b981;
@@ -147,9 +178,9 @@
   --color-danger-bg: rgba(239, 68, 68, 0.14);
   --color-danger-text: #FCA5A5;
 
-  --color-info: #0284C7;
-  --color-info-bg: rgba(2, 132, 199, 0.14);
-  --color-info-text: #38BDF8;
+  --color-info: #94A3B8;
+  --color-info-bg: rgba(148, 163, 184, 0.12);
+  --color-info-text: #E2E8F0;
 
   /* ===== Sombras ===== */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -185,7 +216,7 @@
 
   ::selection {
     background-color: var(--color-primary);
-    color: #ffffff;
+    color: var(--color-text-on-primary);
   }
 }
 
@@ -295,4 +326,279 @@
 .tiptap-content strike,
 .tiptap-content s {
   text-decoration: line-through !important;
+}
+
+/* ===== Landing Page Luxury Editorial Utilities ===== */
+.landing-text-gradient {
+  background: linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 60%, #94A3B8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.landing-accent-gradient {
+  background: linear-gradient(135deg, #6ee7b7 0%, #10b981 50%, #059669 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.landing-border-glow {
+  box-shadow: 0 0 35px -5px rgba(16, 185, 129, 0.25), inset 0 0 15px -3px rgba(16, 185, 129, 0.08);
+}
+
+.landing-glass {
+  background: var(--landing-nav-bg);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--landing-nav-border);
+}
+
+.landing-card-glow {
+  position: relative;
+}
+.landing-card-glow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(16, 185, 129, 0.3) 50%, rgba(255, 255, 255, 0.02) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ===== 3D Floating Chrome Letters (Hero Animation) ===== */
+@keyframes letterFloat0 {
+  0%, 100% { transform: translate3d(0, 0px, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -10px, 0) rotate(0.4deg); }
+}
+@keyframes letterFloat1 {
+  0%, 100% { transform: translate3d(0, 0px, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -14px, 0) rotate(-0.5deg); }
+}
+@keyframes letterFloat2 {
+  0%, 100% { transform: translate3d(0, 0px, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -8px, 0) rotate(0.3deg); }
+}
+@keyframes letterFloat3 {
+  0%, 100% { transform: translate3d(0, 0px, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -13px, 0) rotate(-0.4deg); }
+}
+@keyframes letterFloat4 {
+  0%, 100% { transform: translate3d(0, 0px, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -11px, 0) rotate(0.5deg); }
+}
+
+.animate-letter-float-0 { animation: letterFloat0 5.4s ease-in-out infinite; }
+.animate-letter-float-1 { animation: letterFloat1 4.9s ease-in-out infinite 0.25s; }
+.animate-letter-float-2 { animation: letterFloat2 5.6s ease-in-out infinite 0.5s; }
+.animate-letter-float-3 { animation: letterFloat3 5.0s ease-in-out infinite 0.75s; }
+.animate-letter-float-4 { animation: letterFloat4 5.3s ease-in-out infinite 1.0s; }
+
+/* ===== AI Platinum Shimmering Effect (Efecto IA Platino Reluciente) ===== */
+@keyframes ai-shimmer-flow {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes ai-subtle-pulse {
+  0%, 100% {
+    opacity: 0.92;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.08);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 18px rgba(255, 255, 255, 0.24);
+  }
+}
+
+/* Texto platinado reluciente */
+.ai-platinum-text {
+  background: linear-gradient(
+    90deg,
+    #52525b 0%,
+    #18181b 25%,
+    #71717a 50%,
+    #18181b 75%,
+    #52525b 100%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ai-shimmer-flow 3.5s linear infinite;
+  font-weight: 700;
+}
+
+:root.dark .ai-platinum-text,
+.dark .ai-platinum-text {
+  background: linear-gradient(
+    90deg,
+    #a1a1aa 0%,
+    #ffffff 25%,
+    #e4e4e7 45%,
+    #ffffff 65%,
+    #a1a1aa 100%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ai-shimmer-flow 3.2s linear infinite;
+  text-shadow: 0 0 16px rgba(255, 255, 255, 0.35);
+  font-weight: 700;
+}
+
+/* Badge / Píldora IA Platino Reluciente */
+.ai-platinum-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-xs, 2px);
+  background: linear-gradient(
+    135deg,
+    rgba(24, 24, 27, 0.08) 0%,
+    rgba(24, 24, 27, 0.03) 100%
+  );
+  border: 1px solid rgba(24, 24, 27, 0.22);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+:root.dark .ai-platinum-badge,
+.dark .ai-platinum-badge {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0.13) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.12), inset 0 0 8px rgba(255, 255, 255, 0.06);
+  animation: ai-subtle-pulse 3s ease-in-out infinite;
+}
+
+/* Línea de Texto con Fondo Animado Platino Reluciente (Sin contenedores pesados) */
+.ai-platinum-inline {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  align-items: flex-start;
+  white-space: normal;
+  overflow: hidden;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  background: linear-gradient(
+    90deg,
+    rgba(24, 24, 27, 0.05) 0%,
+    rgba(24, 24, 27, 0.14) 50%,
+    rgba(24, 24, 27, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: ai-shimmer-flow 3s linear infinite;
+  border: 1px solid rgba(24, 24, 27, 0.18);
+  color: var(--color-text-primary);
+}
+
+:root.dark .ai-platinum-inline,
+.dark .ai-platinum-inline {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.24) 50%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  background-size: 200% 100%;
+  animation: ai-shimmer-flow 2.8s linear infinite;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.12), inset 0 0 8px rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Botón Sugerir con IA: Efecto Dorado Reluciente Tenue / Sutil */
+@keyframes ai-gold-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.ai-gold-btn {
+  position: relative;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.96) 0%,
+    rgba(245, 245, 244, 0.95) 25%,
+    rgba(217, 119, 6, 0.08) 45%,
+    rgba(245, 158, 11, 0.15) 50%,
+    rgba(217, 119, 6, 0.08) 55%,
+    rgba(245, 245, 244, 0.95) 75%,
+    rgba(255, 255, 255, 0.96) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: ai-gold-shimmer 4s linear infinite;
+  border: 1px solid rgba(217, 119, 6, 0.22) !important;
+  color: var(--color-text-primary) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), inset 0 0 6px rgba(245, 158, 11, 0.04) !important;
+  transition: all 0.2s ease;
+}
+
+.ai-gold-btn:hover:not(:disabled) {
+  border-color: rgba(217, 119, 6, 0.38) !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.12), inset 0 0 8px rgba(245, 158, 11, 0.06) !important;
+}
+
+:root.dark .ai-gold-btn,
+.dark .ai-gold-btn {
+  background: linear-gradient(
+    90deg,
+    rgba(24, 24, 27, 0.96) 0%,
+    rgba(39, 39, 42, 0.9) 25%,
+    rgba(217, 119, 6, 0.12) 45%,
+    rgba(245, 158, 11, 0.20) 50%,
+    rgba(217, 119, 6, 0.12) 55%,
+    rgba(39, 39, 42, 0.9) 75%,
+    rgba(24, 24, 27, 0.96) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: ai-gold-shimmer 4s linear infinite;
+  border: 1px solid rgba(245, 158, 11, 0.22) !important;
+  color: #f4f4f5 !important;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.05), inset 0 0 6px rgba(245, 158, 11, 0.03) !important;
+}
+
+:root.dark .ai-gold-btn:hover:not(:disabled),
+.dark .ai-gold-btn:hover:not(:disabled) {
+  border-color: rgba(245, 158, 11, 0.42) !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.14), inset 0 0 8px rgba(245, 158, 11, 0.07) !important;
+  color: #ffffff !important;
+}
+
+.ai-gold-btn:disabled,
+.ai-gold-btn[disabled] {
+  animation: none !important;
+  opacity: 0.45 !important;
+  box-shadow: none !important;
+  border-color: var(--color-border-subtle) !important;
+  background: var(--color-bg-page) !important;
+  color: var(--color-text-secondary) !important;
 }

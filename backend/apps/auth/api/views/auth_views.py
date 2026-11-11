@@ -46,10 +46,15 @@ class RefreshThrottle(AnonRateThrottle):
 
 
 def _build_auth_payload(*, request, user, detail: str, selected_group: dict | None = None) -> dict:
+    groups = list(user.groups.values('id', 'name'))
+    if user.is_superuser and not groups:
+        from django.contrib.auth.models import Group
+        groups = list(Group.objects.values('id', 'name'))
+
     payload = {
         'detail': detail,
         'user': UserDetailSerializer(user, context={'request': request}).data,
-        'groups': list(user.groups.values('id', 'name')),
+        'groups': groups,
     }
     if selected_group:
         payload['selected_group'] = selected_group

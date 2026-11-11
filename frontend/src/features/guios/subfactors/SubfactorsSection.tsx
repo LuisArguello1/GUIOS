@@ -179,11 +179,11 @@ export const SubfactorsSection: React.FC = () => {
                         <span className="text-[10px] font-medium text-[var(--color-text-secondary)] block">
                             Personalizados
                         </span>
-                        <span className="text-base font-bold font-mono text-[var(--color-info-text)]">
+                        <span className="text-base font-bold font-mono text-[var(--color-text-primary)]">
                             {stats.customCount}
                         </span>
                     </div>
-                    <div className="p-2 rounded-[4px] bg-[var(--color-info-bg)] text-[var(--color-info-text)]">
+                    <div className="p-2 rounded-[4px] bg-[var(--color-primary-soft-bg)] text-[var(--color-text-primary)]">
                         <Sparkles size={18} />
                     </div>
                 </div>

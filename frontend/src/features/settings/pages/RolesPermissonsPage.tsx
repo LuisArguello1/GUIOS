@@ -15,6 +15,8 @@ import PermissionSearchInput from '../components/PermissionSearchInput';
 import groupService from '../../../api/groupService';
 import useToastStore from '../../../app/useToastStore';
 import usePermissions from '../../../hooks/usePermissions';
+import useCoreStore from '../../../app/useCoreStore';
+import useAuthStore from '../../../app/useAuthStore';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos locales
@@ -137,7 +139,7 @@ const PermissionCard = memo(({ module, isActive, selectedPermissions, onToggle, 
                     'w-[30px] h-[30px] rounded-[8px] flex items-center justify-center shrink-0',
                     'transition-colors duration-[var(--transition-fast)]',
                     isActive
-                        ? 'bg-[var(--color-primary)] text-white'
+                        ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)]'
                         : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]'
                 )}>
                     <Icon size={15} strokeWidth={2} />
@@ -421,6 +423,13 @@ const RolesPermissionsPage = () => {
             setGroups(prev => prev.map(g => g.id === selectedGroup.id ? updatedRole : g));
             setIsDirty(false);
 
+            // Sincronizar inmediatamente el menú del sidebar en tiempo real
+            const activeRole = useAuthStore.getState().selectedGroup;
+            await useCoreStore.getState().fetchMenu({
+                force: true,
+                roleId: activeRole ? activeRole.id : selectedGroup.id,
+            });
+
             addToast({ type: 'success', message: `Permisos guardados para "${selectedGroup.name}".` });
         } catch {
             if (mountedRef.current)
@@ -697,7 +706,7 @@ const RolesPermissionsPage = () => {
                                             'w-[30px] h-[30px] rounded-[8px] flex items-center justify-center shrink-0',
                                             'transition-colors duration-[var(--transition-fast)]',
                                             isActive
-                                                ? 'bg-[var(--color-primary)] text-white'
+                                                ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)]'
                                                 : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]'
                                         )}>
                                             <Shield size={14} strokeWidth={2} />

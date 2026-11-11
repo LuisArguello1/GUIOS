@@ -52,16 +52,15 @@ urlpatterns = [
     path('api/v1/', include('apps.auth.api.urls')),
 ]
 
+from apps.core.views.media_views import protected_media_view
+
+# Servir archivos media privados (requiere autenticación)
+urlpatterns += [
+    re_path(r'^media/(?P<path>.*)$', protected_media_view, name='protected_media'),
+]
+
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-else:
-    # Fallback para servir media con Waitress cuando Nginx esta apagado en intranet.
-    from django.views.static import serve
-
-    urlpatterns += [
-        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
-    ]
 
 # Fallback SPA React: captura la raíz '/' y cualquier ruta del cliente que no sea API
 urlpatterns += [

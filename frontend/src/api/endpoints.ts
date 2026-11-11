@@ -75,6 +75,17 @@ export const ENDPOINTS = {
         DASHBOARD_EXPORT_EXCEL: '/guios/dashboard/export-excel/',
         AI_LOGS: '/guios/ai-logs/',
         AI_LOG_DETAIL: (id: string | number) => `/guios/ai-logs/${id}/`,
+        PUBLIC_CATALOG: '/guios/public/evaluations/catalog/',
+        PUBLIC_EVALUATIONS: '/guios/public/evaluations/',
+        PUBLIC_EVALUATION_DETAIL: (uuid: string) => `/guios/public/evaluations/${uuid}/`,
+        PUBLIC_EVALUATION_APPLY_DECISOR: (uuid: string) => `/guios/public/evaluations/${uuid}/apply-decisor/`,
+        PUBLIC_EVALUATION_RATE_SUBFACTORS: (uuid: string) => `/guios/public/evaluations/${uuid}/rate-subfactors/`,
+        PUBLIC_EVALUATION_COMPUTE_VERDICT: (uuid: string) => `/guios/public/evaluations/${uuid}/compute-verdict/`,
+        PUBLIC_EVALUATION_AI_SUGGEST_IMPORTANCE: (uuid: string) => `/guios/public/evaluations/${uuid}/ai-suggest-importance/`,
+        PUBLIC_EVALUATION_AI_SUGGEST_RATING: (uuid: string) => `/guios/public/evaluations/${uuid}/ai-suggest-rating/`,
+        PUBLIC_EVALUATION_AI_SUGGEST_FACTOR_RATINGS: (uuid: string) => `/guios/public/evaluations/${uuid}/ai-suggest-factor-ratings/`,
+        PUBLIC_EVALUATION_EXPORT_PDF: (uuid: string) => `/guios/public/evaluations/${uuid}/export-pdf/`,
+        PUBLIC_EVALUATION_EXPORT_EXCEL: (uuid: string) => `/guios/public/evaluations/${uuid}/export-excel/`,
     },
 };
 

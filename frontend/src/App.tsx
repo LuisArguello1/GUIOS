@@ -22,6 +22,10 @@ const MenuSettingsPage = lazy(() => import('./features/settings/pages/MenuSettin
 const DimensionsPage = lazy(() => import('./features/guios/dimensions/DimensionsPage'));
 const FactorsPage = lazy(() => import('./features/guios/factors/FactorsPage'));
 const EvaluationsPage = lazy(() => import('./features/guios/evaluations/EvaluationsPage'));
+const EvaluationDetailPage = lazy(() => import('./features/guios/evaluations/EvaluationDetailPage'));
+const EvaluationComparePage = lazy(() => import('./features/guios/evaluations/EvaluationComparePage'));
+const PublicEvaluationPage = lazy(() => import('./features/publicEvaluation/PublicEvaluationPage'));
+const LandingPage = lazy(() => import('./features/landing/LandingPage'));
 
 function App() {
     return (
@@ -59,6 +63,22 @@ function App() {
                             element={
                                 <ModuleGuard requiredPath="/dashboard/guios/evaluaciones">
                                     <EvaluationsPage />
+                                </ModuleGuard>
+                            }
+                        />
+                        <Route
+                            path="guios/evaluaciones/comparar"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/guios/evaluaciones">
+                                    <EvaluationComparePage />
+                                </ModuleGuard>
+                            }
+                        />
+                        <Route
+                            path="guios/evaluaciones/:id"
+                            element={
+                                <ModuleGuard requiredPath="/dashboard/guios/evaluaciones">
+                                    <EvaluationDetailPage />
                                 </ModuleGuard>
                             }
                         />
@@ -103,8 +123,15 @@ function App() {
                         />
                     </Route>
 
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                    {/* Portal Institucional Principal: Landing Page Editorial de Lujo */}
+                    <Route path="/" element={<LandingPage />} />
+                    <Route path="/landing" element={<LandingPage />} />
+
+                    {/* Módulo Público de Evaluación Técnica GUIOS PRO */}
+                    <Route path="/evaluar" element={<PublicEvaluationPage />} />
+
+                    {/* Fallback */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Suspense>
         </>
