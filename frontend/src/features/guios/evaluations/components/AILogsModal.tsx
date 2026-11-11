@@ -125,6 +125,30 @@ export const AILogsModal: React.FC<AILogsModalProps> = ({
         }
     }, [selectedLog]);
 
+    const suggestionLines = useMemo(() => {
+        const payload = selectedLog?.response_payload;
+        if (!payload) return [];
+        const lines: string[] = [];
+        const justification = typeof payload.justification === 'string' ? payload.justification.trim() : '';
+        const score = payload.suggested_id ?? payload.suggested_rating;
+        if (justification) {
+            lines.push(score != null ? `Sugerencia IA (${score}/4): ${justification}` : `Sugerencia IA: ${justification}`);
+        }
+        const ratings = payload.ratings;
+        if (ratings && typeof ratings === 'object' && !Array.isArray(ratings)) {
+            Object.entries(ratings).forEach(([id, item]) => {
+                if (!item || typeof item !== 'object') return;
+                const row = item as Record<string, unknown>;
+                const text = typeof row.justification === 'string' ? row.justification.trim() : '';
+                const rating = row.rating ?? row.suggested_rating;
+                if (text) {
+                    lines.push(`Subfactor ${id}${rating != null ? ` (${rating}/4)` : ''}: ${text}`);
+                }
+            });
+        }
+        return lines;
+    }, [selectedLog]);
+
     return (
         <Modal
             isOpen={isOpen}
@@ -425,6 +449,16 @@ export const AILogsModal: React.FC<AILogsModalProps> = ({
                                         )}
                                     </Button>
                                 </div>
+
+                                {activeTab === 'response' && suggestionLines.length > 0 && (
+                                    <div className="px-3.5 py-3 border-b border-[var(--color-border-subtle)] space-y-2">
+                                        {suggestionLines.map((line) => (
+                                            <p key={line} className="text-xs leading-relaxed">
+                                                <span className="ai-platinum-text">{line}</span>
+                                            </p>
+                                        ))}
+                                    </div>
+                                )}
 
                                 {/* Visor de Código JSON */}
                                 <div className="flex-1 p-3.5 overflow-y-auto max-h-[380px] bg-[var(--color-bg-secondary)]/40 font-mono text-[11px] custom-scrollbar">

@@ -6,7 +6,7 @@ Capa Selector (Repository Pattern) para el modelo Dimension.
 """
 
 from django.db.models import Count, Prefetch, Q, QuerySet
-from apps.guios.models import Dimension, Factor
+from apps.guios.models import Dimension, Factor, Subfactor
 from apps.guios.exceptions import DimensionNotFoundError
 
 
@@ -76,3 +76,26 @@ def dimension_exists_by_name(name: str, *, exclude_id: int | None = None) -> boo
     if exclude_id is not None:
         qs = qs.exclude(pk=exclude_id)
     return qs.exists()
+
+
+def get_public_catalog_queryset() -> QuerySet[Dimension]:
+    """
+    Retorna las dimensiones con sus factores activos y subfactores activos precargados (anti N+1).
+    """
+    subfactors_prefetch = Prefetch(
+        'subfactors',
+        queryset=Subfactor.objects.filter(is_active=True).order_by('order', 'id'),
+        to_attr='active_subfactors'
+    )
+    factors_prefetch = Prefetch(
+        'factors',
+        queryset=Factor.objects.filter(is_active=True).prefetch_related(subfactors_prefetch).order_by('order', 'id'),
+        to_attr='active_factors'
+    )
+    return (
+        Dimension.objects.annotate(
+            factors_count=Count('factors', filter=Q(factors__is_active=True))
+        )
+        .prefetch_related(factors_prefetch)
+        .order_by('order', 'id')
+    )

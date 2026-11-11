@@ -17,6 +17,7 @@ export type FODAClassification = 'strength' | 'weakness' | 'opportunity' | 'thre
 export interface AISourceItem {
     title?: string;
     url?: string;
+    doi?: string;
     snippet?: string;
     subfactor_id?: number;
 }
@@ -36,6 +37,7 @@ export interface EvaluationItem {
     started_at: string;
     completed_at: string | null;
     recommendation: RecommendationType | null;
+    recommendation_display?: string | null;
 }
 
 export interface EvaluationFactorItem {
@@ -110,6 +112,16 @@ export interface EvaluationDetail extends EvaluationItem {
     subfactors: EvaluationSubfactorItem[];
     results: EvaluationResultItem[];
     verdict: EvaluationVerdictItem | null;
+    org_size?: string;
+    it_staff?: string;
+    replaced_software?: string;
+    target_timeline?: string;
+    current_platforms?: string;
+    main_goal?: string;
+    data_storage_consent?: boolean;
+    ai_processing_consent?: boolean;
+    consent_timestamp?: string | null;
+    privacy_policy_version?: string;
 }
 
 export interface EvaluationCreateInput {
@@ -121,8 +133,17 @@ export interface EvaluationCreateInput {
     software_description?: string;
     org_sector?: string;
     org_description?: string;
+    org_size?: string;
+    it_staff?: string;
+    replaced_software?: string;
+    target_timeline?: string;
+    current_platforms?: string;
+    main_goal?: string;
     ai_enabled?: boolean;
     auto_compute_literature?: boolean;
+    data_storage_consent: boolean;
+    ai_processing_consent?: boolean;
+    privacy_policy_version?: string;
 }
 
 export interface EvaluationUpdateInput {
@@ -134,6 +155,12 @@ export interface EvaluationUpdateInput {
     software_description?: string;
     org_sector?: string;
     org_description?: string;
+    org_size?: string;
+    it_staff?: string;
+    replaced_software?: string;
+    target_timeline?: string;
+    current_platforms?: string;
+    main_goal?: string;
 }
 
 export interface DecisorItemInput {

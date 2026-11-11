@@ -18,7 +18,7 @@ from apps.guios.selectors.factor import (
     get_factor_or_error,
     factor_exists_in_dimension,
 )
-from apps.guios.services.methodology import calculate_systemic_importance
+from apps.guios.services.calculations.suggested_importance import calculate_systemic_importance
 
 
 @transaction.atomic

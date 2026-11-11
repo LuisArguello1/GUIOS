@@ -147,7 +147,7 @@ export const SubfactorsFilters: React.FC<SubfactorsFiltersProps> = ({
                             className={clsx(
                                 'px-2 py-0.5 font-medium rounded-[2px] transition-colors',
                                 filters.is_base === undefined
-                                    ? 'bg-[var(--color-primary)] text-white font-semibold'
+                                    ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] font-semibold'
                                     : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                             )}
                         >
@@ -159,7 +159,7 @@ export const SubfactorsFilters: React.FC<SubfactorsFiltersProps> = ({
                             className={clsx(
                                 'px-2 py-0.5 font-medium rounded-[2px] transition-colors',
                                 filters.is_base === true
-                                    ? 'bg-[var(--color-primary)] text-white font-semibold'
+                                    ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] font-semibold'
                                     : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                             )}
                         >
@@ -171,7 +171,7 @@ export const SubfactorsFilters: React.FC<SubfactorsFiltersProps> = ({
                             className={clsx(
                                 'px-2 py-0.5 font-medium rounded-[2px] transition-colors',
                                 filters.is_base === false
-                                    ? 'bg-[var(--color-primary)] text-white font-semibold'
+                                    ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] font-semibold'
                                     : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                             )}
                         >
@@ -187,7 +187,7 @@ export const SubfactorsFilters: React.FC<SubfactorsFiltersProps> = ({
                             className={clsx(
                                 'px-2 py-0.5 font-medium rounded-[2px] transition-colors',
                                 filters.is_active === undefined
-                                    ? 'bg-[var(--color-primary)] text-white font-semibold'
+                                    ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] font-semibold'
                                     : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                             )}
                         >
@@ -199,7 +199,7 @@ export const SubfactorsFilters: React.FC<SubfactorsFiltersProps> = ({
                             className={clsx(
                                 'px-2 py-0.5 font-medium rounded-[2px] transition-colors',
                                 filters.is_active === true
-                                    ? 'bg-[var(--color-primary)] text-white font-semibold'
+                                    ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] font-semibold'
                                     : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                             )}
                         >

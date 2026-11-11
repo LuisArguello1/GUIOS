@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useAuthStore from '../../app/useAuthStore';
 import useThemeStore from '../../app/useThemeStore';
+import useCoreStore from '../../app/useCoreStore';
 import { UserCog, Users, MonitorDot, LogOut, Sun, Moon, ArrowRight } from 'lucide-react';
 import authService from '../../api/authService';
 import { getImageUrl } from '../../utils/imageUtils';
@@ -52,6 +53,7 @@ const RoleSelectionPage = () => {
 
     const handleSelectRole = useCallback((group: RoleGroup) => {
         setRole(group);
+        void useCoreStore.getState().fetchMenu({ force: true, roleId: group.id });
         navigate('/dashboard');
     }, [setRole, navigate]);
 

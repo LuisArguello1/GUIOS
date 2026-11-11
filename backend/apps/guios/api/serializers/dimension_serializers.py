@@ -8,7 +8,7 @@ Aplica el principio de separación estricta entre serializers de entrada y salid
 """
 
 from rest_framework import serializers
-from apps.guios.models import Dimension, Factor
+from apps.guios.models import Dimension, Factor, Subfactor
 
 
 # ── Serializadores de Salida (Output) ────────────────────────────────────────
@@ -78,6 +78,66 @@ class DimensionDetailSerializer(serializers.ModelSerializer):
             'factors',
             'created_at',
             'updated_at',
+        ]
+        read_only_fields = fields
+
+
+class PublicSubfactorCatalogSerializer(serializers.ModelSerializer):
+    """Subfactor activo con criterio para la vista pública de catálogo."""
+    class Meta:
+        model = Subfactor
+        fields = [
+            'id',
+            'description',
+            'base_citations_count',
+            'keywords_ia',
+            'order',
+        ]
+        read_only_fields = fields
+
+
+class PublicFactorCatalogSerializer(serializers.ModelSerializer):
+    """Factor con subfactores activos para la vista pública de catálogo."""
+    subfactors = PublicSubfactorCatalogSerializer(
+        source='active_subfactors',
+        many=True,
+        read_only=True,
+    )
+
+    class Meta:
+        model = Factor
+        fields = [
+            'id',
+            'name',
+            'scope',
+            'scope_configurable',
+            'systemic_importance',
+            'expert_importance',
+            'literature_importance_base',
+            'order',
+            'subfactors',
+        ]
+        read_only_fields = fields
+
+
+class PublicCatalogDimensionSerializer(serializers.ModelSerializer):
+    """Árbol completo Dimensión -> Factor -> Subfactor para consumo del módulo público."""
+    factors_count = serializers.IntegerField(read_only=True, default=0)
+    factors = PublicFactorCatalogSerializer(
+        source='active_factors',
+        many=True,
+        read_only=True,
+    )
+
+    class Meta:
+        model = Dimension
+        fields = [
+            'id',
+            'name',
+            'description',
+            'order',
+            'factors_count',
+            'factors',
         ]
         read_only_fields = fields
 

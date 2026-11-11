@@ -82,7 +82,7 @@ const Navbar = ({ title }: NavbarProps) => {
 
     const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-    const hasMultipleRoles = (groups?.length || 0) > 1;
+    const hasMultipleRoles = (groups?.length || 0) > 1 || (user?.is_superuser && (groups?.length || 0) > 0);
 
     const pageTitle = useMemo(() => {
         if (title) return title;

@@ -11,6 +11,7 @@ from apps.guios.models import (
     EvaluationResult,
     EvaluationVerdict,
 )
+from apps.guios.services.calculations import calculate_literature_thresholds
 from apps.guios.services.methodology import (
     COMBINATION_MATRIX,
     combine_importance,
@@ -97,6 +98,33 @@ class MethodologyUnitMathTests(TestCase):
         # Un solo valor
         q1, q2, q3, q4 = calculate_quartiles([2.75])
         self.assertEqual((q1, q2, q3, q4), (Decimal('2.7500'), Decimal('2.7500'), Decimal('2.7500'), Decimal('2.7500')))
+
+    def test_literature_thresholds_spread_when_most_ratios_are_zero(self):
+        """
+        Con la mayoría de factores en cero, q1 se mantiene en 0 y los cortes
+        altos salen de las razones positivas. Una serie sin ceros no cambia.
+        """
+        q1, q2, q3, q4 = calculate_literature_thresholds(
+            [0, 0, 0, 0, Decimal('0.1000'), Decimal('0.2000'), Decimal('0.5000')]
+        )
+        self.assertEqual((q1, q2, q3, q4), (
+            Decimal('0.0000'),
+            Decimal('0.1500'),
+            Decimal('0.3500'),
+            Decimal('0.5000'),
+        ))
+        self.assertEqual(assign_literature_importance(0, q1, q2, q3, q4), 1)
+        self.assertEqual(assign_literature_importance(Decimal('0.1000'), q1, q2, q3, q4), 2)
+        self.assertEqual(assign_literature_importance(Decimal('0.2000'), q1, q2, q3, q4), 3)
+        self.assertEqual(assign_literature_importance(Decimal('0.5000'), q1, q2, q3, q4), 4)
+
+        plain = calculate_literature_thresholds([1, 2, 4, 6])
+        self.assertEqual(plain, (
+            Decimal('1.7500'),
+            Decimal('3.0000'),
+            Decimal('4.5000'),
+            Decimal('6.0000'),
+        ))
 
     def test_assign_literature_importance_equation_5_2(self):
         """

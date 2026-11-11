@@ -233,11 +233,11 @@ export const FactorsPage = () => {
                                 <span className="text-[10px] font-medium text-[var(--color-text-secondary)] block">
                                     Personalizados
                                 </span>
-                                <span className="text-base font-bold font-mono text-[var(--color-info-text)]">
+                                <span className="text-base font-bold font-mono text-[var(--color-text-primary)]">
                                     {stats.customCount}
                                 </span>
                             </div>
-                            <Sparkles size={16} className="text-[var(--color-info-text)]" />
+                            <Sparkles size={16} className="text-[var(--color-text-secondary)]" />
                         </div>
 
                         <div className="p-3 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-[4px] shadow-xs flex items-center justify-between">
@@ -257,11 +257,11 @@ export const FactorsPage = () => {
                                 <span className="text-[10px] font-medium text-[var(--color-text-secondary)] block">
                                     Alcance Interno
                                 </span>
-                                <span className="text-base font-bold font-mono text-[var(--color-info-text)]">
+                                <span className="text-base font-bold font-mono text-[var(--color-text-primary)]">
                                     {stats.internalCount}
                                 </span>
                             </div>
-                            <Layers size={16} className="text-[var(--color-info-text)]" />
+                            <Layers size={16} className="text-[var(--color-text-secondary)]" />
                         </div>
 
                         <div className="p-3 bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] rounded-[4px] shadow-xs flex items-center justify-between">

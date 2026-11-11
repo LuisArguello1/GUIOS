@@ -1,30 +1,49 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 from django.db.models import Prefetch, Max, QuerySet
 from ..models.menuGroup import MenuGroup
 from ..models.menuModule import MenuModule
 from ..models.modulePermission import ModulePermission
 
 
-def get_menu_tree_for_user(user) -> List[MenuGroup]:
+def get_menu_tree_for_user(user, role_id: Optional[Union[int, str]] = None) -> List[MenuGroup]:
     """
     Retorna el árbol de menús filtrado por roles del usuario.
-    Superuser ve todos los módulos activos.
-    Usuario regular ve sólo los de sus grupos.
+    - Si se especifica role_id (o rol activo):
+        - Si es 'all' o 0 y el usuario es superuser, ve todos los módulos activos.
+        - De lo contrario, filtra exactamente por los módulos asignados a ese role_id.
+    - Si no se especifica role_id:
+        - Si el usuario tiene grupos asignados (incluyendo superusuario con roles asignados),
+          filtra por los módulos asignados a sus grupos.
+        - Si es superusuario sin ningún grupo asignado, ve todos los módulos activos.
+        - Si es usuario regular sin grupos, retorna vacío.
     """
-    # Solo el superuser ve todo; el resto (incluyendo staff) se filtra por roles
+    # 1. Superusuario: Acceso total e irrestricto a todos los módulos activos sin importar el rol
     if user.is_superuser:
         allowed_modules_qs = MenuModule.objects.filter(is_active=True)
-    else:
-        user_group_ids = list(user.groups.values_list('id', flat=True))
+    elif role_id is not None and str(role_id).strip() not in ('', 'null', 'undefined'):
+        try:
+            numeric_role_id = int(role_id)
+        except (ValueError, TypeError):
+            numeric_role_id = None
 
-        # Si el usuario no tiene ningún grupo asignado, retornar vacío
-        if not user_group_ids:
+        if numeric_role_id is not None:
+            if user.groups.filter(id=numeric_role_id).exists():
+                allowed_modules_qs = MenuModule.objects.filter(
+                    is_active=True,
+                    roles=numeric_role_id,
+                ).distinct()
+            else:
+                return []
+        else:
             return []
-
+    elif user.groups.exists():
+        user_group_ids = list(user.groups.values_list('id', flat=True))
         allowed_modules_qs = MenuModule.objects.filter(
             is_active=True,
             roles__in=user_group_ids,
         ).distinct()
+    else:
+        return []
 
     menu_tree = MenuGroup.objects.prefetch_related(
         Prefetch(

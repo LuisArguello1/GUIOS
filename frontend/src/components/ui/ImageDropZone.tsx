@@ -262,7 +262,7 @@ export const ImageDropZone: React.FC<ImageDropZoneProps> = ({
                                     className={clsx(
                                         'w-11 h-11 rounded-[8px] flex items-center justify-center transition-transform duration-200',
                                         isDragging
-                                            ? 'bg-[var(--color-primary)] text-white scale-110'
+                                            ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] scale-110'
                                             : 'bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] text-[var(--color-primary)]'
                                     )}
                                 >

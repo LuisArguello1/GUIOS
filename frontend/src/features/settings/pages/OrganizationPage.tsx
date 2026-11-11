@@ -336,7 +336,7 @@ const OrganizationPage: React.FC = () => {
                         <div>
                             <GroupLabel>Identidad</GroupLabel>
                             <SettingsGroup>
-                                <SettingsRow id="org-name" icon={<Building2 size={15} className="text-white" />} iconBg="bg-[var(--color-primary)]" label="Nombre">
+                                <SettingsRow id="org-name" icon={<Building2 size={15} className="text-[var(--color-text-on-primary)]" />} iconBg="bg-[var(--color-primary)]" label="Nombre">
                                     <NativeInput id="org-name" name="name" value={formData.name} onChange={handleChange} disabled={!canEdit} placeholder="Nombre comercial" maxLength={150} autoComplete="organization" required />
                                 </SettingsRow>
                                 <SettingsRow id="org-slogan" icon={<Quote size={15} className="text-white" />} iconBg="bg-[var(--color-tertiary)]" label="Slogan" last>
@@ -386,7 +386,7 @@ const OrganizationPage: React.FC = () => {
                                 saved
                                     ? 'bg-[var(--color-success-bg)] text-[var(--color-success-text)] border border-[var(--color-border-subtle)]'
                                     : [
-                                        'bg-[var(--color-primary)] text-white',
+                                        'bg-[var(--color-primary)] text-[var(--color-text-on-primary)]',
                                         'hover:bg-[var(--color-primary-hover)]',
                                         'active:scale-[0.985] active:bg-[var(--color-primary-active)]',
                                     ],

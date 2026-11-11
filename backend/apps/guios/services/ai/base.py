@@ -22,6 +22,9 @@ class BaseAIProvider(ABC):
         software_repo_url: str | None,
         software_description: str,
         subfactors_data: list[dict[str, Any]],
+        org_sector: str = "",
+        org_description: str = "",
+        academic_works: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """
         Paso 0 / Fase 2: Búsqueda y conteo de citas científicas por subfactor.
@@ -91,6 +94,28 @@ class BaseAIProvider(ABC):
         pass
 
     @abstractmethod
+    def suggest_factor_ratings(
+        self,
+        factor_name: str,
+        software_name: str,
+        software_category: str,
+        software_description: str,
+        org_sector: str,
+        org_description: str,
+        subfactors: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """
+        Paso 2: calificaciones de todos los subfactores del factor que el usuario está viendo.
+
+        Returns:
+            {
+                "ratings": {subfactor_id: {"rating": int, "justification": str}},
+                "evidence_origin": str
+            }
+        """
+        pass
+
+    @abstractmethod
     def generate_executive_summary_and_verdict(
         self,
         software_name: str,
@@ -101,6 +126,10 @@ class BaseAIProvider(ABC):
         weaknesses: list[dict[str, Any]],
         strengths: list[dict[str, Any]],
         ir_summary: list[dict[str, Any]],
+        factors: list[dict[str, Any]] | None = None,
+        software_category: str = "",
+        software_description: str = "",
+        org_description: str = "",
     ) -> dict[str, Any]:
         """
         Paso 5-6: Generación del Resumen Ejecutivo para la Alta Dirección y Plan de Mitigación.

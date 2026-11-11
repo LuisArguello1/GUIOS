@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 export default defineConfig(({ mode }) => ({
+  define: {
+    __BUNDLED_DEV__: 'false',
+  },
   base: mode === 'production' ? '/static/' : '/',
   plugins: [
     react(),
@@ -30,6 +33,8 @@ export default defineConfig(({ mode }) => ({
         target: 'http://127.0.0.1:8050',
         changeOrigin: true,
         secure: false,
+        timeout: 180000,
+        proxyTimeout: 180000,
       },
       '/media': {
         target: 'http://127.0.0.1:8050',
@@ -100,6 +105,18 @@ export default defineConfig(({ mode }) => ({
             id.includes('node_modules/d3-path')
           ) {
             return 'recharts';
+          }
+          if (id.includes('node_modules/three')) {
+            return 'three-vendor';
+          }
+          if (id.includes('node_modules/xlsx')) {
+            return 'xlsx-vendor';
+          }
+          if (id.includes('node_modules/framer-motion') || id.includes('node_modules/motion')) {
+            return 'motion-vendor';
+          }
+          if (id.includes('node_modules/@tiptap') || id.includes('node_modules/prosemirror')) {
+            return 'editor-vendor';
           }
         },
       },

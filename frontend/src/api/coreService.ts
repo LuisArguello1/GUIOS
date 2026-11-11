@@ -1,10 +1,16 @@
 import api from './axios';
 import { ENDPOINTS } from './endpoints';
 import type { MenuGroup, Organization } from '../app/types/core';
+import useAuthStore from '../app/useAuthStore';
 
 const coreService = {
-    getMenu: async (): Promise<MenuGroup[]> => {
-        const response = await api.get<MenuGroup[]>(ENDPOINTS.CORE.MENU);
+    getMenu: async (roleId?: number | string): Promise<MenuGroup[]> => {
+        const activeRoleId = roleId ?? useAuthStore.getState().selectedGroup?.id;
+        const params: Record<string, string | number> = {};
+        if (activeRoleId !== undefined && activeRoleId !== null && activeRoleId !== '') {
+            params.role_id = activeRoleId;
+        }
+        const response = await api.get<MenuGroup[]>(ENDPOINTS.CORE.MENU, { params });
         return response.data;
     },
 

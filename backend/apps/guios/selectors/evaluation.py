@@ -31,9 +31,7 @@ def get_evaluations_queryset(
     """
     qs = Evaluation.objects.select_related('created_by', 'verdict').all()
 
-    if user and not user.is_staff and not user.is_superuser:
-        # Los usuarios no administradores solo visualizan sus propias evaluaciones
-        qs = qs.filter(created_by=user)
+    # Las evaluaciones son institucionales y visibles para todos los usuarios autorizados
 
     if status:
         qs = qs.filter(status=status)
@@ -68,6 +66,28 @@ def get_evaluation_by_uuid_or_error(uuid_str: str) -> Evaluation:
     """
     try:
         return Evaluation.objects.select_related('created_by', 'verdict').get(uuid=uuid_str)
+    except (Evaluation.DoesNotExist, ValueError):
+        raise EvaluationNotFoundError(f"La evaluación con UUID {uuid_str} no existe.")
+
+
+def get_evaluation_detail_by_uuid_or_error(uuid_str: str) -> Evaluation:
+    """
+    Retorna la evaluación con TODA su jerarquía precargada en memoria (anti N+1) por UUID:
+    - Creador y veredicto (select_related)
+    - Factores evaluados con dimensión padre (prefetch_related)
+    - Subfactores evaluados con factor (prefetch_related)
+    - Resultados FODA con factor (prefetch_related)
+    """
+    try:
+        return (
+            Evaluation.objects.select_related('created_by', 'verdict')
+            .prefetch_related(
+                'evaluation_factors__factor__dimension',
+                'evaluation_subfactors__subfactor__factor',
+                'evaluation_results__factor',
+            )
+            .get(uuid=uuid_str)
+        )
     except (Evaluation.DoesNotExist, ValueError):
         raise EvaluationNotFoundError(f"La evaluación con UUID {uuid_str} no existe.")
 

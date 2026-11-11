@@ -146,14 +146,27 @@ class EvaluationAPITests(APITestCase):
             "software_description": "Sistema gestor de bases de datos relacional y transaccional.",
             "org_sector": "Educación Superior",
             "org_description": "Infraestructura de datos para el sistema académico.",
+            "org_size": "51 a 250 colaboradores (Mediana)",
+            "it_staff": "6 a 15 personas",
+            "replaced_software": "Oracle 12c",
+            "target_timeline": "3 a 6 meses",
+            "current_platforms": "Linux",
+            "main_goal": "Reducción de costos de licenciamiento",
             "ai_enabled": False,
             "auto_compute_literature": True,
+            "data_storage_consent": True,
         }
 
         response = self.client.post(self.list_url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["software_name"], "PostgreSQL Database Server")
         self.assertEqual(response.data["status"], Evaluation.STATUS_IN_PROGRESS)
+        self.assertEqual(response.data["org_size"], "51 a 250 colaboradores (Mediana)")
+        self.assertEqual(response.data["it_staff"], "6 a 15 personas")
+        self.assertEqual(response.data["replaced_software"], "Oracle 12c")
+        self.assertEqual(response.data["target_timeline"], "3 a 6 meses")
+        self.assertEqual(response.data["current_platforms"], "Linux")
+        self.assertEqual(response.data["main_goal"], "Reducción de costos de licenciamiento")
 
         # Verificar que se crearon los umbrales de cuartiles
         self.assertIsNotNone(response.data["q1_threshold"])
@@ -248,6 +261,7 @@ class EvaluationAPITests(APITestCase):
                 "software_name": "Apache Superset",
                 "org_name": "Dirección de TI UNEMI",
                 "software_category": "Business Intelligence",
+                "data_storage_consent": True,
             },
             format="json",
         )
@@ -387,3 +401,48 @@ class EvaluationAPITests(APITestCase):
         self.client.force_authenticate(user=normal_user)
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_create_evaluation_fails_without_storage_consent(self):
+        """Crear una evaluación sin data_storage_consent falla con 400."""
+        payload = {
+            "software_name": "PostgreSQL",
+            "org_name": "UNEMI",
+            "data_storage_consent": False,
+        }
+        response = self.client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("data_storage_consent", response.data)
+
+    def test_create_evaluation_fails_when_ai_enabled_without_ai_consent(self):
+        """Crear una evaluación con IA pero sin ai_processing_consent falla con 400."""
+        payload = {
+            "software_name": "PostgreSQL",
+            "org_name": "UNEMI",
+            "ai_enabled": True,
+            "data_storage_consent": True,
+            "ai_processing_consent": False,
+        }
+        response = self.client.post(self.list_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("ai_processing_consent", response.data)
+
+    def test_create_evaluation_records_consent_audit(self):
+        """Crear una evaluación almacena correctamente el hash IP y marcas de tiempo."""
+        payload = {
+            "software_name": "PostgreSQL",
+            "org_name": "UNEMI",
+            "ai_enabled": True,
+            "data_storage_consent": True,
+            "ai_processing_consent": True,
+            "privacy_policy_version": "1.0",
+        }
+        response = self.client.post(self.list_url, payload, format="json", REMOTE_ADDR="10.0.0.5")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["data_storage_consent"])
+        self.assertTrue(response.data["ai_processing_consent"])
+        self.assertIsNotNone(response.data["consent_timestamp"])
+        self.assertEqual(response.data["privacy_policy_version"], "1.0")
+
+        eval_obj = Evaluation.objects.get(id=response.data["id"])
+        self.assertTrue(len(eval_obj.consent_ip_hash) > 0)
+        self.assertEqual(len(eval_obj.consent_ip_hash), 64)

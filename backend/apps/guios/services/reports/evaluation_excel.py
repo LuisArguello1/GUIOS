@@ -38,6 +38,10 @@ class EvaluationExcelReport:
         ws_subfactors = wb.create_sheet(title="Subfactores y Calificaciones")
         cls._build_subfactors_sheet(ws_subfactors, evaluation)
 
+        # ── Hoja 4: Evidencias Bibliográficas (OpenAlex) ─────────────────────
+        ws_sources = wb.create_sheet(title="Evidencia Científica (DOIs)")
+        cls._build_sources_sheet(ws_sources, evaluation)
+
         buffer = io.BytesIO()
         wb.save(buffer)
         buffer.seek(0)
@@ -164,5 +168,34 @@ class EvaluationExcelReport:
                 cell = ws.cell(row=r_idx, column=c)
                 cls._apply_border(cell)
                 cell.font = Font(name="Calibri", size=9)
+
+        cls._autofit_columns(ws)
+
+    @classmethod
+    def _build_sources_sheet(cls, ws, ev: Evaluation):
+        ws.views.sheetView[0].showGridLines = True
+        ws["A1"] = f"EVIDENCIA CIENTÍFICA Y REFERENCIAS BIBLIOGRÁFICAS (OPENALEX / DOI) — {ev.software_name}"
+        ws["A1"].font = Font(name="Calibri", size=13, bold=True, color=cls.COLOR_PRIMARY_DARK)
+
+        headers = ["Dimensión", "Factor", "DOI", "Título de la Publicación", "URL Enlace", "Evidencia / Justificación"]
+        for col_idx, h in enumerate(headers, start=1):
+            cls._apply_header_style(ws.cell(row=3, column=col_idx), h)
+
+        factors = ev.evaluation_factors.select_related('factor__dimension').order_by('factor__dimension__order', 'factor__order')
+        r_idx = 4
+        for ef in factors:
+            for s in (ef.ai_literature_sources or []):
+                ws.cell(row=r_idx, column=1, value=ef.factor.dimension.name)
+                ws.cell(row=r_idx, column=2, value=ef.factor.name)
+                ws.cell(row=r_idx, column=3, value=s.get("doi") or "N/A")
+                ws.cell(row=r_idx, column=4, value=s.get("title") or "")
+                ws.cell(row=r_idx, column=5, value=s.get("url") or "")
+                ws.cell(row=r_idx, column=6, value=s.get("snippet") or "")
+
+                for c in range(1, 7):
+                    cell = ws.cell(row=r_idx, column=c)
+                    cls._apply_border(cell)
+                    cell.font = Font(name="Calibri", size=9)
+                r_idx += 1
 
         cls._autofit_columns(ws)

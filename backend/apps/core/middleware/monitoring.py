@@ -150,14 +150,18 @@ class GlobalExceptionMiddleware:
             else 'anonymous'
         )
 
+        import traceback
+        traceback.print_exc()
+
         logger.exception(
             "ERROR NO MANEJADO | Path: %s | Method: %s | "
-            "ReqID: %s | UserID: %s | Tipo: %s",
+            "ReqID: %s | UserID: %s | Tipo: %s | Detalle: %s",
             request.path,
             request.method,
             request_id,
             user_id,
             type(exc).__name__,
+            str(exc),
         )
 
         if settings.DEBUG:
@@ -165,7 +169,8 @@ class GlobalExceptionMiddleware:
 
         return JsonResponse(
             {
-                'detail': 'Error inesperado. Reporta este ID al soporte.',
+                'detail': f'Error inesperado: {str(exc)}',
+                'error': str(exc),
                 'request_id': request_id,
                 'code': 'internal_server_error',
             },

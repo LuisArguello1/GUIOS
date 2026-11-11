@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Layers, Clock, CheckCircle2, CheckCheck, RefreshCw, FileText, Cpu } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Layers, Clock, CheckCircle2, CheckCheck, RefreshCw, FileText, Cpu, ExternalLink, ArrowLeftRight } from 'lucide-react';
 
 import Button from '../../../components/ui/Button';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
@@ -22,7 +23,6 @@ export const EvaluationsPage = () => {
         setFilters,
         resetFilters,
         fetchEvaluations,
-        fetchEvaluationDetail,
         handleDeleteEvaluation,
     } = useEvaluations();
 
@@ -34,6 +34,9 @@ export const EvaluationsPage = () => {
     // Modal de Auditoría de Logs de IA
     const [isAILogsOpen, setIsAILogsOpen] = useState(false);
     const [activeLogEvaluation, setActiveLogEvaluation] = useState<EvaluationItem | null>(null);
+
+    // Selección de Evaluaciones para Comparación (Regla: Máximo 2)
+    const [selectedEvaluationIds, setSelectedEvaluationIds] = useState<number[]>([]);
 
     const safeEvaluations = useMemo(() => {
         return Array.isArray(evaluations) ? evaluations : [];
@@ -47,6 +50,8 @@ export const EvaluationsPage = () => {
         const recACount = safeEvaluations.filter((e) => e.recommendation === 'A').length;
         return { totalCount, inProgressCount, completedCount, recACount };
     }, [safeEvaluations, total]);
+
+    const navigate = useNavigate();
 
     // Handlers
     const handleOpenAILogs = useCallback((item?: EvaluationItem) => {
@@ -72,11 +77,33 @@ export const EvaluationsPage = () => {
 
     const handleViewDetail = useCallback(
         (item: EvaluationItem) => {
-            // Carga detalle en memoria para auditoría o visualización administrativa
-            fetchEvaluationDetail(item.id);
+            navigate(`/dashboard/guios/evaluaciones/${item.id}`);
         },
-        [fetchEvaluationDetail]
+        [navigate]
     );
+
+    // Handlers de Comparación
+    const handleToggleSelect = useCallback((id: number) => {
+        setSelectedEvaluationIds((prev) => {
+            if (prev.includes(id)) {
+                return prev.filter((item) => item !== id);
+            }
+            if (prev.length >= 2) {
+                return prev; // No permitir más de 2
+            }
+            return [...prev, id];
+        });
+    }, []);
+
+    const handleClearSelection = useCallback(() => {
+        setSelectedEvaluationIds([]);
+    }, []);
+
+    const handleGoToCompare = useCallback(() => {
+        if (selectedEvaluationIds.length !== 2) return;
+        const [id1, id2] = selectedEvaluationIds;
+        navigate(`/dashboard/guios/evaluaciones/comparar?id1=${id1}&id2=${id2}`);
+    }, [selectedEvaluationIds, navigate]);
 
     const handlePageChange = useCallback(
         (newPage: number) => {
@@ -105,11 +132,22 @@ export const EvaluationsPage = () => {
                     <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => handleOpenAILogs()}
+                        onClick={() => window.open('/evaluar', '_blank')}
                         className="flex items-center gap-1.5 text-xs text-[var(--color-primary)] border-[var(--color-primary)]/25 hover:bg-[var(--color-primary-soft-bg)]"
+                        title="Abrir asistente de evaluación pública en nueva pestaña"
+                    >
+                        <ExternalLink size={13} />
+                        <span>Módulo Público</span>
+                    </Button>
+
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleOpenAILogs()}
+                        className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-subtle)]"
                         title="Auditoría global de logs e interacciones de Inteligencia Artificial"
                     >
-                        <Cpu size={13} className="text-[var(--color-primary)]" />
+                        <Cpu size={13} />
                         <span>Auditoría IA</span>
                     </Button>
 
@@ -162,11 +200,11 @@ export const EvaluationsPage = () => {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)] block">
                             Completadas
                         </span>
-                        <span className="text-xl font-bold font-mono text-[var(--color-info-text)] mt-0.5 block">
+                        <span className="text-xl font-bold font-mono text-[var(--color-text-primary)] mt-0.5 block">
                             {stats.completedCount}
                         </span>
                     </div>
-                    <div className="p-2 rounded-[4px] bg-[var(--color-info-bg)] text-[var(--color-info-text)]">
+                    <div className="p-2 rounded-[4px] bg-[var(--color-primary-soft-bg)] text-[var(--color-text-primary)]">
                         <CheckCircle2 size={18} />
                     </div>
                 </div>
@@ -201,6 +239,8 @@ export const EvaluationsPage = () => {
                 onViewDetail={handleViewDetail}
                 onDelete={handleOpenDelete}
                 onViewAILogs={handleOpenAILogs}
+                selectedIds={selectedEvaluationIds}
+                onToggleSelect={handleToggleSelect}
             />
 
             {/* ── Paginación ── */}
@@ -236,6 +276,51 @@ export const EvaluationsPage = () => {
                 evaluationId={activeLogEvaluation?.id}
                 evaluationName={activeLogEvaluation?.software_name}
             />
+
+            {/* ── Barra Flotante de Comparación de Evaluaciones ── */}
+            {selectedEvaluationIds.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[var(--color-bg-elevated)] border border-[var(--color-primary)]/40 shadow-2xl rounded-full px-4 py-2 flex items-center gap-3 backdrop-blur-md animate-in slide-in-from-bottom-5 duration-200">
+                    <div className="flex items-center gap-2">
+                        <span className="p-1 rounded-full bg-[var(--color-primary-soft-bg)] text-[var(--color-primary)]">
+                            <ArrowLeftRight size={14} />
+                        </span>
+                        <span className="text-xs font-mono font-bold text-[var(--color-text-primary)]">
+                            {selectedEvaluationIds.length} de 2 seleccionadas
+                        </span>
+                        <span className="text-[11px] text-[var(--color-text-tertiary)] hidden sm:inline">
+                            {selectedEvaluationIds.length === 1
+                                ? '• Selecciona otra para comparar'
+                                : '• Listas para contrastar'}
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 pl-2 border-l border-[var(--color-border-subtle)]">
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={selectedEvaluationIds.length !== 2}
+                            onClick={handleGoToCompare}
+                            className="h-7 px-3 text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                            title={
+                                selectedEvaluationIds.length !== 2
+                                    ? 'Selecciona exactamente 2 evaluaciones para comparar'
+                                    : 'Abrir comparador técnico antes y después'
+                            }
+                        >
+                            <ArrowLeftRight size={12} />
+                            <span>Comparar (2)</span>
+                        </Button>
+
+                        <button
+                            type="button"
+                            onClick={handleClearSelection}
+                            className="h-7 px-2 text-xs font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-page)] rounded-[4px] transition-colors cursor-pointer"
+                        >
+                            Limpiar
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

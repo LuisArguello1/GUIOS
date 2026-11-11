@@ -18,6 +18,33 @@ from apps.guios.services.evaluation import calculate_evaluation_literature
 logger = logging.getLogger(__name__)
 
 
+def enqueue_literature_search(evaluation_id: int) -> str | None:
+    """
+    Deja la evaluación en búsqueda y encola el mapeo bibliográfico.
+    Si el broker no acepta la tarea, conserva las citas base y marca el fallo.
+    """
+    try:
+        evaluation = Evaluation.objects.get(pk=evaluation_id)
+    except Evaluation.DoesNotExist:
+        logger.error("No se encoló literatura: la evaluación #%s no existe.", evaluation_id)
+        return None
+
+    evaluation.ai_status = Evaluation.AI_STATUS_SEARCHING
+    evaluation.save(update_fields=["ai_status"])
+
+    try:
+        async_result = execute_evaluation_literature_ai_task.delay(evaluation_id)
+        return str(async_result.id)
+    except Exception:
+        logger.exception(
+            "No se pudo encolar la búsqueda de literatura de la evaluación #%s.",
+            evaluation_id,
+        )
+        evaluation.ai_status = Evaluation.AI_STATUS_FAILED
+        evaluation.save(update_fields=["ai_status"])
+        return None
+
+
 @shared_task(bind=True, max_retries=2, default_retry_delay=5)
 def execute_evaluation_literature_ai_task(self, evaluation_id: int) -> dict:
     """
@@ -42,7 +69,7 @@ def execute_evaluation_literature_ai_task(self, evaluation_id: int) -> dict:
         citations_by_subfactor = ai_result.get("citations_by_subfactor", {})
         sources_by_factor = ai_result.get("sources_by_factor", {})
 
-        # Calcular cuartiles, IL e IS atómicamente
+        # Solo citas y cuartiles. Las sugerencias de factores y subfactores se piden aparte.
         with transaction.atomic():
             calculate_evaluation_literature(
                 evaluation_id=evaluation.id,

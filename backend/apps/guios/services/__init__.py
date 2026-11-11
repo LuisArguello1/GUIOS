@@ -1,12 +1,14 @@
-from .methodology import (
+from .calculations import (
     COMBINATION_MATRIX,
-    combine_importance,
-    calculate_systemic_importance,
-    calculate_quartiles,
     assign_literature_importance,
-    compute_evaluation_literature_metrics,
+    calculate_quartiles,
+    calculate_systemic_importance,
+    combine_importance,
+)
+from .methodology import (
     apply_step1_decisor_importance,
     apply_step3_subfactor_ratings_and_foda,
+    compute_evaluation_literature_metrics,
     compute_final_verdict,
 )
 from .dimension import (
@@ -35,6 +37,7 @@ from .evaluation import (
 )
 from .ai import (
     BaseAIProvider,
+    AzureAIProvider,
     GroqAIProvider,
     CohereAIProvider,
     HeuristicAIProvider,
@@ -74,6 +77,7 @@ __all__ = [
     'generate_evaluation_verdict',
     'delete_evaluation',
     'BaseAIProvider',
+    'AzureAIProvider',
     'GroqAIProvider',
     'CohereAIProvider',
     'HeuristicAIProvider',
