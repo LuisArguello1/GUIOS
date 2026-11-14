@@ -70,12 +70,14 @@ export const PublicEvaluationPage: React.FC = () => {
         hasUnsavedSubfactorRatings,
         unsavedSubfactorRatingsCount,
 
-        // IA
+        // IA y repositorio
         aiLoadingFactors,
         aiLoadingSubfactors,
         aiSuggesting,
+        syncingRepoHealth,
         handleAISuggestImportance,
         handleAISuggestFactorRatings,
+        handleSyncRepoHealth,
 
         // Operaciones de negocio
         handleStartEvaluation,
@@ -199,6 +201,8 @@ export const PublicEvaluationPage: React.FC = () => {
                                 onContinueToStep3={handleRequestAdvanceToStep3}
                                 onOpenHelp={() => openHelp(2)}
                                 isReadOnly={isStep1And2Locked}
+                                onSyncRepoHealth={(url) => handleSyncRepoHealth(url, false)}
+                                syncingRepoHealth={syncingRepoHealth}
                             />
                         )}
 
@@ -220,6 +224,8 @@ export const PublicEvaluationPage: React.FC = () => {
                                 onCloneEvaluation={() => handleCloneEvaluation()}
                                 onResetEvaluation={handleResetEvaluation}
                                 onOpenHelp={() => openHelp(3)}
+                                onSyncRepoHealth={(url) => handleSyncRepoHealth(url, false)}
+                                syncingRepoHealth={syncingRepoHealth}
                             />
                         )}
                     </div>

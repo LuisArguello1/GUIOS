@@ -22,15 +22,20 @@ import {
 import type { EvaluationDetail, EvaluationResultItem, FODAClassification } from '../../../../../api/evaluationService';
 import MarkdownViewer from '../../../../publicEvaluation/components/MarkdownViewer';
 import { MitigationPlanTable } from './MitigationPlanTable';
+import RepoHealthCard from './RepoHealthCard';
 
 interface EvaluationVerdictSWOTTabProps {
     evaluation: EvaluationDetail;
     onViewFactorDetails?: (factorId: number) => void;
+    onSyncRepoHealth?: (customRepoUrl?: string) => Promise<void> | void;
+    syncingRepoHealth?: boolean;
 }
 
 export const EvaluationVerdictSWOTTab: React.FC<EvaluationVerdictSWOTTabProps> = ({
     evaluation,
     onViewFactorDetails,
+    onSyncRepoHealth,
+    syncingRepoHealth = false,
 }) => {
     const verdict = evaluation.verdict;
     const results = useMemo(() => evaluation.results || [], [evaluation.results]);
@@ -101,6 +106,17 @@ export const EvaluationVerdictSWOTTab: React.FC<EvaluationVerdictSWOTTabProps> =
                         </p>
                     </div>
                 </div>
+            )}
+
+            {/* ── PULSO VIVO DEL REPOSITORIO FLOSS ── */}
+            {(evaluation.software_repo_url || evaluation.repo_health_metrics) && (
+                <RepoHealthCard
+                    repoUrl={evaluation.software_repo_url}
+                    metrics={evaluation.repo_health_metrics}
+                    onSync={onSyncRepoHealth}
+                    isSyncing={syncingRepoHealth}
+                    allowEditUrl={evaluation.status === 'in_progress'}
+                />
             )}
 
             {/* ── 2. FILA AMPLIA EN TABS (PLAN DE MITIGACIÓN Y RESUMEN EJECUTIVO) ── */}

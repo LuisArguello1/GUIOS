@@ -100,6 +100,11 @@ class AISuggestRatingInputSerializer(serializers.Serializer):
     subfactor_id = serializers.IntegerField(required=True)
 
 
+class RepoHealthSyncInputSerializer(serializers.Serializer):
+    """Valida la URL opcional para sincronizar el pulso técnico del repositorio."""
+    repo_url = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+
+
 
 class DecisorFactorItemInputSerializer(serializers.Serializer):
     """Valida la asignación de importancia del decisor para un factor."""
@@ -319,6 +324,7 @@ class EvaluationDetailOutputSerializer(serializers.ModelSerializer):
             'software_category',
             'software_version',
             'software_repo_url',
+            'repo_health_metrics',
             'software_description',
             'org_name',
             'org_sector',

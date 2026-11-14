@@ -101,6 +101,14 @@ class OpenAlexClientTestCase(SimpleTestCase):
         self.assertEqual(works[0].abstract, "Keycloak provides IAM.")
         self.assertEqual(works[1].venue_name, "IEEE Security")
 
+    def test_mentions_software_uses_whole_words(self):
+        from apps.guios.services.literature.openalex import mentions_software
+
+        self.assertTrue(mentions_software("Migrating to Go in production", "Go"))
+        self.assertFalse(mentions_software("A good digital strategy", "Go"))
+        self.assertTrue(mentions_software("Odoo-based ERP", "Odoo"))
+        self.assertFalse(mentions_software("", "Odoo"))
+
     @patch("apps.guios.services.literature.openalex.httpx.Client")
     def test_search_works_network_error_handled_gracefully(self, mock_client_cls):
         mock_client = MagicMock()
@@ -110,4 +118,64 @@ class OpenAlexClientTestCase(SimpleTestCase):
         client = OpenAlexClient()
         works = client.search_works(software_name="AnySoftware")
         self.assertEqual(works, [])
+
+    @patch("apps.guios.services.literature.openalex.httpx.Client")
+    def test_search_works_enforces_2020_2025_date_range_in_filter_and_locally(self, mock_client_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value.__enter__.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "results": [
+                {
+                    "id": "https://openalex.org/W2019",
+                    "doi": "https://doi.org/10.1000/old-2019",
+                    "title": "Old Keycloak Study Before Window",
+                    "publication_year": 2019,
+                    "cited_by_count": 50,
+                    "primary_location": {"source": {"display_name": "Old Journal"}},
+                    "abstract_inverted_index": {"Keycloak": [0], "legacy": [1], "study.": [2]},
+                },
+                {
+                    "id": "https://openalex.org/W2020",
+                    "doi": "https://doi.org/10.1000/ok-2020",
+                    "title": "Keycloak Architecture 2020",
+                    "publication_year": 2020,
+                    "cited_by_count": 10,
+                    "primary_location": {"source": {"display_name": "Journal 2020"}},
+                    "abstract_inverted_index": {"Keycloak": [0], "architecture": [1], "2020.": [2]},
+                },
+                {
+                    "id": "https://openalex.org/W2025",
+                    "doi": "https://doi.org/10.1000/ok-2025",
+                    "title": "Keycloak Security 2025",
+                    "publication_year": 2025,
+                    "cited_by_count": 8,
+                    "primary_location": {"source": {"display_name": "Journal 2025"}},
+                    "abstract_inverted_index": {"Keycloak": [0], "security": [1], "2025.": [2]},
+                },
+                {
+                    "id": "https://openalex.org/W2026",
+                    "doi": "https://doi.org/10.1000/new-2026",
+                    "title": "Future Keycloak 2026",
+                    "publication_year": 2026,
+                    "cited_by_count": 2,
+                    "primary_location": {"source": {"display_name": "Journal 2026"}},
+                    "abstract_inverted_index": {"Keycloak": [0], "future": [1], "2026.": [2]},
+                },
+            ]
+        }
+        mock_client.get.return_value = mock_response
+
+        client = OpenAlexClient()
+        works = client.search_works(software_name="Keycloak", category="Seguridad")
+
+        self.assertTrue(mock_client.get.called)
+        for call in mock_client.get.call_args_list:
+            params = call.kwargs.get("params") or {}
+            self.assertIn("publication_year:2020-2025", params.get("filter", ""))
+
+        dois = [w.doi for w in works]
+        self.assertEqual(dois, ["10.1000/ok-2020", "10.1000/ok-2025"])
 

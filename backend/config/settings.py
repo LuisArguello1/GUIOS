@@ -412,4 +412,6 @@ OPENALEX_API_URL = os.getenv('OPENALEX_API_URL', 'https://api.openalex.org/works
 OPENALEX_MAILTO = os.getenv('OPENALEX_MAILTO', os.getenv('DEFAULT_FROM_EMAIL', 'soporte@guios.org'))
 OPENALEX_TIMEOUT_SECONDS = int(os.getenv('OPENALEX_TIMEOUT_SECONDS', 15))
 OPENALEX_MAX_RESULTS = int(os.getenv('OPENALEX_MAX_RESULTS', 80))
+OPENALEX_YEAR_FROM = int(os.getenv('OPENALEX_YEAR_FROM', 2020))
+OPENALEX_YEAR_TO = int(os.getenv('OPENALEX_YEAR_TO', 2025))
 OPENALEX_API_KEY = os.getenv('OPENALEX_API_KEY', '')

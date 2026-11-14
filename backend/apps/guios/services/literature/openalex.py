@@ -75,6 +75,18 @@ def extract_root_software_name(software_name: str) -> str:
     return (software_name or "").strip()
 
 
+def mentions_software(text: str, software_name: str) -> bool:
+    """
+    True si el texto menciona el software como palabra completa.
+    Evita falsos positivos de nombres cortos ("Go" dentro de "good", "R" dentro de "for").
+    """
+    term = (software_name or "").strip()
+    if not term or not text:
+        return False
+    pattern = rf"(?<!\w){re.escape(term)}(?!\w)"
+    return re.search(pattern, text, re.IGNORECASE) is not None
+
+
 def clean_doi(raw_doi: str | None) -> str:
     """Extrae el DOI sin el prefijo https://doi.org/."""
     if not raw_doi:
@@ -95,12 +107,16 @@ class OpenAlexClient:
         mailto: str | None = None,
         timeout_seconds: int | None = None,
         api_key: str | None = None,
+        year_from: int | None = None,
+        year_to: int | None = None,
     ):
         self.api_url = api_url or getattr(settings, "OPENALEX_API_URL", OPENALEX_DEFAULT_API_URL)
         default_email = getattr(settings, "DEFAULT_FROM_EMAIL", "soporte@guios.org")
         self.mailto = mailto or getattr(settings, "OPENALEX_MAILTO", default_email)
         self.timeout_seconds = timeout_seconds or getattr(settings, "OPENALEX_TIMEOUT_SECONDS", 15)
         self.api_key = api_key or getattr(settings, "OPENALEX_API_KEY", "")
+        self.year_from = year_from if year_from is not None else int(getattr(settings, "OPENALEX_YEAR_FROM", 2020))
+        self.year_to = year_to if year_to is not None else int(getattr(settings, "OPENALEX_YEAR_TO", 2025))
 
     def search_works(
         self,
@@ -128,8 +144,10 @@ class OpenAlexClient:
                 doi_norm = item.doi.lower()
                 if doi_norm in seen_dois:
                     continue
-                content_to_check = f"{item.title} {item.abstract}".lower()
-                if root_name.lower() not in content_to_check and clean_name.lower() not in content_to_check:
+                content_to_check = f"{item.title} {item.abstract}"
+                if not mentions_software(content_to_check, root_name) and not mentions_software(
+                    content_to_check, clean_name
+                ):
                     continue
                 seen_dois.add(doi_norm)
                 combined.append(item)
@@ -153,8 +171,9 @@ class OpenAlexClient:
         if len(combined) < effective_limit:
             _add_works(self._execute_query(search_query=f'"{root_name}"', limit=effective_limit))
 
-        # 4. Búsqueda unquoted de contingencia por raíz (asegurando mención del software)
-        if len(combined) < effective_limit:
+        # 4. Búsqueda unquoted de contingencia por raíz (solo si las etapas entrecomilladas no reunieron base suficiente con abstract)
+        quoted_with_abstract = sum(1 for item in combined if item.abstract.strip())
+        if len(combined) < effective_limit and quoted_with_abstract < min(effective_limit, 10):
             _add_works(self._execute_query(search_query=root_name, limit=effective_limit))
 
         return combined[:effective_limit]
@@ -174,7 +193,10 @@ class OpenAlexClient:
                 while len(collected) < limit and page <= 4:
                     params = {
                         "search": search_query,
-                        "filter": "has_doi:true,is_paratext:false",
+                        "filter": (
+                            f"has_doi:true,is_paratext:false,is_retracted:false,"
+                            f"publication_year:{self.year_from}-{self.year_to}"
+                        ),
                         "sort": "relevance_score:desc",
                         "per-page": page_size,
                         "page": page,
@@ -200,7 +222,7 @@ class OpenAlexClient:
                         break
                     page += 1
 
-                return self._parse_results(collected[:limit])
+                return self._parse_results(collected)[:limit]
 
         except Exception as exc:
             logger.warning(
@@ -226,6 +248,13 @@ class OpenAlexClient:
             if len(title) < 5:
                 continue
 
+            try:
+                year = int(item.get("publication_year") or 0)
+            except (TypeError, ValueError):
+                continue
+            if year < self.year_from or year > self.year_to:
+                continue
+
             # Obtener venue o nombre de la revista/conferencia
             primary_loc = item.get("primary_location") or {}
             source_obj = primary_loc.get("source") or {}
@@ -234,7 +263,6 @@ class OpenAlexClient:
             # Reconstruir abstract
             abstract = reconstruct_abstract(item.get("abstract_inverted_index"))
 
-            year = item.get("publication_year") or 0
             cited_by = item.get("cited_by_count") or 0
             openalex_id = str(item.get("id") or "")
 
@@ -243,7 +271,7 @@ class OpenAlexClient:
                 doi=doi,
                 doi_url=f"https://doi.org/{doi}",
                 title=title,
-                publication_year=int(year),
+                publication_year=year,
                 venue_name=venue_name,
                 cited_by_count=int(cited_by),
                 abstract=abstract,

@@ -28,6 +28,7 @@ import { clsx } from 'clsx';
 
 import Button from '../../../../components/ui/Button';
 import ConfirmModal from '../../../../components/ui/ConfirmModal';
+import RepoHealthCard from '../../../guios/evaluations/components/detail/RepoHealthCard';
 import useToastStore from '../../../../app/useToastStore';
 import type {
     EvaluationDetail,
@@ -55,6 +56,8 @@ interface Step2SubfactorRatingProps {
     onContinueToStep3: () => void;
     onOpenHelp: () => void;
     isReadOnly?: boolean;
+    onSyncRepoHealth?: (customRepoUrl?: string) => Promise<void> | void;
+    syncingRepoHealth?: boolean;
 }
 
 const SUBFACTOR_RATING_OPTIONS = [
@@ -115,6 +118,8 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
     onContinueToStep3,
     onOpenHelp,
     isReadOnly = false,
+    onSyncRepoHealth,
+    syncingRepoHealth = false,
 }) => {
     const { addToast } = useToastStore();
 
@@ -302,6 +307,19 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
                     </Button>
                 </div>
             </div>
+
+            {(evaluation.software_repo_url || evaluation.repo_health_metrics) && (
+                <div className="shrink-0">
+                    <RepoHealthCard
+                        repoUrl={evaluation.software_repo_url}
+                        metrics={evaluation.repo_health_metrics}
+                        onSync={onSyncRepoHealth}
+                        isSyncing={syncingRepoHealth}
+                        allowEditUrl={!isReadOnly}
+                        compact
+                    />
+                </div>
+            )}
 
             {/* ── Selector Móvil: Calificar Factor Activo vs Lista de Factores (< lg) ── */}
             <div className="flex lg:hidden items-center bg-[var(--color-bg-elevated)] p-1 rounded-[8px] border border-[var(--color-border-subtle)] shrink-0 shadow-xs">

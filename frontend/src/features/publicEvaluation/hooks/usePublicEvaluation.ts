@@ -113,6 +113,8 @@ export const usePublicEvaluation = () => {
     const [aiLoadingFactors, setAiLoadingFactors] = useState<Record<number, boolean>>({});
     const [aiLoadingSubfactors, setAiLoadingSubfactors] = useState<Record<number, boolean>>({});
     const [aiSuggesting, setAiSuggesting] = useState<'importance' | 'ratings' | null>(null);
+    const [syncingRepoHealth, setSyncingRepoHealth] = useState<boolean>(false);
+    const autoSyncedRepoRef = useRef<string | null>(null);
 
     // ── Estados Locales de Formulario Reactivo (para <100ms de latencia en sliders) ──
     const [decisorMap, setDecisorMap] = useState<Record<number, LocalDecisorState>>({});
@@ -1033,6 +1035,71 @@ export const usePublicEvaluation = () => {
         }
     }, [evaluation, addToast]);
 
+    const handleSyncRepoHealth = useCallback(
+        async (customRepoUrl?: string, silent = false) => {
+            if (!evaluation?.uuid) return;
+            setSyncingRepoHealth(true);
+            try {
+                const updated = await publicEvaluationService.syncRepoHealth(
+                    evaluation.uuid,
+                    customRepoUrl
+                );
+                setEvaluation((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              software_repo_url: updated.software_repo_url,
+                              repo_health_metrics: updated.repo_health_metrics,
+                          }
+                        : updated
+                );
+                if (!silent) {
+                    const status = updated.repo_health_metrics?.status;
+                    if (status === 'ok') {
+                        addToast({
+                            type: 'success',
+                            message: `Pulso del repositorio sincronizado (${updated.repo_health_metrics?.repo_full_name}).`,
+                        });
+                    } else {
+                        addToast({
+                            type: 'info',
+                            message:
+                                updated.repo_health_metrics?.error_message ||
+                                updated.repo_health_metrics?.message ||
+                                'No se pudo extraer telemetría de código para la URL indicada.',
+                        });
+                    }
+                }
+            } catch (err: unknown) {
+                if (!silent) {
+                    addToast({
+                        type: 'warning',
+                        message: getErrorDetail(err, 'No se pudo consultar el repositorio en este momento.'),
+                    });
+                }
+            } finally {
+                setSyncingRepoHealth(false);
+            }
+        },
+        [evaluation, addToast]
+    );
+
+    useEffect(() => {
+        if (!evaluation?.uuid || (currentStep !== 1 && currentStep !== 2)) return;
+        if (evaluation.repo_health_metrics || syncingRepoHealth) return;
+        const repoUrl = (evaluation.software_repo_url || '').trim();
+        if (!/https?:\/\/(www\.)?(github|gitlab)\.com\/[^/]+\/[^/]+/i.test(repoUrl)) return;
+        if (autoSyncedRepoRef.current === evaluation.uuid) return;
+
+        autoSyncedRepoRef.current = evaluation.uuid;
+        void handleSyncRepoHealth(undefined, true);
+    }, [
+        evaluation,
+        currentStep,
+        syncingRepoHealth,
+        handleSyncRepoHealth,
+    ]);
+
     /**
      * Reanudar una evaluación guardada en localStorage desde la primera pantalla.
      */
@@ -1363,10 +1430,11 @@ export const usePublicEvaluation = () => {
         hasUnsavedSubfactorRatings,
         unsavedSubfactorRatingsCount,
 
-        // Estados de carga IA
+        // Estados de carga IA y telemetría de repositorio
         aiLoadingFactors,
         aiLoadingSubfactors,
         aiSuggesting,
+        syncingRepoHealth,
 
         // Acciones asíncronas
         handleStartEvaluation,
@@ -1376,6 +1444,7 @@ export const usePublicEvaluation = () => {
         handleAISuggestImportance,
         handleAISuggestFactorRatings,
         handleAISuggestRating,
+        handleSyncRepoHealth,
         handleDownloadPdf,
         handleDownloadExcel,
         handleResetEvaluation,

@@ -26,6 +26,7 @@ export const useEvaluationDetail = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [downloadingFormat, setDownloadingFormat] = useState<'pdf' | 'excel' | null>(null);
+    const [syncingRepoHealth, setSyncingRepoHealth] = useState<boolean>(false);
 
     // Modal de Fuentes de Literatura
     const [activeFactorSources, setActiveFactorSources] = useState<EvaluationFactorItem | null>(null);
@@ -121,6 +122,39 @@ export const useEvaluationDetail = () => {
         navigate('/dashboard/guios/evaluaciones');
     }, [navigate]);
 
+    const handleSyncRepoHealth = useCallback(
+        async (customRepoUrl?: string) => {
+            if (!evaluation) return;
+            setSyncingRepoHealth(true);
+            try {
+                const updated = await evaluationService.syncRepoHealth(evaluation.id, customRepoUrl);
+                setEvaluation(updated);
+                if (updated.repo_health_metrics?.status === 'ok') {
+                    addToast({
+                        type: 'success',
+                        message: `Pulso del repositorio sincronizado (${updated.repo_health_metrics.repo_full_name}).`,
+                    });
+                } else {
+                    addToast({
+                        type: 'info',
+                        message:
+                            updated.repo_health_metrics?.error_message ||
+                            updated.repo_health_metrics?.message ||
+                            'No se obtuvo telemetría de código para la URL ingresada.',
+                    });
+                }
+            } catch (err: unknown) {
+                addToast({
+                    type: 'error',
+                    message: getErrorDetail(err, 'No se pudo consultar el repositorio.'),
+                });
+            } finally {
+                setSyncingRepoHealth(false);
+            }
+        },
+        [evaluation, addToast]
+    );
+
     // ── Métricas y Derivados Metodológicos GUIOS ──
     const metrics = useMemo(() => {
         if (!evaluation) {
@@ -208,12 +242,14 @@ export const useEvaluationDetail = () => {
         loading,
         error,
         downloadingFormat,
+        syncingRepoHealth,
         metrics,
         activeFactorSources,
         isSourcesModalOpen,
         isAILogsOpen,
         handleDownloadPdf,
         handleDownloadExcel,
+        handleSyncRepoHealth,
         handleOpenSourcesModal,
         handleCloseSourcesModal,
         handleOpenAILogs,

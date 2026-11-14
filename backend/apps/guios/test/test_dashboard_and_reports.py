@@ -224,6 +224,144 @@ class DashboardAndReportsAPITests(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_editorial_pdf_and_excel_handle_gaps_mitigation_and_xml_chars(self):
+        """PDF y Excel generan sin errores con brechas <3.00, 4 cuadrantes FODA y caracteres & < >."""
+        from apps.guios.services.reports import EvaluationExcelReport, EvaluationPDFReport
+
+        dim2 = Dimension.objects.create(
+            name="Dimensión Organizacional",
+            description="Capacidad institucional y operativa.",
+            order=2,
+        )
+        factor_weak = Factor.objects.create(
+            dimension=dim2,
+            name="Soporte & Gobernanza <TI>",
+            systemic_importance=4,
+            scope=Factor.SCOPE_INTERNAL,
+            order=1,
+        )
+        factor_threat = Factor.objects.create(
+            dimension=dim2,
+            name="Comunidad Externa",
+            systemic_importance=3,
+            scope=Factor.SCOPE_EXTERNAL,
+            order=2,
+        )
+        sf_weak = Subfactor.objects.create(
+            factor=factor_weak,
+            description="Disponibilidad de SLA < 24h & documentación.",
+            order=1,
+        )
+        ev_c = Evaluation.objects.create(
+            software_name="Odoo R&D <Suite>",
+            software_category="ERP & Gestión",
+            software_version="17.0",
+            software_description="Plataforma modular con flujo <automatizado> & extensible.",
+            org_name="Empresa & Servicios TI",
+            org_sector="Tecnología",
+            org_description="Reemplazo de ERP legado & consolidación financiera.",
+            status=Evaluation.STATUS_COMPLETED,
+            q1_threshold=Decimal("0.2500"),
+            q2_threshold=Decimal("0.5000"),
+            q3_threshold=Decimal("1.0000"),
+            q4_threshold=Decimal("2.0000"),
+            created_by=self.admin_user,
+        )
+        EvaluationFactor.objects.create(
+            evaluation=ev_c,
+            factor=self.factor,
+            systemic_importance_snapshot=3,
+            subfactors_count_snapshot=1,
+            decisor_importance=4,
+            relative_importance=4,
+            is_relevant=True,
+            citations_count=2,
+            citation_ratio=Decimal("2.0000"),
+            literature_importance_calculated=4,
+            ai_literature_sources=[
+                {
+                    "doi": "10.1145/1234567.89",
+                    "title": "Architecture & Resilience in Open ERP Systems",
+                    "url": "https://doi.org/10.1145/1234567.89",
+                    "snippet": "Análisis de escalabilidad <10ms> y alta disponibilidad.",
+                }
+            ],
+        )
+        EvaluationFactor.objects.create(
+            evaluation=ev_c,
+            factor=factor_weak,
+            systemic_importance_snapshot=4,
+            subfactors_count_snapshot=1,
+            decisor_importance=4,
+            relative_importance=4,
+            is_relevant=True,
+        )
+        EvaluationFactor.objects.create(
+            evaluation=ev_c,
+            factor=factor_threat,
+            systemic_importance_snapshot=3,
+            subfactors_count_snapshot=1,
+            decisor_importance=2,
+            relative_importance=2,
+            is_relevant=True,
+        )
+        EvaluationSubfactor.objects.create(
+            evaluation=ev_c,
+            subfactor=sf_weak,
+            description_snapshot=sf_weak.description,
+            rating=2,
+            ai_citations_count=1,
+        )
+        EvaluationResult.objects.create(
+            evaluation=ev_c,
+            factor=self.factor,
+            weighted_average=Decimal("3.60"),
+            meets_threshold=True,
+            foda_classification=EvaluationResult.FODA_STRENGTH,
+        )
+        EvaluationResult.objects.create(
+            evaluation=ev_c,
+            factor=factor_weak,
+            weighted_average=Decimal("2.00"),
+            meets_threshold=False,
+            foda_classification=EvaluationResult.FODA_WEAKNESS,
+        )
+        EvaluationResult.objects.create(
+            evaluation=ev_c,
+            factor=factor_threat,
+            weighted_average=Decimal("2.40"),
+            meets_threshold=False,
+            foda_classification=EvaluationResult.FODA_THREAT,
+        )
+        EvaluationVerdict.objects.create(
+            evaluation=ev_c,
+            recommendation=EvaluationVerdict.RECOMMENDATION_C,
+            explanation_text="Existen factores críticos bajo umbral 3.00.",
+            ai_executive_summary=(
+                "## Conclusión\n\n"
+                "Se recomienda posponer la adopción de **Odoo R&D** hasta cerrar brechas de soporte.\n\n"
+                "- **Sostiene:** Arquitectura supera el umbral (PM 3.60).\n"
+                "- **Condiciona:** Soporte & Gobernanza queda en PM 2.00."
+            ),
+            ai_mitigation_plan=(
+                "### Soporte & Gobernanza <TI>\n"
+                "- **Riesgo Metodológico:** Ausencia de SLA formal <24h.\n"
+                "- **Acción Correctiva:** Contratar soporte L2 & definir runbooks.\n"
+                "- **Responsable:** Gobernanza Tecnológica\n"
+                "- **Meta de Aprobación:** Alcanzar PM >= 3.00 en auditoría piloto."
+            ),
+        )
+
+        pdf_buf = EvaluationPDFReport.generate(ev_c)
+        pdf_bytes = pdf_buf.getvalue()
+        self.assertTrue(pdf_bytes.startswith(b"%PDF-"))
+        self.assertGreater(len(pdf_bytes), 4000)
+
+        excel_buf = EvaluationExcelReport.generate(ev_c)
+        excel_bytes = excel_buf.getvalue()
+        self.assertTrue(excel_bytes.startswith(b"PK"))
+        self.assertGreater(len(excel_bytes), 3000)
+
     # ── 6. Pruebas de Permisos RBAC Granulares ────────────────────────────────
 
     def test_anonymous_user_is_unauthorized(self):

@@ -15,6 +15,9 @@ from typing import Any
 
 from django.conf import settings
 
+from copy import deepcopy
+from django.db.models import Q
+
 from apps.guios.models.ai_log import AIAssistanceLog
 from apps.guios.models.evaluation import Evaluation
 from apps.guios.models.factor import Factor
@@ -25,7 +28,10 @@ from .base import BaseAIProvider
 from .cohere_provider import CohereAIProvider
 from .groq_provider import GroqAIProvider
 from .heuristic_provider import HeuristicAIProvider
-from apps.guios.services.literature.openalex import OpenAlexClient
+from apps.guios.services.literature.openalex import (
+    OpenAlexClient,
+    extract_root_software_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +88,159 @@ class AIService:
 
         self.safety_provider = safety_provider or HeuristicAIProvider()
         self.openalex_client = openalex_client or OpenAlexClient()
+        self._consistent_literature_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
+
+    def _is_real_literature_provider(self) -> bool:
+        return isinstance(
+            self.primary_provider,
+            (AzureAIProvider, GroqAIProvider, CohereAIProvider),
+        )
+
+    def _get_literature_year_window(self) -> tuple[int, int]:
+        default_from = int(getattr(settings, "OPENALEX_YEAR_FROM", 2020))
+        default_to = int(getattr(settings, "OPENALEX_YEAR_TO", 2025))
+        raw_from = getattr(self.openalex_client, "year_from", default_from)
+        raw_to = getattr(self.openalex_client, "year_to", default_to)
+        year_from = raw_from if isinstance(raw_from, int) else default_from
+        year_to = raw_to if isinstance(raw_to, int) else default_to
+        return year_from, year_to
+
+    @staticmethod
+    def _has_verified_doi_sources(result: dict[str, Any] | None) -> bool:
+        if not isinstance(result, dict):
+            return False
+        if result.get("evidence_origin") == "catalog_baseline":
+            return False
+        sources_by_factor = result.get("sources_by_factor") or {}
+        for items in sources_by_factor.values():
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                if isinstance(item, dict) and str(item.get("doi") or "").strip():
+                    return True
+        return False
+
+    def _build_snapshot_result(
+        self,
+        *,
+        citations_by_subfactor: dict[int, int],
+        sources_by_factor: dict[int, list[dict[str, Any]]],
+        source_eval_id: int,
+        year_from: int,
+        year_to: int,
+    ) -> dict[str, Any]:
+        return {
+            "citations_by_subfactor": dict(citations_by_subfactor),
+            "sources_by_factor": deepcopy(sources_by_factor),
+            "ratings_by_subfactor": {},
+            "importance_by_factor": {},
+            "provider_info": (
+                f"Snapshot OpenAlex consistente ({year_from}-{year_to}) "
+                f"reutilizado de evaluación #{source_eval_id}."
+            ),
+            "evidence_origin": "openalex_consistent_snapshot",
+            "provider": type(self.primary_provider).__name__,
+            "cascade_level": "snapshot",
+            "snapshot_reused": True,
+            "snapshot_source_evaluation_id": source_eval_id,
+        }
+
+    def _find_consistent_openalex_snapshot(
+        self,
+        evaluation: Evaluation,
+        subfactors_data: list[dict[str, Any]],
+        year_from: int,
+        year_to: int,
+    ) -> dict[str, Any] | None:
+        """Busca un snapshot bibliográfico previo del mismo software raíz (Enfoque A)."""
+        root_name = extract_root_software_name(evaluation.software_name or "").strip().lower()
+        if not root_name:
+            return None
+
+        active_subfactor_ids = {int(sf["id"]) for sf in subfactors_data}
+        candidates = (
+            Evaluation.objects.filter(ai_status=Evaluation.AI_STATUS_COMPLETED)
+            .filter(
+                Q(software_name__icontains=root_name)
+                | Q(software_name__iexact=evaluation.software_name)
+            )
+            .exclude(pk=evaluation.pk)
+            .prefetch_related("evaluation_factors", "evaluation_subfactors", "ai_logs")
+            .order_by("-id")[:30]
+        )
+
+        for cand in candidates:
+            cand_root = extract_root_software_name(cand.software_name or "").strip().lower()
+            if cand_root != root_name:
+                continue
+
+            lit_logs = [
+                log
+                for log in cand.ai_logs.all()
+                if log.request_type == AIAssistanceLog.REQ_LITERATURE_SEARCH
+                and log.status == AIAssistanceLog.STATUS_SUCCESS
+            ]
+            if lit_logs:
+                compatible_log = any(
+                    isinstance(log.request_payload, dict)
+                    and log.request_payload.get("openalex_year_from") == year_from
+                    and log.request_payload.get("openalex_year_to") == year_to
+                    for log in lit_logs
+                )
+                if not compatible_log:
+                    continue
+
+            cand_subfactors = list(cand.evaluation_subfactors.all())
+            cand_subfactor_ids = {int(esf.subfactor_id) for esf in cand_subfactors}
+            if cand_subfactor_ids != active_subfactor_ids:
+                continue
+
+            sources_by_factor: dict[int, list[dict[str, Any]]] = {}
+            has_verified_doi = False
+            year_mismatch = False
+            for ef in cand.evaluation_factors.all():
+                raw_sources = ef.ai_literature_sources or []
+                if not isinstance(raw_sources, list) or not raw_sources:
+                    continue
+                clean_sources: list[dict[str, Any]] = []
+                for src in raw_sources:
+                    if not isinstance(src, dict):
+                        continue
+                    doi = str(src.get("doi") or "").strip()
+                    if not doi:
+                        continue
+                    src_year = src.get("publication_year") or src.get("year")
+                    if src_year is not None:
+                        try:
+                            yr = int(src_year)
+                            if yr < year_from or yr > year_to:
+                                year_mismatch = True
+                                break
+                        except (TypeError, ValueError):
+                            pass
+                    clean_sources.append(deepcopy(src))
+                    has_verified_doi = True
+                if year_mismatch:
+                    break
+                if clean_sources:
+                    sources_by_factor[int(ef.factor_id)] = clean_sources
+
+            if year_mismatch or not has_verified_doi:
+                continue
+
+            citations_by_subfactor = {
+                int(esf.subfactor_id): max(0, int(esf.ai_citations_count or 0))
+                for esf in cand_subfactors
+            }
+            return self._build_snapshot_result(
+                citations_by_subfactor=citations_by_subfactor,
+                sources_by_factor=sources_by_factor,
+                source_eval_id=cand.pk,
+                year_from=year_from,
+                year_to=year_to,
+            )
+
+        return None
 
     def search_literature_and_citations(
         self,
@@ -90,6 +249,62 @@ class AIService:
     ) -> dict[str, Any]:
         """Paso 0 / Fase 2: búsqueda y conteo de literatura por subfactor."""
         subfactors_data = self._load_subfactors()
+        year_from, year_to = self._get_literature_year_window()
+        root_name = extract_root_software_name(evaluation.software_name or "").strip().lower()
+        cache_key = (
+            root_name,
+            year_from,
+            year_to,
+            tuple(int(sf["id"]) for sf in subfactors_data),
+            type(self.primary_provider).__name__,
+        )
+
+        if academic_works is None and self._is_real_literature_provider() and root_name:
+            reused_snapshot: dict[str, Any] | None = None
+            cached = self._consistent_literature_cache.get(cache_key)
+            if cached is not None:
+                source_eval_id = cached["source_eval_id"]
+                if Evaluation.objects.filter(pk=source_eval_id).exists():
+                    reused_snapshot = self._build_snapshot_result(
+                        citations_by_subfactor=cached["result"].get("citations_by_subfactor", {}),
+                        sources_by_factor=cached["result"].get("sources_by_factor", {}),
+                        source_eval_id=source_eval_id,
+                        year_from=year_from,
+                        year_to=year_to,
+                    )
+                else:
+                    self._consistent_literature_cache.pop(cache_key, None)
+
+            if reused_snapshot is None:
+                reused_snapshot = self._find_consistent_openalex_snapshot(
+                    evaluation, subfactors_data, year_from, year_to
+                )
+                if reused_snapshot is not None:
+                    self._consistent_literature_cache[cache_key] = {
+                        "source_eval_id": reused_snapshot["snapshot_source_evaluation_id"],
+                        "result": deepcopy(reused_snapshot),
+                    }
+
+            if reused_snapshot is not None:
+                snapshot_payload = {
+                    **self._literature_payload(evaluation, subfactors_data),
+                    "openalex_year_from": year_from,
+                    "openalex_year_to": year_to,
+                    "snapshot_reused": True,
+                    "snapshot_source_evaluation_id": reused_snapshot["snapshot_source_evaluation_id"],
+                    "consistency_mode": "enfoque_a",
+                    "provider": type(self.primary_provider).__name__,
+                    "cascade_level": "snapshot",
+                }
+                self._log(
+                    evaluation=evaluation,
+                    request_type=AIAssistanceLog.REQ_LITERATURE_SEARCH,
+                    payload=snapshot_payload,
+                    status=AIAssistanceLog.STATUS_SUCCESS,
+                    response=reused_snapshot,
+                    duration_ms=0,
+                )
+                return reused_snapshot
 
         if academic_works is None:
             try:
@@ -115,21 +330,37 @@ class AIService:
         payload = {
             **self._literature_payload(evaluation, subfactors_data),
             "academic_works_count": len(academic_works or []),
+            "openalex_year_from": year_from,
+            "openalex_year_to": year_to,
+            "consistency_mode": "enfoque_a",
         }
 
         if isinstance(self.primary_provider, AzureAIProvider):
-            return self._search_literature_azure_window(
+            result = self._search_literature_azure_window(
                 evaluation, subfactors_data, payload, academic_works=academic_works
             )
+        else:
+            result = self._search_literature_chunks(
+                evaluation,
+                subfactors_data,
+                payload,
+                API_LITERATURE_CHUNK_SIZE,
+                start_level="primario",
+                academic_works=academic_works,
+            )
 
-        return self._search_literature_chunks(
-            evaluation,
-            subfactors_data,
-            payload,
-            API_LITERATURE_CHUNK_SIZE,
-            start_level="primario",
-            academic_works=academic_works,
-        )
+        if (
+            academic_works is None
+            and self._is_real_literature_provider()
+            and root_name
+            and self._has_verified_doi_sources(result)
+        ):
+            self._consistent_literature_cache[cache_key] = {
+                "source_eval_id": evaluation.pk,
+                "result": deepcopy(result),
+            }
+
+        return result
 
     def suggest_factor_importance(
         self,
@@ -205,6 +436,20 @@ class AIService:
             "subfactor_ids": [item["id"] for item in subfactors_data],
             "software_name": evaluation.software_name,
         }
+        enriched_desc = evaluation.software_description or ""
+        repo_health = getattr(evaluation, "repo_health_metrics", None)
+        if isinstance(repo_health, dict) and repo_health.get("status") == "ok":
+            rel = (repo_health.get("latest_release") or {}).get("tag_name") or "sin release formal"
+            repo_note = (
+                f"[Telemetría verificada del repositorio {repo_health.get('repo_full_name')}: "
+                f"Vitalidad {repo_health.get('health_score')}/100 ({repo_health.get('health_grade')}), "
+                f"Licencia {repo_health.get('license_spdx') or 'no declarada'}, "
+                f"Último push hace {repo_health.get('days_since_last_push')} días, "
+                f"Release {rel}, {repo_health.get('stars')} stars, "
+                f"{repo_health.get('contributors_count') or 'N/D'} contribuidores]"
+            )
+            enriched_desc = f"{enriched_desc}\n{repo_note}".strip()
+
         return self._cascade(
             evaluation=evaluation,
             request_type=AIAssistanceLog.REQ_SUBFACTOR_RATING,
@@ -214,7 +459,7 @@ class AIService:
                 factor_name=factor.name,
                 software_name=evaluation.software_name,
                 software_category=evaluation.software_category,
-                software_description=evaluation.software_description,
+                software_description=enriched_desc,
                 org_sector=evaluation.org_sector,
                 org_description=evaluation.org_description,
                 subfactors=subfactors_data,

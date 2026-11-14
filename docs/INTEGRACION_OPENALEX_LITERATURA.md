@@ -73,14 +73,15 @@ Ubicación del código: [`backend/apps/guios/services/literature/openalex.py`](f
 * **URL Base:** `https://api.openalex.org/works`
 * **Método:** `GET`
 * **Polite Pool (Cortesía Gratuita):** OpenAlex ofrece acceso prioritario sin costo con hasta 100.000 peticiones diarias y hasta 10 req/s al incluir un correo de contacto en el encabezado `User-Agent` o en el parámetro `mailto`.
-  * Configuración: `OPENALEX_EMAIL` (por defecto: `antigravity@guios.org`).
-* **API Key Dedicada (Opcional):** Si se dispone de una clave premium de OpenAlex, se envía mediante la cabecera `api_key: <key>` o parámetro `api_key`.
+  * Configuración: `OPENALEX_MAILTO` (configurable vía `.env`).
+* **API Key Dedicada (Opcional):** Si se dispone de una clave premium de OpenAlex, se envía mediante el parámetro `api_key` o cabecera dedicada.
   * Configuración: `OPENALEX_API_KEY` (soporta inyección vía variable de entorno).
-* **Timeout y Capacidad:**
-  * `OPENALEX_TIMEOUT = 12.0` segundos.
-  * `OPENALEX_MAX_RESULTS = 20` artículos por software evaluado (configurable vía settings).
+* **Timeout, Ventana Temporal y Capacidad:**
+  * `OPENALEX_TIMEOUT_SECONDS = 15.0` segundos por petición.
+  * `OPENALEX_MAX_RESULTS = 80` artículos únicos máximo por software evaluado (configurable vía settings).
+  * `OPENALEX_YEAR_FROM = 2020` y `OPENALEX_YEAR_TO = 2025`: Restringe las publicaciones recuperadas exclusivamente al rango **2020–2025** tanto en el filtro de la API como en la validación local de resultados.
 * **Filtros API:**
-  * `filter=has_doi:true`: Restringe los resultados a publicaciones con identificador digital de objeto (DOI) formal.
+  * `filter=has_doi:true,is_paratext:false,is_retracted:false,publication_year:2020-2025`: Restringe los resultados a publicaciones académicas válidas con DOI formal, sin paratextos ni artículos retractados, dentro de la ventana temporal configurada.
   * `sort=relevance_score:desc`: Prioriza las obras más relevantes al término de consulta.
 
 ### 3.2 Extracción de Término Raíz (`extract_root_software_name`)
@@ -185,11 +186,12 @@ Un artículo científico sobre adopción de software libre (por ejemplo, una eva
 
 El prompt del LLM fue diseñado para **no limitarse a una sola asociación por artículo**. Si el resumen de una publicación proporciona evidencia para 3 o 4 subfactores diferentes, el modelo debe relacionar el mismo artículo con cada uno de ellos, registrando la justificación específica (*snippet*).
 
-### 4.2 Restricción Estricta de Identificadores DOI
-El prompt instruye explícitamente a los modelos (Azure OpenAI, Groq, Cohere):
-* Solo pueden utilizar los DOIs entregados en la lista de artículos recuperados por OpenAlex.
-* Está estrictamente prohibido inventar o alucinar DOIs que no figuren en la colección provista.
-* Si un factor no encuentra respaldo directo en los resúmenes, se deja su conteo de fuentes en cero de forma metodológicamente honesta.
+### 4.2 Restricción Estricta de Identificadores DOI y Consistencia por Software (Enfoque A)
+El pipeline de mapeo bibliográfico garantiza reproducibilidad científica y consistencia entre evaluaciones de un mismo software:
+* **Desacoplamiento del contexto organizacional:** El prompt de mapeo (`build_literature_prompts`) omite intencionalmente el sector y la descripción de la organización adoptante para el cálculo bibliográfico ($IL$), atribuyendo citas exclusivamente sobre las capacidades técnicas y publicaciones del software evaluado. El contexto organizacional se reserva para las sugerencias de $ID$, calificaciones contextuales, dictamen ejecutivo y plan de mitigación.
+* **Temperatura determinista (`temperature=0.0`):** Los proveedores Groq y Cohere operan con temperatura `0.0` en la extracción de citas.
+* **Reutilización de Snapshot OpenAlex Consistente:** En evaluaciones sucesivas del mismo software raíz (`extract_root_software_name`) con igual catálogo de subfactores activos y ventana temporal (`OPENALEX_YEAR_FROM`–`OPENALEX_YEAR_TO`), `AIService` reutiliza el snapshot verificado con DOIs de la evaluación previa completada (`evidence_origin = "openalex_consistent_snapshot"`), manteniendo idénticos conteos de citas, $r_i$ y cuartiles.
+* **Restricción de DOIs:** Está estrictamente prohibido inventar DOIs que no figuren en la colección provista por OpenAlex; si un factor no encuentra respaldo directo en los resúmenes ni en el backfill estricto de palabras clave (`BACKFILL_MIN_HITS = 2`), su conteo permanece en cero de forma metodológicamente honesta.
 
 ### 4.3 Formato de Respuesta del Modelo
 ```json

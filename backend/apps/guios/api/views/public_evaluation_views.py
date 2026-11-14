@@ -44,6 +44,7 @@ from apps.guios.tasks import enqueue_literature_search
 from apps.guios.services.ai import ai_service
 from apps.guios.services.ai.verdict_narrative import build_predetermined_narrative
 from apps.guios.services.reports import EvaluationPDFReport, EvaluationExcelReport
+from apps.guios.services.repository_health import sync_evaluation_repo_health
 
 from .security_utils import get_client_ip_hash
 from ..serializers.dimension_serializers import PublicCatalogDimensionSerializer
@@ -56,6 +57,7 @@ from ..serializers.evaluation_serializers import (
     ComputeVerdictInputSerializer,
     AISuggestImportanceInputSerializer,
     AISuggestRatingInputSerializer,
+    RepoHealthSyncInputSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -257,21 +259,37 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
         ai_summary = serializer.validated_data.get('ai_executive_summary', '')
         ai_mitigation = serializer.validated_data.get('ai_mitigation_plan', '')
 
-        results_qs = eval_obj.evaluation_results.select_related('factor')
+        results_qs = eval_obj.evaluation_results.select_related('factor', 'factor__dimension')
         factor_rows = {
             row.factor_id: row
             for row in eval_obj.evaluation_factors.select_related('factor')
         }
+        lowest_sub_by_factor: dict[int, tuple[int, str]] = {}
+        for esf in eval_obj.evaluation_subfactors.select_related('subfactor').filter(rating__isnull=False):
+            fid = esf.subfactor.factor_id
+            rating_val = int(esf.rating)
+            if rating_val >= 4:
+                continue
+            desc = (esf.description_snapshot or esf.subfactor.description or '').strip()
+            if not desc:
+                continue
+            prev = lowest_sub_by_factor.get(fid)
+            if prev is None or rating_val < prev[0]:
+                lowest_sub_by_factor[fid] = (rating_val, desc)
+
         factors_payload = []
         for result in results_qs:
             factor_row = factor_rows.get(result.factor_id)
+            sub_crit = lowest_sub_by_factor.get(result.factor_id)
             factors_payload.append({
                 'factor': result.factor.name,
+                'dimension': result.factor.dimension.name if result.factor.dimension_id else '',
                 'pm': float(result.weighted_average),
                 'foda': result.get_foda_classification_display(),
                 'ir': factor_row.relative_importance if factor_row else None,
                 'alcance': factor_row.scope_used if factor_row else '',
                 'supera_umbral': result.meets_threshold,
+                'subfactor_critico': sub_crit[1] if (sub_crit and not result.meets_threshold) else '',
             })
         strengths = [item for item in factors_payload if item['supera_umbral']]
         weaknesses = [item for item in factors_payload if not item['supera_umbral']]
@@ -513,3 +531,26 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         response['Access-Control-Expose-Headers'] = 'Content-Disposition'
         return response
+
+    @action(detail=True, methods=['post'], url_path='repo-health')
+    def repo_health(self, request, uuid=None):
+        """
+        POST /api/v1/guios/public/evaluations/{uuid}/repo-health/
+        Extrae en vivo la telemetría verificable del repositorio GitHub/GitLab
+        y devuelve el detalle actualizado de la evaluación.
+        """
+        try:
+            evaluation = get_evaluation_by_uuid_or_error(uuid)
+        except EvaluationNotFoundError as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = RepoHealthSyncInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        sync_evaluation_repo_health(
+            evaluation,
+            repo_url=serializer.validated_data.get('repo_url'),
+            force=True,
+        )
+        detailed = get_evaluation_detail_by_uuid_or_error(uuid)
+        return Response(EvaluationDetailOutputSerializer(detailed).data, status=status.HTTP_200_OK)

@@ -20,6 +20,8 @@ export interface AISourceItem {
     doi?: string;
     snippet?: string;
     subfactor_id?: number;
+    subfactor_description?: string;
+    match_origin?: 'model' | 'keyword_backfill';
 }
 
 export interface EvaluationItem {
@@ -90,6 +92,56 @@ export interface EvaluationResultItem {
     calculated_at: string;
 }
 
+export interface RepoHealthRelease {
+    tag_name?: string;
+    name?: string;
+    published_at?: string;
+}
+
+export interface RepoHealthContributor {
+    login: string;
+    contributions: number;
+    avatar_url?: string;
+}
+
+export interface RepoHealthAlert {
+    level: 'danger' | 'warning' | 'info';
+    message: string;
+}
+
+export interface RepoHealthMetrics {
+    status: 'ok' | 'missing' | 'unsupported' | 'error';
+    provider?: 'github' | 'gitlab' | 'web';
+    repo_full_name?: string;
+    repo_url?: string;
+    description?: string;
+    homepage?: string;
+    primary_language?: string;
+    topics?: string[];
+    license_spdx?: string;
+    license_name?: string;
+    has_osi_license?: boolean;
+    stars?: number;
+    forks?: number;
+    watchers?: number;
+    open_issues?: number;
+    default_branch?: string;
+    archived?: boolean;
+    created_at?: string;
+    pushed_at?: string;
+    days_since_last_push?: number | null;
+    latest_release?: RepoHealthRelease | null;
+    contributors_count?: number | null;
+    top_contributors?: RepoHealthContributor[];
+    activity_status?: 'active' | 'moderate' | 'stale' | 'archived' | 'unknown';
+    health_score?: number;
+    health_grade?: string;
+    alerts?: RepoHealthAlert[];
+    message?: string;
+    error_message?: string;
+    fetched_at?: string;
+}
+
 export interface EvaluationVerdictItem {
     id: number;
     recommendation: RecommendationType;
@@ -102,6 +154,7 @@ export interface EvaluationVerdictItem {
 
 export interface EvaluationDetail extends EvaluationItem {
     software_repo_url: string | null;
+    repo_health_metrics?: RepoHealthMetrics | null;
     software_description: string;
     org_description: string;
     q1_threshold: string | number | null;
@@ -289,6 +342,15 @@ const evaluationService = {
             blob: response.data,
             contentDisposition: response.headers['content-disposition'],
         };
+    },
+
+    /**
+     * Sincroniza la telemetría viva del repositorio GitHub/GitLab del software candidato.
+     */
+    async syncRepoHealth(id: number | string, repoUrl?: string): Promise<EvaluationDetail> {
+        const payload = repoUrl ? { repo_url: repoUrl } : {};
+        const response = await api.post(ENDPOINTS.GUIOS.EVALUATION_REPO_HEALTH(id), payload);
+        return response.data;
     },
 };
 

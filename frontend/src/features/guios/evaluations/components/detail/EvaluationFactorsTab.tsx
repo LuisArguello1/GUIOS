@@ -134,9 +134,9 @@ export const EvaluationFactorsTab: React.FC<EvaluationFactorsTabProps> = ({
                     <button
                         type="button"
                         onClick={() => setRelevanceFilter('all')}
-                        className={`px-2 py-0.5 rounded-[var(--radius-xs)] transition-colors cursor-pointer ${relevanceFilter === 'all'
-                                ? 'bg-[var(--color-bg-page)] text-[var(--color-text-primary)] font-bold border border-[var(--color-border-subtle)]'
-                                : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                        className={`px-2.5 py-1 rounded-[var(--radius-xs)] transition-colors cursor-pointer border ${relevanceFilter === 'all'
+                                ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] border-[var(--color-primary)] font-bold'
+                                : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]'
                             }`}
                     >
                         Todos ({factors.length})
@@ -144,9 +144,9 @@ export const EvaluationFactorsTab: React.FC<EvaluationFactorsTabProps> = ({
                     <button
                         type="button"
                         onClick={() => setRelevanceFilter('relevant')}
-                        className={`px-2 py-0.5 rounded-[var(--radius-xs)] transition-colors cursor-pointer ${relevanceFilter === 'relevant'
-                                ? 'bg-[var(--color-bg-page)] text-[var(--color-text-primary)] font-bold border border-[var(--color-border-subtle)]'
-                                : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                        className={`px-2.5 py-1 rounded-[var(--radius-xs)] transition-colors cursor-pointer border ${relevanceFilter === 'relevant'
+                                ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] border-[var(--color-primary)] font-bold'
+                                : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]'
                             }`}
                     >
                         Relevantes ({factors.filter((f) => f.is_relevant !== false).length})
@@ -154,9 +154,9 @@ export const EvaluationFactorsTab: React.FC<EvaluationFactorsTabProps> = ({
                     <button
                         type="button"
                         onClick={() => setRelevanceFilter('discarded')}
-                        className={`px-2 py-0.5 rounded-[var(--radius-xs)] transition-colors cursor-pointer ${relevanceFilter === 'discarded'
-                                ? 'bg-[var(--color-bg-page)] text-[var(--color-text-primary)] font-bold border border-[var(--color-border-subtle)]'
-                                : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                        className={`px-2.5 py-1 rounded-[var(--radius-xs)] transition-colors cursor-pointer border ${relevanceFilter === 'discarded'
+                                ? 'bg-[var(--color-primary)] text-[var(--color-text-on-primary)] border-[var(--color-primary)] font-bold'
+                                : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]'
                             }`}
                     >
                         Descartados ({factors.filter((f) => f.is_relevant === false).length})
@@ -168,18 +168,18 @@ export const EvaluationFactorsTab: React.FC<EvaluationFactorsTabProps> = ({
             <div className="rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] overflow-x-auto shadow-xs">
                 <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                        <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-page)]/40 text-[var(--color-text-tertiary)] font-mono text-[10px] uppercase tracking-wider">
-                            <th className="w-12 px-3 py-2 font-semibold text-center">#</th>
-                            <th className="w-[36%] min-w-[260px] max-w-[380px] px-3 py-2 font-semibold">Factor y Dimensión</th>
-                            <th className="w-32 px-3 py-2 font-semibold text-center whitespace-nowrap">Imp. Sistémica (IS)</th>
-                            <th className="w-36 px-3 py-2 font-semibold text-center whitespace-nowrap">Literatura (r_i / IL)</th>
-                            <th className="w-28 px-3 py-2 font-semibold text-center whitespace-nowrap">Decisor (ID)</th>
-                            <th className="w-32 px-3 py-2 font-semibold text-center whitespace-nowrap">Imp. Relativa (IR)</th>
-                            <th className="w-24 px-3 py-2 font-semibold text-center whitespace-nowrap">Ámbito</th>
-                            <th className="w-28 px-3 py-2 font-semibold text-center whitespace-nowrap">Estado</th>
+                        <tr className="border-b border-[var(--color-border-strong)]/40 bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] font-mono text-[10px] uppercase tracking-wider">
+                            <th className="w-12 px-3 py-2.5 font-bold text-center">#</th>
+                            <th className="w-[36%] min-w-[260px] max-w-[380px] px-3 py-2.5 font-bold">Factor y Dimensión</th>
+                            <th className="w-32 px-3 py-2.5 font-bold text-center whitespace-nowrap">Imp. Sistémica (IS)</th>
+                            <th className="w-36 px-3 py-2.5 font-bold text-center whitespace-nowrap">Literatura (r_i / IL)</th>
+                            <th className="w-28 px-3 py-2.5 font-bold text-center whitespace-nowrap">Decisor (ID)</th>
+                            <th className="w-32 px-3 py-2.5 font-bold text-center whitespace-nowrap">Imp. Relativa (IR)</th>
+                            <th className="w-24 px-3 py-2.5 font-bold text-center whitespace-nowrap">Ámbito</th>
+                            <th className="w-28 px-3 py-2.5 font-bold text-center whitespace-nowrap">Estado</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--color-border-subtle)]/60">
+                    <tbody className="divide-y divide-[var(--color-border-subtle)]">
                         {filteredFactors.map((factor, idx) => {
                             const isRelevant = factor.is_relevant !== false;
                             const sourcesCount = factor.ai_literature_sources?.length || 0;
@@ -190,10 +190,10 @@ export const EvaluationFactorsTab: React.FC<EvaluationFactorsTabProps> = ({
                             return (
                                 <React.Fragment key={factor.id || factor.factor_id}>
                                     <tr
-                                        className={`hover:bg-[var(--color-bg-page)]/40 transition-colors ${!isRelevant ? 'opacity-60 bg-[var(--color-bg-page)]/20' : ''
+                                        className={`hover:bg-[var(--color-bg-secondary)]/55 transition-colors ${!isRelevant ? 'opacity-75 bg-[var(--color-bg-secondary)]/40' : ''
                                             }`}
                                     >
-                                        <td className="px-3 py-2.5 font-mono text-[10px] text-[var(--color-text-tertiary)] text-center align-top">
+                                        <td className="px-3 py-2.5 font-mono text-[10px] font-semibold text-[var(--color-text-secondary)] text-center align-top">
                                             {idx + 1}
                                         </td>
 
@@ -203,11 +203,11 @@ export const EvaluationFactorsTab: React.FC<EvaluationFactorsTabProps> = ({
                                                 <span>{factor.factor_name}</span>
                                                 {factor.ai_suggested_id !== null && factor.ai_suggested_id !== undefined && factor.decisor_importance === factor.ai_suggested_id && (
                                                     <span title="Sugerencia de IA aplicada" className="inline-flex shrink-0">
-                                                        <Sparkles size={11} className="text-amber-400" />
+                                                        <Sparkles size={11} className="text-amber-500 dark:text-amber-400" />
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="text-[11px] text-[var(--color-text-tertiary)] flex items-center gap-1.5 mt-0.5">
+                                            <div className="text-[11px] text-[var(--color-text-secondary)] flex items-center gap-1.5 mt-0.5">
                                                 <span>{factor.dimension_name}</span>
                                                 <span>•</span>
                                                 <span className="font-mono text-[10px]">
@@ -248,13 +248,17 @@ export const EvaluationFactorsTab: React.FC<EvaluationFactorsTabProps> = ({
                                                         expandedFactorId === factor.factor_id ? null : factor.factor_id
                                                     )
                                                 }
-                                                className="inline-flex flex-col items-center group cursor-pointer"
-                                                title="Ver cálculo de IS y PM"
+                                                className={`inline-flex flex-col items-center px-2 py-1 rounded-[var(--radius-xs)] border transition-colors cursor-pointer ${
+                                                    expandedFactorId === factor.factor_id
+                                                        ? 'bg-[var(--color-bg-tertiary)] border-[var(--color-border-strong)] text-[var(--color-text-primary)]'
+                                                        : 'bg-[var(--color-bg-secondary)]/70 border-[var(--color-border-subtle)] hover:border-[var(--color-border-strong)]'
+                                                }`}
+                                                title="Desplegar matrices IS = M(IE, IL) e IR = M(ID, IS)"
                                             >
-                                                <span className="font-bold text-[var(--color-text-primary)] group-hover:underline">
+                                                <span className="font-bold text-[var(--color-text-primary)]">
                                                     IS {factor.systemic_importance_snapshot ?? '—'}
                                                 </span>
-                                                <span className="text-[10px] text-[var(--color-text-tertiary)] flex items-center gap-0.5">
+                                                <span className="text-[10px] text-[var(--color-text-secondary)] flex items-center gap-0.5">
                                                     <span>M(IE, IL)</span>
                                                     {expandedFactorId === factor.factor_id ? (
                                                         <ChevronDown size={10} />
@@ -271,19 +275,19 @@ export const EvaluationFactorsTab: React.FC<EvaluationFactorsTabProps> = ({
                                                 <span className="font-semibold text-[var(--color-text-primary)]">
                                                     rᵢ={Number(factor.citation_ratio || 0).toFixed(2)}
                                                 </span>
-                                                <span className="text-[10px] text-[var(--color-text-tertiary)] ml-1">
+                                                <span className="text-[10px] text-[var(--color-text-secondary)] ml-1">
                                                     (IL {factor.literature_importance_calculated})
                                                 </span>
                                             </div>
                                             <button
                                                 type="button"
                                                 onClick={() => onOpenSources(factor)}
-                                                className="inline-flex items-center gap-1 text-[10px] font-mono mt-0.5 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] cursor-pointer transition-colors"
+                                                className="inline-flex items-center gap-1 text-[10px] font-mono mt-0.5 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] underline-offset-2 hover:underline cursor-pointer transition-colors"
                                                 title="Ver literatura científica indexada"
                                             >
                                                 <BookOpen size={9} />
                                                 <span>{factor.citations_count} citas</span>
-                                                {sourcesCount > 0 && <span className="opacity-70">({sourcesCount} DOIs)</span>}
+                                                {sourcesCount > 0 && <span>({sourcesCount} DOIs)</span>}
                                             </button>
                                         </td>
 
@@ -310,20 +314,20 @@ export const EvaluationFactorsTab: React.FC<EvaluationFactorsTabProps> = ({
                                         <td className="px-3 py-2.5 text-center font-mono align-top whitespace-nowrap">
                                             <span
                                                 className={`font-bold text-xs ${isCriticalIR
-                                                        ? 'text-amber-600 dark:text-amber-400'
-                                                        : 'text-[var(--color-text-secondary)]'
+                                                        ? 'text-[var(--color-warning-text)]'
+                                                        : 'text-[var(--color-text-primary)]'
                                                     }`}
                                             >
                                                 IR = {factor.relative_importance ?? '—'}
                                             </span>
-                                            <div className="text-[9px] text-[var(--color-text-tertiary)]">
+                                            <div className="text-[10px] text-[var(--color-text-secondary)]">
                                                 {isCriticalIR ? 'Crítico (≥3)' : 'Moderado (=2)'}
                                             </div>
                                         </td>
 
                                         {/* Ámbito */}
                                         <td className="px-3 py-2.5 text-center align-top whitespace-nowrap">
-                                            <span className="text-[11px] font-mono text-[var(--color-text-secondary)]">
+                                            <span className="text-[11px] font-mono font-medium text-[var(--color-text-primary)]">
                                                 {factor.scope_used === 'internal' ? 'Interno' : 'Externo'}
                                             </span>
                                         </td>
@@ -331,27 +335,28 @@ export const EvaluationFactorsTab: React.FC<EvaluationFactorsTabProps> = ({
                                         {/* Relevancia */}
                                         <td className="px-3 py-2.5 text-center align-top whitespace-nowrap">
                                             {isRelevant ? (
-                                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
-                                                    <CheckCircle2 size={11} className="text-emerald-500" /> Relevante
+                                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-success-text)]">
+                                                    <CheckCircle2 size={11} /> Relevante
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-text-tertiary)]">
+                                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
                                                     <XCircle size={11} /> Descartado
                                                 </span>
                                             )}
                                         </td>
                                     </tr>
 
-                                    {/* Fila Desplegable con Tarjeta Metodológica */}
+                                    {/* Fila Desplegable con Matrices Metodológicas (IS e IR) */}
                                     {expandedFactorId === factor.factor_id && (
                                         <tr>
-                                            <td colSpan={8} className="p-3 bg-[var(--color-bg-page)]/40 border-b border-[var(--color-border-subtle)]">
+                                            <td colSpan={8} className="p-3 bg-[var(--color-bg-secondary)]/55 border-b border-[var(--color-border-subtle)]">
                                                 <FactorMethodologyAuditCard
                                                     factor={factor}
                                                     subfactors={subfactorsByFactor.get(factor.factor_id) || []}
                                                     result={resultMap.get(factor.factor_id)}
                                                     activeRatingFilter={null}
                                                     onSelectRatingFilter={() => { }}
+                                                    mode="importance"
                                                 />
                                             </td>
                                         </tr>

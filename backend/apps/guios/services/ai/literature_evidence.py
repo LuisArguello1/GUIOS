@@ -29,6 +29,7 @@ PLACEHOLDER_TITLES = {
     "titulo del estudio o documentacion tecnica",
     "título del estudio o documentación técnica",
 }
+BACKFILL_MIN_HITS = 2
 BACKFILL_STOPWORDS = {
     "software", "sistema", "sistemas", "soporte", "gestion", "gestión",
     "datos", "usuario", "usuarios", "permite", "mediante", "traves", "través",
@@ -49,7 +50,12 @@ def build_literature_prompts(
     subfactors_data: list[dict[str, Any]],
     academic_works: list[dict[str, Any]] | None = None,
 ) -> tuple[str, str]:
-    """Arma el sistema y el mensaje de usuario para el mapeo bibliográfico."""
+    """Arma el sistema y el mensaje de usuario para el mapeo bibliográfico.
+
+    Enfoque A: el mapeo de citas depende estrictamente del software candidato
+    y de los artículos recuperados para garantizar consistencia entre organizaciones.
+    """
+    del org_sector, org_description
     subfactors_prompt_list = [
         {
             "id": subfactor["id"],
@@ -137,9 +143,8 @@ SOFTWARE CANDIDATO:
 - Repositorio o sitio: {software_repo_url or "No especificado"}
 - Descripción: {software_description or "Software de código abierto"}
 
-CONTEXTO DE LA ORGANIZACIÓN:
-- Sector: {org_sector or "No especificado"}
-- Necesidad: {org_description or "No especificada"}
+CRITERIO DE CONSISTENCIA BIBLIOGRÁFICA:
+Evalúa únicamente las capacidades técnicas, madurez y evidencia publicada sobre {software_name}. No adaptes ni filtres las citas científicas según una organización particular.
 
 FACTORES:
 {json.dumps(factors_prompt_list, ensure_ascii=False, indent=2)}
@@ -186,6 +191,10 @@ def map_literature_response(
     """
     known_factors = {
         int(subfactor["id"]): int(subfactor["factor_id"])
+        for subfactor in subfactors_data
+    }
+    descriptions = {
+        int(subfactor["id"]): str(subfactor.get("description") or "").strip()
         for subfactor in subfactors_data
     }
     citations_by_subfactor = {subfactor_id: 0 for subfactor_id in known_factors}
@@ -241,6 +250,8 @@ def map_literature_response(
         citations_by_subfactor[subfactor_id] += 1
         sources_by_factor.setdefault(factor_id, []).append({
             "subfactor_id": subfactor_id,
+            "subfactor_description": descriptions.get(subfactor_id, ""),
+            "match_origin": "model",
             "title": title,
             "url": url,
             "snippet": snippet,
@@ -298,8 +309,6 @@ def _backfill_openalex_works(
             continue
         title = str(work.get("title") or "").strip()
         url = str(work.get("doi_url") or f"https://doi.org/{doi}")
-        excerpt = str(work.get("abstract") or title).strip()
-        snippet = excerpt[:240]
 
         for subfactor in subfactors_data:
             try:
@@ -310,14 +319,26 @@ def _backfill_openalex_works(
                 continue
             keywords = _content_tokens(str(subfactor.get("keywords_ia") or ""))
             description = _content_tokens(str(subfactor.get("description") or ""))
-            if not (keywords & work_tokens) and len(description & work_tokens) < 2:
+            keyword_hits = keywords & work_tokens
+            description_hits = description & work_tokens
+            hits = keyword_hits | description_hits
+            # Una sola palabra suelta ("linux", "api") no basta para atribuir un artículo.
+            if len(hits) < BACKFILL_MIN_HITS:
                 continue
+
+            matched = ", ".join(sorted(hits)[:6])
+            snippet = (
+                "Coincidencia automática por palabras clave del criterio "
+                f"({matched}). No fue validada por el modelo; revise el resumen en el DOI."
+            )
 
             seen.add((subfactor_id, identity))
             factor_id = known_factors[subfactor_id]
             citations_by_subfactor[subfactor_id] += 1
             sources_by_factor.setdefault(factor_id, []).append({
                 "subfactor_id": subfactor_id,
+                "subfactor_description": str(subfactor.get("description") or "").strip(),
+                "match_origin": "keyword_backfill",
                 "title": title,
                 "url": url,
                 "snippet": snippet,

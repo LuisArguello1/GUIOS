@@ -35,6 +35,7 @@ import { clsx } from 'clsx';
 import Button from '../../../../components/ui/Button';
 import MarkdownViewer from '../MarkdownViewer';
 import { MitigationPlanTable } from '../../../guios/evaluations/components/detail/MitigationPlanTable';
+import RepoHealthCard from '../../../guios/evaluations/components/detail/RepoHealthCard';
 import {
     classifyRecommendation,
     RECOMMENDATION_LABELS,
@@ -55,6 +56,8 @@ interface Step3VerdictSWOTProps {
     onCloneEvaluation?: () => void;
     onResetEvaluation: () => void;
     onOpenHelp: () => void;
+    onSyncRepoHealth?: (customRepoUrl?: string) => Promise<void> | void;
+    syncingRepoHealth?: boolean;
 }
 
 const FODA_CONFIG: Record<
@@ -96,6 +99,8 @@ export const Step3VerdictSWOT: React.FC<Step3VerdictSWOTProps> = ({
     onCloneEvaluation,
     onResetEvaluation,
     onOpenHelp,
+    onSyncRepoHealth,
+    syncingRepoHealth = false,
 }) => {
     const verdict = evaluation.verdict;
     const hasVerdict = Boolean(verdict && verdict.calculated_at);
@@ -303,6 +308,16 @@ export const Step3VerdictSWOT: React.FC<Step3VerdictSWOTProps> = ({
                         </div>
                     )}
                 </div>
+
+                {(evaluation.software_repo_url || evaluation.repo_health_metrics) && (
+                    <RepoHealthCard
+                        repoUrl={evaluation.software_repo_url}
+                        metrics={evaluation.repo_health_metrics}
+                        onSync={onSyncRepoHealth}
+                        isSyncing={syncingRepoHealth}
+                        allowEditUrl={evaluation.status === 'in_progress'}
+                    />
+                )}
 
                 {/* ── 2. FILA AMPLIA EN TABS (RESUMEN EJECUTIVO Y PLAN DE MITIGACIÓN TABULAR) ── */}
                 <div

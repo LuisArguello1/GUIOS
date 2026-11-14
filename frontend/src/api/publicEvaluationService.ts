@@ -201,6 +201,18 @@ const publicEvaluationService = {
             contentDisposition: response.headers['content-disposition'] || null,
         };
     },
+
+    /**
+     * Consulta y guarda el pulso técnico del repositorio GitHub/GitLab asociado.
+     */
+    async syncRepoHealth(uuid: string, repoUrl?: string): Promise<EvaluationDetail> {
+        const payload = repoUrl ? { repo_url: repoUrl } : {};
+        const response = await api.post<EvaluationDetail>(
+            ENDPOINTS.GUIOS.PUBLIC_EVALUATION_REPO_HEALTH(uuid),
+            payload
+        );
+        return response.data;
+    },
 };
 
 export default publicEvaluationService;

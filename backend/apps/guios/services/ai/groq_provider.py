@@ -84,7 +84,7 @@ class GroqAIProvider(BaseAIProvider):
                 {"role": "user", "content": user_prompt},
             ],
             response_format={"type": "json_object"},
-            temperature=0.1,
+            temperature=0.0,
             max_tokens=LITERATURE_MAX_TOKENS,
         )
 
