@@ -14,6 +14,7 @@ from django.db import transaction
 from apps.guios.models.evaluation import Evaluation
 from apps.guios.services.ai import ai_service
 from apps.guios.services.evaluation import calculate_evaluation_literature
+from apps.guios.services.repository_health import sync_evaluation_repo_health
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,13 @@ def execute_evaluation_literature_ai_task(self, evaluation_id: int) -> dict:
     logger.info("Iniciando búsqueda de literatura IA para Evaluación #%s (%s)", evaluation.id, evaluation.software_name)
 
     try:
+        # Extraer telemetría viva del repositorio FLOSS si aplica (best-effort)
+        if evaluation.software_repo_url and not evaluation.repo_health_metrics:
+            try:
+                sync_evaluation_repo_health(evaluation, force=False)
+            except Exception as repo_exc:
+                logger.warning("No se pudo sincronizar pulso de repositorio en tarea IA #%s: %s", evaluation.id, repo_exc)
+
         # Invocar servicio de IA (con fallback automático y auditoría en AIAssistanceLog)
         ai_result = ai_service.search_literature_and_citations(evaluation=evaluation)
 

@@ -130,11 +130,21 @@ export const FactorSourcesModal: React.FC<FactorSourcesModalProps> = ({
                                             </div>
 
                                             {src.subfactor_id && (
-                                                <span className="font-mono text-[10px] text-[var(--color-text-tertiary)] shrink-0 pt-0.5">
+                                                <span
+                                                    className="font-mono text-[10px] text-[var(--color-text-tertiary)] shrink-0 pt-0.5 max-w-[45%] text-right"
+                                                    title={src.subfactor_description || undefined}
+                                                >
                                                     Subfactor #{src.subfactor_id}
+                                                    {src.match_origin === 'keyword_backfill' ? ' · coincidencia automática' : ''}
                                                 </span>
                                             )}
                                         </div>
+
+                                        {src.subfactor_description && (
+                                            <p className="pl-5 text-[11px] text-[var(--color-text-tertiary)] leading-snug">
+                                                Respalda: {src.subfactor_description}
+                                            </p>
+                                        )}
 
                                         {/* Identificadores Persistentes (DOI / URL) en formato bibliográfico */}
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-5 font-mono text-[11px]">

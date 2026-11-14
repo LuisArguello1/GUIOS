@@ -500,6 +500,11 @@ export const Step0SoftwareRegistration: React.FC<Step0SoftwareRegistrationProps>
                                             value={softwareRepoUrl}
                                             onChange={(e) => setSoftwareRepoUrl(e.target.value)}
                                         />
+                                        {/https?:\/\/(www\.)?(github|gitlab)\.com\/[^/]+\/[^/]+/i.test(softwareRepoUrl.trim()) && (
+                                            <p className="mt-1 text-[10px] font-mono text-emerald-600 dark:text-emerald-400 truncate">
+                                                ✓ Repositorio detectado · Se auditará licencia OSI, actividad y releases
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             </div>

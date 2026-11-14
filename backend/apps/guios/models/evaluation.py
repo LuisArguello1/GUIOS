@@ -45,6 +45,13 @@ class Evaluation(models.Model):
         null=True,
         verbose_name="Enlace al repositorio del software"
     )
+    repo_health_metrics = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        verbose_name="Pulso de salud del repositorio FLOSS",
+        help_text="Telemetría objetiva extraída desde GitHub/GitLab (licencia, actividad, releases, comunidad).",
+    )
     software_description = models.TextField(
         blank=True,
         default="",

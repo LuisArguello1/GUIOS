@@ -48,12 +48,14 @@ export const EvaluationDetailPage: React.FC = () => {
         loading,
         error,
         downloadingFormat,
+        syncingRepoHealth,
         metrics,
         activeFactorSources,
         isSourcesModalOpen,
         isAILogsOpen,
         handleDownloadPdf,
         handleDownloadExcel,
+        handleSyncRepoHealth,
         handleOpenSourcesModal,
         handleCloseSourcesModal,
         handleOpenAILogs,
@@ -220,6 +222,8 @@ export const EvaluationDetailPage: React.FC = () => {
                     <EvaluationVerdictSWOTTab
                         evaluation={evaluation}
                         onViewFactorDetails={() => setActiveTab('factors')}
+                        onSyncRepoHealth={handleSyncRepoHealth}
+                        syncingRepoHealth={syncingRepoHealth}
                     />
                 )}
 

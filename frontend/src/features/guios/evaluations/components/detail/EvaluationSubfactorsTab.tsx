@@ -156,14 +156,14 @@ export const EvaluationSubfactorsTab: React.FC<EvaluationSubfactorsTabProps> = (
                     <button
                         type="button"
                         onClick={handleExpandAll}
-                        className="px-2 py-0.5 rounded-[var(--radius-xs)] bg-[var(--color-bg-page)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] transition-colors cursor-pointer hover:text-[var(--color-text-primary)]"
+                        className="px-2.5 py-1 rounded-[var(--radius-xs)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-strong)] transition-colors cursor-pointer font-semibold"
                     >
                         Expandir Todos
                     </button>
                     <button
                         type="button"
                         onClick={handleCollapseAll}
-                        className="px-2 py-0.5 rounded-[var(--radius-xs)] bg-[var(--color-bg-page)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] transition-colors cursor-pointer hover:text-[var(--color-text-primary)]"
+                        className="px-2.5 py-1 rounded-[var(--radius-xs)] bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-strong)] transition-colors cursor-pointer font-semibold"
                     >
                         Colapsar Todos
                     </button>
@@ -171,7 +171,7 @@ export const EvaluationSubfactorsTab: React.FC<EvaluationSubfactorsTabProps> = (
             </div>
 
             {/* ── Acordeón de Factores con sus Subfactores ── */}
-            <div className="space-y-2">
+            <div className="space-y-2.5">
                 {visibleFactors.map((factor) => {
                     const sfs = subfactorsByFactor.get(factor.factor_id) || [];
                     const isExpanded = expandedFactors[factor.factor_id] ?? true;
@@ -187,34 +187,33 @@ export const EvaluationSubfactorsTab: React.FC<EvaluationSubfactorsTabProps> = (
                     return (
                         <div
                             key={factor.factor_id}
-                            className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] overflow-hidden shadow-xs transition-all"
+                            className="rounded-[var(--radius-md)] border border-[var(--color-border-strong)]/40 bg-[var(--color-bg-surface)] overflow-hidden shadow-xs transition-all"
                         >
                             {/* Cabecera del Factor */}
                             <div
                                 onClick={() => toggleFactor(factor.factor_id)}
-                                className="px-3.5 py-2.5 bg-[var(--color-bg-page)]/40 hover:bg-[var(--color-bg-page)]/70 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 select-none border-b border-[var(--color-border-default)]"
+                                className="px-3.5 py-2.5 bg-[var(--color-bg-secondary)]/85 hover:bg-[var(--color-bg-secondary)] transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2 select-none border-b border-[var(--color-border-subtle)]"
                             >
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[var(--color-text-tertiary)]">
+                                    <span className="text-[var(--color-text-secondary)]">
                                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                     </span>
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-mono text-xs font-bold text-[var(--color-text-primary)]">
+                                        <span className="px-1.5 py-0.5 rounded-[var(--radius-xs)] bg-[var(--color-bg-surface)] border border-[var(--color-border-subtle)] font-mono text-[11px] font-bold text-[var(--color-text-primary)]">
                                             {factorCode}
                                         </span>
-                                        <span className="text-[var(--color-text-tertiary)]">•</span>
                                         <span className="font-semibold text-xs text-[var(--color-text-primary)]">
                                             {factor.factor_name}
                                         </span>
                                         {sfs.length > 0 && sfs.some((sf) => sf.ai_suggested_rating && sf.rating === sf.ai_suggested_rating) && (
                                             <span title="Sugerencia de IA aplicada en subfactores" className="inline-flex shrink-0">
-                                                <Sparkles size={11} className="text-amber-400" />
+                                                <Sparkles size={11} className="text-amber-500 dark:text-amber-400" />
                                             </span>
                                         )}
-                                        <span className="inline-flex items-center text-[10px] text-[var(--color-text-tertiary)]" title="Factor del catálogo base de GUIOS">
+                                        <span className="inline-flex items-center text-[10px] text-[var(--color-text-secondary)]" title="Factor del catálogo base de GUIOS">
                                             <Lock size={10} />
                                         </span>
-                                        <span className="text-[11px] text-[var(--color-text-tertiary)]">
+                                        <span className="text-[11px] text-[var(--color-text-secondary)]">
                                             ({factor.dimension_name} · {sfs.length} subfactores)
                                         </span>
                                     </div>
@@ -250,10 +249,10 @@ export const EvaluationSubfactorsTab: React.FC<EvaluationSubfactorsTabProps> = (
                                 </div>
                             </div>
 
-                            {/* Contenido Expandido: Tarjeta Metodológica + Subfactores */}
+                            {/* Contenido Expandido: Tarjeta de PM + Subfactores */}
                             {isExpanded && (
                                 <div className="p-3 space-y-3 bg-[var(--color-bg-surface)]">
-                                    {/* 1. Tarjeta Metodológica */}
+                                    {/* 1. Resumen y Desglose de Ponderación Media (PM) */}
                                     <FactorMethodologyAuditCard
                                         factor={factor}
                                         subfactors={sfs}
@@ -265,18 +264,19 @@ export const EvaluationSubfactorsTab: React.FC<EvaluationSubfactorsTabProps> = (
                                                 [factor.factor_id]: rating,
                                             }))
                                         }
+                                        mode="pm"
                                     />
 
                                     {/* 2. Listado de Subfactores (Plano y Limpio) */}
                                     <div className="space-y-1">
-                                        <div className="px-1 py-1 flex items-center justify-between text-xs border-b border-[var(--color-border-default)] pb-1">
+                                        <div className="px-1.5 py-1.5 flex items-center justify-between text-xs border-b border-[var(--color-border-strong)]/40 pb-1.5">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                                                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-primary)]">
                                                     Subfactores ({displayedSfs.length} de {sfs.length})
                                                 </span>
                                                 {activeRating !== null && (
-                                                    <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[var(--color-primary)]">
-                                                        <span>(Filtro: {RATING_CONFIG[activeRating]?.short})</span>
+                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-xs)] bg-[var(--color-bg-tertiary)] text-[10px] font-mono font-bold text-[var(--color-text-primary)]">
+                                                        <span>Filtro: {RATING_CONFIG[activeRating]?.short}</span>
                                                         <button
                                                             type="button"
                                                             onClick={() =>
@@ -285,7 +285,7 @@ export const EvaluationSubfactorsTab: React.FC<EvaluationSubfactorsTabProps> = (
                                                                     [factor.factor_id]: null,
                                                                 }))
                                                             }
-                                                            className="hover:text-rose-500 font-bold ml-0.5 cursor-pointer"
+                                                            className="hover:text-[var(--color-danger-text)] font-bold ml-0.5 cursor-pointer"
                                                             title="Quitar filtro"
                                                         >
                                                             ✕
@@ -294,12 +294,12 @@ export const EvaluationSubfactorsTab: React.FC<EvaluationSubfactorsTabProps> = (
                                                 )}
                                             </div>
 
-                                            <span className="text-[10px] text-[var(--color-text-tertiary)] font-mono">
+                                            <span className="text-[10px] text-[var(--color-text-secondary)] font-mono">
                                                 Paso 3 y 4 • Calificación
                                             </span>
                                         </div>
 
-                                        <div className="divide-y divide-[var(--color-border-subtle)]/40">
+                                        <div className="divide-y divide-[var(--color-border-subtle)]">
                                             {displayedSfs.map((subfactor) => {
                                                 const ratingCfg =
                                                     subfactor.rating !== null ? RATING_CONFIG[subfactor.rating] : null;
@@ -308,18 +308,18 @@ export const EvaluationSubfactorsTab: React.FC<EvaluationSubfactorsTabProps> = (
                                                 return (
                                                     <div
                                                         key={subfactor.id || subfactor.subfactor_id}
-                                                        className="py-2.5 px-1 hover:bg-[var(--color-bg-page)]/40 transition-colors text-xs space-y-1"
+                                                        className="py-2.5 px-1.5 hover:bg-[var(--color-bg-secondary)]/55 transition-colors text-xs space-y-1"
                                                     >
                                                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                                                             <div className="flex items-start gap-2 flex-1 min-w-0">
-                                                                <span className="font-mono text-[10px] text-[var(--color-text-tertiary)] mt-0.5 shrink-0">
+                                                                <span className="font-mono text-[10px] font-semibold text-[var(--color-text-secondary)] mt-0.5 shrink-0">
                                                                     #{subfactor.order}
                                                                 </span>
                                                                 <div className="space-y-0.5 min-w-0 flex-1">
                                                                     <p className="text-[var(--color-text-primary)] font-medium leading-relaxed">
                                                                         {subfactor.description_snapshot}
                                                                     </p>
-                                                                    <div className="flex items-center gap-1.5 font-mono text-[10px] text-[var(--color-text-tertiary)]">
+                                                                    <div className="flex items-center gap-1.5 font-mono text-[10px] text-[var(--color-text-secondary)]">
                                                                         <span>{sfCode}</span>
                                                                         <span>•</span>
                                                                         <span>Base GUIOS</span>
@@ -331,7 +331,7 @@ export const EvaluationSubfactorsTab: React.FC<EvaluationSubfactorsTabProps> = (
                                                             <div className="flex items-center gap-2 shrink-0">
                                                                 {subfactor.ai_citations_count > 0 && (
                                                                     <span
-                                                                        className="inline-flex items-center gap-1 text-[10px] font-mono text-[var(--color-text-tertiary)]"
+                                                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-xs)] bg-[var(--color-bg-secondary)] border border-[var(--color-border-subtle)] text-[10px] font-mono text-[var(--color-text-secondary)]"
                                                                         title={`${subfactor.ai_citations_count} citas científicas indexadas`}
                                                                     >
                                                                         <BookOpen size={9} />
@@ -346,7 +346,7 @@ export const EvaluationSubfactorsTab: React.FC<EvaluationSubfactorsTabProps> = (
                                                                         <span>{ratingCfg.label}</span>
                                                                     </span>
                                                                 ) : (
-                                                                    <span className="text-[10px] text-[var(--color-text-tertiary)] italic">
+                                                                    <span className="text-[10px] text-[var(--color-text-secondary)] italic">
                                                                         Sin calificar
                                                                     </span>
                                                                 )}

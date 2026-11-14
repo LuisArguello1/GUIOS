@@ -45,6 +45,7 @@ from apps.guios.services.ai.literature_evidence import (
 from apps.guios.services.ai.verdict_narrative import (
     build_predetermined_narrative,
     build_verdict_prompts,
+    parse_mitigation_plan_sections,
     parse_verdict_narrative,
 )
 from apps.guios.services.evaluation import calculate_evaluation_literature
@@ -284,6 +285,78 @@ class VerdictNarrativeTests(TestCase):
         self.assertIn("Es posible adoptar, con matices.", summary)
         self.assertIn("Formación", plan)
 
+    def test_mitigation_rows_format_and_parse_canonical_sections(self):
+        parsed = parse_verdict_narrative({
+            "executive_summary": "Dictamen ejecutivo completo.",
+            "mitigation_rows": [
+                {
+                    "factor": "Seguridad y Privacidad",
+                    "riesgo_metodologico": "Falta configurar MFA institucional (PM 2.2 < 3.0).",
+                    "accion_correctiva": "Habilitar OIDC + MFA en entorno piloto con Keycloak.",
+                    "responsable": "Seguridad de la Información",
+                    "meta_aprobacion": "100% de cuentas administrativas con MFA y PM >= 3.00.",
+                }
+            ],
+        })
+        self.assertIn("### Seguridad y Privacidad", parsed["mitigation_plan"])
+        self.assertIn("- **Riesgo Metodológico:** Falta configurar MFA institucional", parsed["mitigation_plan"])
+        self.assertIn("- **Responsable:** Seguridad de la Información", parsed["mitigation_plan"])
+
+        sections = parse_mitigation_plan_sections(parsed["mitigation_plan"])
+        row = sections.get("seguridad y privacidad")
+        self.assertIsNotNone(row)
+        self.assertEqual(row["responsable"], "Seguridad de la Información")
+        self.assertIn("Habilitar OIDC + MFA", row["accion_correctiva"])
+        self.assertIn("PM >= 3.00", row["meta_aprobacion"])
+
+    def test_predetermined_narrative_builds_structured_sections_for_breaches_and_followups(self):
+        breach_narrative = build_predetermined_narrative(
+            software_name="Odoo",
+            org_name="Hospital Central",
+            org_sector="Salud",
+            recommendation="B",
+            explanation_text="Es posible adoptar, con matices.",
+            factors=[
+                {
+                    "factor": "Documentación Técnica",
+                    "dimension": "Organizacional",
+                    "alcance": "internal",
+                    "pm": 2.4,
+                    "foda": "Debilidad",
+                    "ir": 3,
+                    "supera_umbral": False,
+                    "subfactor_critico": "No cuenta con manuales actualizados de despliegue.",
+                }
+            ],
+        )
+        sections = parse_mitigation_plan_sections(breach_narrative["mitigation_plan"])
+        sec = sections.get("documentacion tecnica")
+        self.assertIsNotNone(sec)
+        self.assertIn("No cuenta con manuales", sec["riesgo_metodologico"])
+        self.assertTrue(len(sec["responsable"]) > 0)
+        self.assertIn("PM >= 3.00", sec["meta_aprobacion"])
+
+        followup_narrative = build_predetermined_narrative(
+            software_name="Odoo",
+            org_name="Hospital Central",
+            org_sector="Salud",
+            recommendation="A",
+            explanation_text="Recomendado.",
+            factors=[
+                {
+                    "factor": "Seguridad",
+                    "dimension": "Tecnológica",
+                    "alcance": "internal",
+                    "pm": 3.8,
+                    "foda": "Fortaleza",
+                    "ir": 4,
+                    "supera_umbral": True,
+                }
+            ],
+        )
+        followup_sections = parse_mitigation_plan_sections(followup_narrative["mitigation_plan"])
+        self.assertIn("seguridad", followup_sections)
+
 
 class AIServiceTestCase(TestCase):
     """Pruebas del servicio de IA, contingencia y tareas en background."""
@@ -347,6 +420,13 @@ class AIServiceTestCase(TestCase):
             patcher = patch(target, offline)
             patcher.start()
             self.addCleanup(patcher.stop)
+
+        oa_patcher = patch(
+            "apps.guios.services.literature.openalex.OpenAlexClient.search_works",
+            return_value=[],
+        )
+        oa_patcher.start()
+        self.addCleanup(oa_patcher.stop)
 
     def test_heuristic_provider_literature_search(self):
         """Verifica que el proveedor heurístico genere conteo de citas y fuentes."""

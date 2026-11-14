@@ -1,1185 +1,1120 @@
 """
 apps/guios/services/reports/evaluation_pdf.py
 ─────────────────────────────────────────────────────────────────────────────
-Generador de Dossier Técnico y Dictamen Oficial de Evaluación en PDF para GUIOS.
-Diseñado con arquitectura editorial de grado ejecutivo:
-- Portada institucional con Sello Oficial de Dictamen (A/B/C) y logotipo corporativo.
-- Paginación dinámica Two-Pass NumberedCanvas ('Página X de Y') y running headers/footers.
-- Resumen Ejecutivo con KPIs cuantitativos sin solapamientos tipográficos.
-- Parser de texto Markdown para diagnósticos y mitigaciones de IA (sin '##' ni texto pegado).
-- Sanitización estricta de caracteres Unicode incompatibles (elimina cajas negras como 'on■premise').
-- Matriz FODA 2x2 gráfica consolidada y perfectamente integrada en la página ejecutiva.
-- Scorecard detallado agrupado por Dimensión y auditoría de afirmaciones técnicas (subfactores) con repeatRows=1.
-- Plan de Mitigación estructurado para brechas metodológicas y factores desfavorables.
-- Índice de evidencias bibliográficas científicas indexadas con enlaces DOI (OpenAlex).
-- Bloque formal de firmas institucionales con filetes vectoriales y sello de integridad criptográfica.
+Generador del Informe Técnico de Evaluación FLOSS (PDF) bajo estética
+Editorial Suiza / Grafito & Titanio con gráficos vectoriales ReportLab.
+
+Estructura del documento:
+- Folio 1: Portada asimétrica (Identificación + Dictamen Lateral + Control Cuartílico)
+- Folio 2: Briefing Ejecutivo (Tira KPI + Gráfico Cleveland Dot-Bar + Síntesis + Topografía FODA)
+- Folios 3+: Auditoría Cuantitativa por Dimensión y Desglose de Subfactores
+- Sección 04: Plan de Mitigación y Gobernanza (5 columnas estructuradas)
+- Sección 05: Evidencia Científica Indexada (OpenAlex DOI) y Colofón de Integridad
 """
-import io
-import os
-import hashlib
-import re
+
 from datetime import datetime
+import hashlib
+import io
+from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
-from reportlab.lib import colors
+from django.conf import settings
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
+from reportlab.pdfgen import canvas
 from reportlab.platypus import (
-    SimpleDocTemplate,
+    Image,
+    KeepTogether,
+    PageBreak,
     Paragraph,
+    SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
-    HRFlowable,
-    KeepTogether,
-    PageBreak,
-    Image,
 )
-from reportlab.pdfgen import canvas
-from django.conf import settings
-from apps.guios.models import Evaluation
 
-# ── PALETA CROMÁTICA CORPORATIVA GUIOS PRO ────────────────────────────────────
-COLOR_PRIMARY_DARK = colors.HexColor('#064E3B')    # Verde Esmeralda Profundo (Títulos & Headers)
-COLOR_PRIMARY = colors.HexColor('#059669')         # Verde Menta GUIOS
-COLOR_PRIMARY_LIGHT = colors.HexColor('#ECFDF5')   # Verde Suave (Fondos destacados)
-COLOR_SECONDARY = colors.HexColor('#0D9488')       # Verde Azulado / Teal
-COLOR_BORDER = colors.HexColor('#CBD5E1')          # Borde gris neutro (Slate 300)
-COLOR_BORDER_LIGHT = colors.HexColor('#E2E8F0')    # Borde sutil (Slate 200)
-COLOR_BG_PAGE = colors.HexColor('#F8FAFC')         # Fondo de filas alternas (Slate 50)
-COLOR_TEXT_PRIMARY = colors.HexColor('#0F172A')    # Texto principal (Slate 900)
-COLOR_TEXT_MUTED = colors.HexColor('#475569')      # Texto secundario (Slate 600)
-COLOR_TEXT_LIGHT = colors.HexColor('#94A3B8')      # Texto terciario (Slate 400)
-COLOR_WHITE = colors.HexColor('#FFFFFF')
+from apps.guios.models import Evaluation, EvaluationResult
+from apps.guios.services.ai.verdict_narrative import (
+    _fold_label,
+    default_responsible_for_factor,
+    parse_mitigation_plan_sections,
+)
 
-# Colores de Dictamen y Cuadrantes FODA
-COLOR_REC_A = colors.HexColor('#059669')          # Esmeralda (Recomendación A / Fortalezas)
-COLOR_REC_A_BG = colors.HexColor('#ECFDF5')
-COLOR_REC_B = colors.HexColor('#D97706')          # Ámbar (Recomendación B / Debilidades)
-COLOR_REC_B_BG = colors.HexColor('#FFFBEB')
-COLOR_REC_C = colors.HexColor('#DC2626')          # Rojo Carmín (Recomendación C / Amenazas)
-COLOR_REC_C_BG = colors.HexColor('#FEF2F2')
-COLOR_FODA_O = colors.HexColor('#0284C7')         # Azul Cielo (Oportunidades)
-COLOR_FODA_O_BG = colors.HexColor('#F0F9FF')
-
-
-def sanitize_pdf_text(text: str) -> str:
-    """
-    Reemplaza caracteres Unicode especiales no soportados por las fuentes Type 1
-    estándar de ReportLab (como el guion no divisible \u2011 que genera cajas negras '■').
-    """
-    if not text:
-        return ""
-    replacements = {
-        '\u2011': '-',    # non-breaking hyphen (causante del black box on■premise)
-        '\u2010': '-',    # hyphen
-        '\u2012': '-',    # figure dash
-        '\u2013': '-',    # en dash
-        '\u2014': ' - ',  # em dash
-        '\u2018': "'",    # left single quote
-        '\u2019': "'",    # right single quote
-        '\u201c': '"',    # left double quote
-        '\u201d': '"',    # right double quote
-        '\u2026': '...',  # ellipsis
-        '\u2265': '>=',   # greater or equal
-        '\u2264': '<=',   # less or equal
-        '\xa0': ' ',      # non-breaking space
-    }
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-    return text
+from .pdf_charts import (
+    build_factor_benchmark_chart,
+    build_foda_quadrant_visual,
+    build_verdict_gauge,
+)
+from .pdf_theme import (
+    INK_DARK,
+    INK_MUTED,
+    INK_PRIMARY,
+    INK_SECONDARY,
+    PAPER_WHITE,
+    RECOMMENDATION_META,
+    RULE_HEAVY,
+    RULE_LIGHT,
+    RULE_MED,
+    SEMANTIC_FAIL,
+    SEMANTIC_FAIL_BG,
+    SEMANTIC_OPP,
+    SEMANTIC_PASS,
+    SEMANTIC_WARN,
+    SURFACE_ALT,
+    SURFACE_BAND,
+    build_editorial_styles,
+    build_section_header,
+    parse_markdown_to_editorial_flowables,
+    sanitize_pdf_text,
+)
 
 
-def parse_markdown_to_elements(raw_text: str, styles: dict, accent_color=COLOR_PRIMARY_DARK) -> list:
-    """
-    Convierte bloques de texto Markdown (de IA o heurística) en una lista de Flowables
-    de ReportLab perfectamente tipografiados y espaciados (sin etiquetas crudas '##' ni bloques pegados).
-    """
-    cleaned = sanitize_pdf_text(raw_text)
-    lines = cleaned.split('\n')
-    elements = []
-
-    style_subhead = styles['BoxSubhead']
-    style_context = styles['BoxContext']
-    style_bullet = styles['BoxBullet']
-    style_p = styles['BoxBody']
-
-    known_subheads = [
-        'qué sostiene la adopción', 'que sostiene la adopcion',
-        'qué condiciona la decisión', 'que condiciona la decision',
-        'brecha detectada', 'brechas detectadas',
-        'acciones recomendadas', 'accion recomendada',
-        'cómo comprobar mejora', 'como comprobar mejora',
-        'consecuencia práctica', 'consecuencia practica',
-        'resultado del piloto', 'pruebas de exportación',
-    ]
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-
-        # 1. Encabezados Markdown ## o ###
-        if stripped.startswith('###'):
-            title = stripped.lstrip('#').strip()
-            elements.append(Paragraph(f"<b>{title}</b>", style_subhead))
-            elements.append(Spacer(1, 1))
-            continue
-        elif stripped.startswith('##'):
-            title = stripped.lstrip('#').strip()
-            elements.append(Paragraph(f"<font color='#059669'><b>CONTEXTO:</b></font> {title}", style_context))
-            elements.append(Spacer(1, 2))
-            continue
-
-        # 2. Subtítulos textuales estructurados
-        is_sub = False
-        lower_line = stripped.lower()
-        for sh in known_subheads:
-            if lower_line.startswith(sh):
-                is_sub = True
-                elements.append(Spacer(1, 2))
-                elements.append(Paragraph(f"<b>{stripped}</b>", style_subhead))
-                elements.append(Spacer(1, 1))
-                break
-        if is_sub:
-            continue
-
-        # 3. Viñetas con guion (- o *)
-        if stripped.startswith(('-', '*')) and len(stripped) > 2 and stripped[1] == ' ':
-            content = stripped[2:].strip()
-            content = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', content)
-            elements.append(Paragraph(f"&bull; {content}", style_bullet))
-            continue
-
-        # 4. Listas numeradas (1) o 1.)
-        num_match = re.match(r'^(\d+[\.\)])\s*(.+)$', stripped)
-        if num_match:
-            num_prefix = num_match.group(1)
-            content = num_match.group(2)
-            content = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', content)
-            elements.append(Paragraph(f"<b>{num_prefix}</b> {content}", style_bullet))
-            continue
-
-        # 5. Párrafo normal justificado / limpio
-        content = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', stripped)
-        elements.append(Paragraph(content, style_p))
-        elements.append(Spacer(1, 1))
-
-    return elements
-
-
-def build_callout_box(title: str, raw_text: str, width: float, styles: dict, accent_color=COLOR_PRIMARY, bg_color=COLOR_BG_PAGE) -> Table:
-    """Construye un contenedor ejecutivo con borde lateral y contenido Markdown renderizado."""
-    inner_flowables = [
-        Paragraph(f"<b>{title}</b>", ParagraphStyle('BoxTitleHead', parent=styles['BoxTitle'], textColor=accent_color)),
-        Spacer(1, 2),
-    ]
-    parsed = parse_markdown_to_elements(raw_text, styles, accent_color=accent_color)
-    inner_flowables.extend(parsed)
-
-    box = Table([[inner_flowables]], colWidths=[width])
-    box.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), bg_color),
-        ('BOX', (0, 0), (-1, -1), 0.5, COLOR_BORDER),
-        ('LINELEFT', (0, 0), (0, -1), 3.5, accent_color),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    return box
-
-
-class NumberedCanvas(canvas.Canvas):
-    """
-    Canvas de doble pasada para calcular el total dinámico de páginas ('Página X de Y'),
-    dibujar cabeceras y pies de página institucionales y suprimir elementos en la portada.
-    """
+class EditorialNumberedCanvas(canvas.Canvas):
+    """Canvas de doble pasada con cabecera técnica minimalista y paginación 01 / NN."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._saved_page_states = []
+        self._report_title = getattr(args[0], "_report_title", "INFORME GUIOS") if args else "INFORME GUIOS"
+        self._report_ref = getattr(args[0], "_report_ref", "REF") if args else "REF"
 
     def showPage(self):
         self._saved_page_states.append(dict(self.__dict__))
         self._startPage()
 
     def save(self):
-        num_pages = len(self._saved_page_states)
+        total_pages = len(self._saved_page_states)
         for state in self._saved_page_states:
             self.__dict__.update(state)
-            self.draw_header_footer(num_pages)
+            self._draw_chrome(total_pages)
             super().showPage()
         super().save()
 
-    def draw_header_footer(self, page_count):
-        # En la portada (página 1) no se dibujan running header ni footer estándar
-        if self._pageNumber == 1:
-            return
+    def _draw_chrome(self, total_pages: int):
+        page_num = self._pageNumber
+        width, height = A4
+        margin_x = 1.8 * cm
 
         self.saveState()
-        PAGE_W, PAGE_H = self._pagesize
-        margin = 1.4 * cm
+        # Cabecera discreta únicamente a partir de la página 2 (portada limpia)
+        if page_num > 1:
+            y_hdr = height - 1.25 * cm
+            self.setFont("Courier-Bold", 7.0)
+            self.setFillColor(INK_PRIMARY)
+            self.drawString(margin_x, y_hdr + 3, self._report_title[:68])
 
-        # Running Header (Páginas >= 2)
-        self.setFont("Helvetica-Bold", 7.5)
-        self.setFillColor(COLOR_PRIMARY_DARK)
-        self.drawString(margin, PAGE_H - 26, "GUIOS PRO")
+            self.setFont("Courier", 7.0)
+            self.setFillColor(INK_MUTED)
+            self.drawRightString(width - margin_x, y_hdr + 3, self._report_ref)
 
-        self.setFont("Helvetica", 7.5)
-        self.setFillColor(COLOR_TEXT_MUTED)
-        self.drawString(margin + 52, PAGE_H - 26, "|   DOSSIER TÉCNICO Y DICTAMEN OFICIAL DE ADOPCIÓN")
+            self.setStrokeColor(RULE_MED)
+            self.setLineWidth(0.5)
+            self.line(margin_x, y_hdr, width - margin_x, y_hdr)
 
-        # Línea divisoria superior
-        self.setStrokeColor(COLOR_BORDER_LIGHT)
+        # Pie de página editorial en todas las páginas
+        y_ftr = 1.2 * cm
+        self.setStrokeColor(RULE_LIGHT)
         self.setLineWidth(0.5)
-        self.line(margin, PAGE_H - 31, PAGE_W - margin, PAGE_H - 31)
+        self.line(margin_x, y_ftr + 9, width - margin_x, y_ftr + 9)
 
-        # Running Footer (Páginas >= 2)
-        self.setStrokeColor(COLOR_BORDER_LIGHT)
-        self.setLineWidth(0.5)
-        self.line(margin, 34, PAGE_W - margin, 34)
+        self.setFont("Helvetica", 6.8)
+        self.setFillColor(INK_MUTED)
+        self.drawString(margin_x, y_ftr, "Metodología GUIOS // Auditoría de Adopción FLOSS")
 
-        self.setFont("Helvetica", 7)
-        self.setFillColor(COLOR_TEXT_MUTED)
-        self.drawString(margin, 23, "Expediente Oficial de Auditoría TI | Plataforma GUIOS")
-
-        page_str = f"Página {self._pageNumber} de {page_count}"
-        self.setFont("Helvetica-Bold", 7.5)
-        self.setFillColor(COLOR_TEXT_PRIMARY)
-        self.drawRightString(PAGE_W - margin, 23, page_str)
-
+        self.setFont("Courier-Bold", 7.0)
+        self.setFillColor(INK_SECONDARY)
+        self.drawRightString(width - margin_x, y_ftr, f"PAG {page_num:02d} / {total_pages:02d}")
         self.restoreState()
 
 
-def get_logo_path():
-    """Localiza el logotipo oficial de GUIOS de forma segura en el proyecto."""
-    candidates = [
-        os.path.join(getattr(settings, 'BASE_DIR', ''), 'static', 'img', 'Logotipo.png'),
-        os.path.join(getattr(settings, 'BASE_DIR', ''), 'staticfiles', 'img', 'Logotipo.png'),
-        os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'static', 'img', 'Logotipo.png')),
-        os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'static', 'img', 'Isotipo.png')),
-    ]
-    for p in candidates:
-        if p and os.path.exists(p):
-            return p
-    return None
-
-
 class EvaluationPDFReport:
-    """Generador institucional de informe técnico de evaluación individual en PDF."""
+    """Generador editorial de informes técnicos de evaluación FLOSS en formato PDF."""
+
+    PAGE_W, PAGE_H = A4
+    MARGIN_X = 1.8 * cm
+    CONTENT_W = PAGE_W - (2 * MARGIN_X)
+
+    RATING_LABELS = {
+        1: ("1", "No cumple", "#B91C1C"),
+        2: ("2", "Desconozco", "#B45309"),
+        3: ("3", "Parcial", "#3F3F46"),
+        4: ("4", "Cumple", "#047857"),
+    }
 
     @classmethod
     def generate(cls, evaluation: Evaluation) -> io.BytesIO:
         buffer = io.BytesIO()
-
-        PAGE_W, PAGE_H = A4
-        MARGIN = 1.4 * cm
-        CONTENT_W = PAGE_W - (2 * MARGIN)
+        ctx = cls._collect_context(evaluation)
+        styles = build_editorial_styles()
 
         doc = SimpleDocTemplate(
             buffer,
             pagesize=A4,
-            rightMargin=MARGIN,
-            leftMargin=MARGIN,
-            topMargin=1.6 * cm,
-            bottomMargin=1.6 * cm,
+            rightMargin=cls.MARGIN_X,
+            leftMargin=cls.MARGIN_X,
+            topMargin=1.85 * cm,
+            bottomMargin=1.75 * cm,
+            title=sanitize_pdf_text(f"Informe GUIOS - {evaluation.software_name}"),
+            author="GUIOS Audit Engine",
         )
 
-        styles = getSampleStyleSheet()
+        # Metadatos consumidos por EditorialNumberedCanvas
+        soft_upper = sanitize_pdf_text(evaluation.software_name or "SOFTWARE").upper()
+        ref_short = str(evaluation.uuid)[:8].upper()
 
-        # ── ESTILOS TIPOGRÁFICOS JERÁRQUICOS ─────────────────────────────────
-        style_h1 = ParagraphStyle(
-            'H1_Section',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=11.5,
-            leading=14.5,
-            textColor=COLOR_PRIMARY_DARK,
-            spaceAfter=4,
-            keepWithNext=True,
-        )
-
-        style_h2 = ParagraphStyle(
-            'H2_Subsection',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=9,
-            leading=11.5,
-            textColor=COLOR_PRIMARY_DARK,
-            spaceAfter=3,
-            keepWithNext=True,
-        )
-
-        style_body = ParagraphStyle(
-            'BodyTextCustom',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=7.5,
-            leading=10.5,
-            textColor=COLOR_TEXT_PRIMARY,
-            alignment=TA_LEFT,
-        )
-
-        style_cell_header = ParagraphStyle(
-            'CellHeaderCustom',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=7.2,
-            leading=9.2,
-            textColor=COLOR_WHITE,
-            alignment=TA_LEFT,
-        )
-
-        style_cell_header_center = ParagraphStyle(
-            'CellHeaderCenterCustom',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=7.2,
-            leading=9.2,
-            textColor=COLOR_WHITE,
-            alignment=TA_CENTER,
-        )
-
-        style_cell_body = ParagraphStyle(
-            'CellBodyCustom',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=7,
-            leading=9,
-            textColor=COLOR_TEXT_PRIMARY,
-        )
-
-        style_cell_body_center = ParagraphStyle(
-            'CellBodyCenterCustom',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=7,
-            leading=9,
-            textColor=COLOR_TEXT_PRIMARY,
-            alignment=TA_CENTER,
-        )
-
-        style_cell_body_muted = ParagraphStyle(
-            'CellBodyMutedCustom',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=6.5,
-            leading=8.2,
-            textColor=COLOR_TEXT_MUTED,
-        )
-
-        # Estilos dedicados para tarjetas KPI (evitan solapamiento vertical)
-        style_kpi_label = ParagraphStyle(
-            'KPILbl',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=6,
-            leading=7.5,
-            textColor=colors.HexColor('#64748B'),
-            alignment=TA_CENTER,
-        )
-        style_kpi_val = ParagraphStyle(
-            'KPIVal',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=12.5,
-            leading=14.5,
-            textColor=COLOR_TEXT_PRIMARY,
-            alignment=TA_CENTER,
-        )
-        style_kpi_sub = ParagraphStyle(
-            'KPISub',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=6,
-            leading=7.5,
-            textColor=COLOR_TEXT_MUTED,
-            alignment=TA_CENTER,
-        )
-
-        # Diccionario de estilos para bloques de llamada (Callout Boxes)
-        box_styles = {
-            'BoxTitle': ParagraphStyle('BoxTitle', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=COLOR_PRIMARY_DARK),
-            'BoxBody': ParagraphStyle('BoxBody', fontName='Helvetica', fontSize=6.8, leading=8.8, textColor=COLOR_TEXT_PRIMARY),
-            'BoxContext': ParagraphStyle('BoxContext', fontName='Helvetica', fontSize=6.2, leading=7.8, textColor=colors.HexColor('#64748B')),
-            'BoxSubhead': ParagraphStyle('BoxSubhead', fontName='Helvetica-Bold', fontSize=7, leading=8.8, textColor=COLOR_PRIMARY_DARK),
-            'BoxBullet': ParagraphStyle('BoxBullet', fontName='Helvetica', fontSize=6.5, leading=8.2, textColor=COLOR_TEXT_PRIMARY, leftIndent=8, firstLineIndent=-6),
-        }
+        class _BoundCanvas(EditorialNumberedCanvas):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self._report_title = f"GUIOS // {soft_upper}"
+                self._report_ref = f"REF {ref_short}"
 
         story = []
+        story.extend(cls._build_cover_page(ctx, styles))
+        story.append(PageBreak())
+        story.extend(cls._build_executive_briefing(ctx, styles))
+        story.append(PageBreak())
+        story.extend(cls._build_quantitative_sections(ctx, styles))
 
-        # ── PRECARGA Y CÁLCULOS METODOLÓGICOS ─────────────────────────────────
-        verdict = getattr(evaluation, 'verdict', None)
-        rec_code = verdict.recommendation if verdict else '—'
+        mitigation_flow = cls._build_mitigation_section(ctx, styles)
+        if mitigation_flow:
+            story.append(PageBreak())
+            story.extend(mitigation_flow)
 
-        if rec_code == 'A':
-            rec_color = COLOR_REC_A
-            rec_bg = COLOR_REC_A_BG
-            rec_title = "RECOMENDACIÓN A — ADOPTAR SIN OBSERVACIONES"
-            rec_desc = "El software cumple con los umbrales de calidad técnica y no presenta amenazas críticas para la organización."
-        elif rec_code == 'B':
-            rec_color = COLOR_REC_B
-            rec_bg = COLOR_REC_B_BG
-            rec_title = "RECOMENDACIÓN B — ADOPCIÓN CONDICIONADA CON MATICES"
-            rec_desc = "El software es viable pero presenta debilidades o amenazas en factores prioritarios que requieren mitigación."
-        elif rec_code == 'C':
-            rec_color = COLOR_REC_C
-            rec_bg = COLOR_REC_C_BG
-            rec_title = "RECOMENDACIÓN C — POSPONER O DESACONSEJAR ADOPCIÓN"
-            rec_desc = "El software presenta debilidades o amenazas críticas que comprometen la gobernanza tecnológica institucional."
-        else:
-            rec_color = COLOR_PRIMARY
-            rec_bg = COLOR_PRIMARY_LIGHT
-            rec_title = "DICTAMEN EN PROCESO DE EVALUACIÓN"
-            rec_desc = "Sesión de evaluación técnica en curso de análisis."
+        story.append(PageBreak())
+        story.extend(cls._build_literature_appendix(ctx, styles))
 
-        results_by_factor = {er.factor_id: er for er in evaluation.evaluation_results.all()}
-        subfactors_by_factor = {}
-        for esf in evaluation.evaluation_subfactors.all():
-            sf_list = subfactors_by_factor.setdefault(esf.subfactor.factor_id, [])
-            sf_list.append(esf)
+        doc.build(story, canvasmaker=_BoundCanvas)
+        buffer.seek(0)
+        return buffer
 
-        for fid in subfactors_by_factor:
-            subfactors_by_factor[fid].sort(key=lambda s: (s.subfactor.order, s.subfactor.id))
+    @classmethod
+    def _collect_context(cls, evaluation: Evaluation) -> dict:
+        verdict = getattr(evaluation, "verdict", None)
+        rec_code = verdict.recommendation if verdict else "N/A"
+        rec_meta = RECOMMENDATION_META.get(rec_code, RECOMMENDATION_META["N/A"])
 
         factors_qs = list(
-            evaluation.evaluation_factors.select_related('factor__dimension')
-            .order_by('factor__dimension__order', 'factor__order', 'factor__id')
+            evaluation.evaluation_factors.select_related("factor__dimension").order_by(
+                "factor__dimension__order", "factor__order"
+            )
+        )
+        results_map = {er.factor_id: er for er in evaluation.evaluation_results.all()}
+        subfactors_qs = list(
+            evaluation.evaluation_subfactors.select_related("subfactor__factor").order_by(
+                "subfactor__order", "id"
+            )
         )
 
-        # Clasificación FODA y PM Global
-        strengths = []
-        opportunities = []
-        weaknesses = []
-        threats = []
-        pm_values = []
-        relevant_factors = []
-        discarded_factors = []
+        subfactors_by_factor = {}
+        for esf in subfactors_qs:
+            subfactors_by_factor.setdefault(esf.subfactor.factor_id, []).append(esf)
+
+        relevant_pms = []
+        passed_count = 0
+        total_citations = 0
+        chart_entries = []
+        foda_buckets = {
+            EvaluationResult.FODA_STRENGTH: [],
+            EvaluationResult.FODA_OPPORTUNITY: [],
+            EvaluationResult.FODA_WEAKNESS: [],
+            EvaluationResult.FODA_THREAT: [],
+        }
+        dimensions_ordered = []
+        dim_map = {}
+        all_sources = []
 
         for ef in factors_qs:
-            res = results_by_factor.get(ef.factor_id)
-            if ef.relative_importance == 1 or ef.is_relevant is False:
-                discarded_factors.append(ef)
-            else:
-                relevant_factors.append(ef)
+            total_citations += int(ef.citations_count or 0)
+            res = results_map.get(ef.factor_id)
+            dim = ef.factor.dimension
+            if dim.id not in dim_map:
+                dim_entry = {"dimension": dim, "factors": [], "pms": []}
+                dim_map[dim.id] = dim_entry
+                dimensions_ordered.append(dim_entry)
+            dim_map[dim.id]["factors"].append((ef, res))
 
-            if res and res.weighted_average is not None and ef.relative_importance != 1:
+            if ef.is_relevant and res and res.weighted_average is not None:
                 pm_val = float(res.weighted_average)
-                pm_values.append(pm_val)
-                foda_class = (res.foda_classification or '').lower()
-                foda_disp = (res.get_foda_classification_display() or '').lower()
+                relevant_pms.append(pm_val)
+                dim_map[dim.id]["pms"].append(pm_val)
+                if res.meets_threshold:
+                    passed_count += 1
+                foda_key = res.foda_classification
+                if foda_key in foda_buckets:
+                    foda_buckets[foda_key].append((ef, pm_val))
+                chart_entries.append({
+                    "name": ef.factor.name,
+                    "pm": pm_val,
+                    "ir": ef.relative_importance,
+                    "foda_key": foda_key,
+                    "meets": bool(res.meets_threshold),
+                })
 
-                if 'strength' in foda_class or 'fortaleza' in foda_disp:
-                    strengths.append((ef, pm_val))
-                elif 'opportunity' in foda_class or 'oportunidad' in foda_disp:
-                    opportunities.append((ef, pm_val))
-                elif 'weakness' in foda_class or 'debilidad' in foda_disp:
-                    weaknesses.append((ef, pm_val))
-                elif 'threat' in foda_class or 'amenaza' in foda_disp:
-                    threats.append((ef, pm_val))
+            for src in (ef.ai_literature_sources or []):
+                if src.get("doi") or src.get("title"):
+                    all_sources.append({
+                        "dimension": dim.name,
+                        "factor": ef.factor.name,
+                        "doi": src.get("doi") or "",
+                        "title": src.get("title") or "Sin título registrado",
+                        "url": src.get("url") or "",
+                        "snippet": src.get("snippet") or "",
+                    })
 
-        avg_pm = sum(pm_values) / len(pm_values) if pm_values else 0.0
-        today_str = datetime.now().strftime("%d/%m/%Y")
-        emission_date = verdict.calculated_at.strftime("%d/%m/%Y") if verdict and verdict.calculated_at else today_str
-        emission_datetime = verdict.calculated_at.strftime("%d/%m/%Y %H:%M:%S") if verdict and verdict.calculated_at else datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        relevant_count = len(relevant_pms)
+        avg_pm = round(sum(relevant_pms) / relevant_count, 2) if relevant_count else 0.0
+        pass_rate_pct = round((passed_count / relevant_count) * 100.0, 1) if relevant_count else 0.0
 
-        # Hash criptográfico de validación de expediente
-        hash_seed = f"{evaluation.id}-{evaluation.uuid}-{evaluation.software_name}-{rec_code}-{emission_date}"
-        expediente_hash = hashlib.sha256(hash_seed.encode('utf-8')).hexdigest()[:16].upper()
+        evaluator_name = "Evaluación Pública / Anónima"
+        if evaluation.created_by:
+            full_name = evaluation.created_by.get_full_name().strip()
+            evaluator_name = full_name or getattr(evaluation.created_by, "email", evaluator_name)
 
-        # ══════════════════════════════════════════════════════════════════════
-        # ── PÁGINA 1: PORTADA INSTITUCIONAL EJECUTIVA (ALTO IMPACTO) ──────────
-        # ══════════════════════════════════════════════════════════════════════
+        emission_dt = evaluation.completed_at or evaluation.started_at or datetime.now()
+        emission_str = emission_dt.strftime("%d/%m/%Y · %H:%M")
 
-        # 1. Cabecera con Logotipo y Membrete
-        logo_path = get_logo_path()
-        header_cells = []
-        if logo_path:
-            logo_img = Image(logo_path, width=1.4 * cm, height=1.4 * cm)
-            header_cells = [
-                [
-                    logo_img,
-                    Paragraph(
-                        "<b>GUIOS PRO</b><br/>"
-                        "<font color='#059669' size='7.5'><b>MODELO DE ADOPCIÓN DE SOFTWARE LIBRE</b></font><br/>"
-                        "<font color='#64748B' size='7'>Universidad Estatal de Milagro | Auditoría de Software</font>",
-                        style_body,
-                    ),
-                    Paragraph(
-                        "<font color='#059669' size='8'><b>EXPEDIENTE OFICIAL</b></font><br/>"
-                        f"<font color='#0F172A' size='7.5'><b>Sesión #{evaluation.id}</b></font><br/>"
-                        f"<font color='#64748B' size='7'>{today_str}</font>",
-                        ParagraphStyle('HeadR', parent=style_body, alignment=TA_RIGHT),
-                    ),
-                ]
-            ]
-            header_table = Table(header_cells, colWidths=[1.6 * cm, CONTENT_W * 0.65, CONTENT_W * 0.25])
-        else:
-            header_cells = [
-                [
-                    Paragraph(
-                        "<b>GUIOS PRO</b> | <font color='#059669'><b>MODELO DE ADOPCIÓN DE SOFTWARE LIBRE</b></font><br/>"
-                        "<font color='#64748B' size='7'>Universidad Estatal de Milagro | Auditoría de Software</font>",
-                        style_body,
-                    ),
-                    Paragraph(
-                        f"<font color='#059669' size='8'><b>EXPEDIENTE OFICIAL #{evaluation.id}</b></font><br/>"
-                        f"<font color='#64748B' size='7'>{today_str}</font>",
-                        ParagraphStyle('HeadR', parent=style_body, alignment=TA_RIGHT),
-                    ),
-                ]
-            ]
-            header_table = Table(header_cells, colWidths=[CONTENT_W * 0.70, CONTENT_W * 0.30])
+        hash_seed = f"{evaluation.uuid}|{evaluation.software_name}|{evaluation.org_name}|{rec_code}"
+        expediente_hash = hashlib.sha256(hash_seed.encode("utf-8")).hexdigest()[:16].upper()
 
-        header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-        ]))
-        story.append(header_table)
-        story.append(Spacer(1, 8))
-        story.append(HRFlowable(width="100%", thickness=2, color=COLOR_PRIMARY, spaceAfter=14, spaceBefore=4))
+        return {
+            "evaluation": evaluation,
+            "verdict": verdict,
+            "rec_code": rec_code,
+            "rec_meta": rec_meta,
+            "factors_qs": factors_qs,
+            "results_map": results_map,
+            "subfactors_by_factor": subfactors_by_factor,
+            "dimensions_ordered": dimensions_ordered,
+            "relevant_count": relevant_count,
+            "total_factors": len(factors_qs),
+            "passed_count": passed_count,
+            "avg_pm": avg_pm,
+            "pass_rate_pct": pass_rate_pct,
+            "total_citations": total_citations,
+            "chart_entries": chart_entries,
+            "foda_buckets": foda_buckets,
+            "all_sources": all_sources,
+            "evaluator_name": evaluator_name,
+            "emission_str": emission_str,
+            "expediente_hash": expediente_hash,
+        }
 
-        # 2. Hero Title del Software Candidato
-        story.append(Paragraph(
-            "<font color='#059669' size='9'><b>DICTAMEN METODOLÓGICO DE ADOPCIÓN TECNOLÓGICA</b></font>",
-            style_body,
-        ))
-        story.append(Spacer(1, 4))
-        story.append(Paragraph(
-            f"<font color='#064E3B' size='22'><b>{sanitize_pdf_text(evaluation.software_name)}</b></font> "
-            f"<font color='#64748B' size='13'>v{sanitize_pdf_text(evaluation.software_version or '1.0')}</font>",
-            ParagraphStyle('HeroTitle', parent=styles['Normal'], leading=24),
-        ))
-        story.append(Spacer(1, 4))
-        story.append(Paragraph(
-            f"Categoría: <b>{sanitize_pdf_text(evaluation.software_category or 'General')}</b>"
-            f"{f' | Repositorio: <u>{evaluation.software_repo_url}</u>' if evaluation.software_repo_url else ''}",
-            style_cell_body_muted,
-        ))
-        story.append(Spacer(1, 14))
+    @classmethod
+    def _resolve_logo_flowable(cls):
+        base_dir = Path(getattr(settings, "BASE_DIR", "."))
+        for candidate in (
+            base_dir / "static" / "img" / "Logotipo.png",
+            base_dir / "static" / "img" / "Isotipo.png",
+        ):
+            if candidate.exists():
+                try:
+                    return Image(str(candidate), width=2.9 * cm, height=0.85 * cm, kind="proportional")
+                except Exception:
+                    return None
+        return None
 
-        # 3. Medalla Oficial de Dictamen Institucional
-        seal_inner = Table([
-            [
-                Paragraph(f"<font size='26' color='{rec_color.hexval()}'><b>{rec_code}</b></font>", ParagraphStyle('SealL', alignment=TA_CENTER)),
-                Paragraph(
-                    f"<font size='9' color='{rec_color.hexval()}'><b>{rec_title}</b></font><br/>"
-                    f"<font size='7.5' color='#334155'>{rec_desc}</font><br/>"
-                    f"<font size='7' color='#64748B'>Emisión oficial: {emission_date} | Metodología: GUIOS PRO v2.0 (Cuartiles + OpenAlex)</font>",
-                    style_body,
-                ),
-            ]
-        ], colWidths=[2.2 * cm, CONTENT_W - 2.2 * cm - 8])
-        seal_inner.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
-        ]))
+    # ── FOLIO 1: PORTADA EDITORIAL ASIMÉTRICA ────────────────────────────────
 
-        verdict_banner = Table([[seal_inner]], colWidths=[CONTENT_W])
-        verdict_banner.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), rec_bg),
-            ('BOX', (0, 0), (-1, -1), 1.2, rec_color),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('LEFTPADDING', (0, 0), (-1, -1), 8),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ]))
-        story.append(verdict_banner)
-        story.append(Spacer(1, 16))
+    @classmethod
+    def _build_cover_page(cls, ctx: dict, styles: dict) -> list:
+        ev = ctx["evaluation"]
+        rec_code = ctx["rec_code"]
+        rec_meta = ctx["rec_meta"]
+        verdict = ctx["verdict"]
+        W = cls.CONTENT_W
+        flow = []
 
-        # 4. Ficha Técnica Institucional (Metadata de Organización y Contexto)
-        evaluator_name = (
-            evaluation.created_by.get_full_name() or evaluation.created_by.username
-            if evaluation.created_by else 'Evaluador Técnico Autorizado'
+        # 1. Masthead superior limpio con logotipo opcional y código de referencia
+        logo = cls._resolve_logo_flowable()
+        left_mast = logo if logo else Paragraph(
+            "<font face='Helvetica-Bold' size='11' color='#18181B'>GUIOS</font> "
+            "<font face='Courier' size='7.5' color='#71717A'>// AUDIT</font>",
+            styles["raw_left"],
         )
-        evaluator_name = sanitize_pdf_text(evaluator_name)
-        org_name = sanitize_pdf_text(evaluation.org_name)
-        org_sector = sanitize_pdf_text(evaluation.org_sector or 'No especificado')
+        right_mast = Paragraph(
+            f"<font face='Courier' size='7.2' color='#71717A'>"
+            f"FOLIO TÉCNICO // REF {str(ev.uuid)[:8].upper()} · {xml_escape(ctx['emission_str'])}"
+            f"</font>",
+            styles["raw_right"],
+        )
+        mast = Table([[left_mast, right_mast]], colWidths=[W * 0.42, W * 0.58])
+        mast.setStyle(TableStyle([
+            ("LINEBELOW", (0, 0), (-1, 0), 1.5, RULE_HEAVY),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+        flow.append(mast)
+        flow.append(Spacer(1, 22))
+
+        # 2. Hero asimétrico (61% Identificación Técnica | 39% Dictamen Lateral)
+        soft_name = xml_escape(sanitize_pdf_text(ev.software_name))
+        soft_ver = xml_escape(sanitize_pdf_text(ev.software_version or "1.0"))
+        soft_cat = xml_escape(sanitize_pdf_text(ev.software_category or "Software Libre / FLOSS"))
+        org_name = xml_escape(sanitize_pdf_text(ev.org_name))
+        org_sector = xml_escape(sanitize_pdf_text(ev.org_sector or "Sector no especificado"))
+
+        left_col = [
+            Paragraph("AUDITORÍA METODOLÓGICA DE ADOPCIÓN FLOSS", styles["eyebrow"]),
+            Spacer(1, 6),
+            Paragraph(soft_name, styles["cover_title"]),
+            Spacer(1, 4),
+            Paragraph(
+                f"<font face='Courier-Bold' size='8.5' color='#18181B'>v{soft_ver}</font>"
+                f"<font color='#71717A' size='8.5'>  //  {soft_cat}</font>",
+                styles["raw_left"],
+            ),
+            Spacer(1, 14),
+            Paragraph(
+                f"<font face='Courier' size='7' color='#71717A'>ORGANIZACIÓN EVALUADORA</font><br/>"
+                f"<font face='Helvetica-Bold' size='11' color='#18181B'>{org_name}</font><br/>"
+                f"<font size='8.5' color='#52525B'>{org_sector}</font>",
+                styles["raw_left"],
+            ),
+        ]
+
+        if ev.software_description:
+            desc_clean = xml_escape(sanitize_pdf_text(ev.software_description[:280]))
+            left_col.extend([
+                Spacer(1, 12),
+                Paragraph(
+                    "<font face='Courier' size='6.8' color='#71717A'>PERFIL FUNCIONAL ANALIZADO</font><br/>"
+                    f"<font size='8.2' color='#3F3F46'>{desc_clean}</font>",
+                    styles["editorial_body"],
+                ),
+            ])
+        if ev.org_description:
+            org_desc_clean = xml_escape(sanitize_pdf_text(ev.org_description[:240]))
+            left_col.extend([
+                Spacer(1, 8),
+                Paragraph(
+                    "<font face='Courier' size='6.8' color='#71717A'>CONTEXTO Y NECESIDAD TI</font><br/>"
+                    f"<font size='8.2' color='#3F3F46'>{org_desc_clean}</font>",
+                    styles["editorial_body"],
+                ),
+            ])
+
+        rec_hex = rec_meta["hex"]
+        gauge = build_verdict_gauge(ctx["avg_pm"], rec_meta["color"], width=W * 0.35)
+        explanation = xml_escape(sanitize_pdf_text(verdict.explanation_text if verdict else rec_meta["rule_text"]))
+
+        verdict_glyph_style = ParagraphStyle(
+            "VerdictGlyph",
+            parent=styles["raw_left"],
+            fontName="Helvetica-Bold",
+            fontSize=42,
+            leading=46,
+            textColor=rec_meta["color"],
+        )
+
+        right_col = [
+            Paragraph("DICTAMEN DEL MOTOR GUIOS", styles["eyebrow"]),
+            Spacer(1, 6),
+            Paragraph(xml_escape(rec_code), verdict_glyph_style),
+            Spacer(1, 6),
+            Paragraph(
+                f"<font face='Helvetica-Bold' size='9.5' color='{rec_hex}'>{xml_escape(rec_meta['title'])}</font>",
+                styles["raw_left"],
+            ),
+            Spacer(1, 6),
+            Paragraph(
+                f"<font size='7.8' color='#3F3F46'>{explanation}</font>",
+                styles["raw_left"],
+            ),
+            Spacer(1, 12),
+            gauge,
+            Spacer(1, 6),
+            Paragraph(
+                f"<font face='Courier' size='7.2' color='#52525B'>"
+                f"CUMPLIMIENTO: {ctx['passed_count']}/{ctx['relevant_count']} ({ctx['pass_rate_pct']:.1f}%)"
+                f"</font>",
+                styles["raw_left"],
+            ),
+        ]
+
+        hero_tbl = Table([[left_col, right_col]], colWidths=[W * 0.61, W * 0.39])
+        hero_tbl.setStyle(TableStyle([
+            ("LINEBEFORE", (1, 0), (1, 0), 0.75, RULE_MED),
+            ("LEFTPADDING", (0, 0), (0, 0), 0),
+            ("RIGHTPADDING", (0, 0), (0, 0), 16),
+            ("LEFTPADDING", (1, 0), (1, 0), 16),
+            ("RIGHTPADDING", (1, 0), (1, 0), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        flow.append(hero_tbl)
+        flow.append(Spacer(1, 28))
+
+        # 3. Ficha de Control y Calibración Cuartílica (sin cajas verdes)
+        flow.append(build_section_header("00", "FICHA DE CONTROL Y CALIBRACIÓN CUARTÍLICA", f"SHA256:{ctx['expediente_hash']}", W, styles))
+        flow.append(Spacer(1, 8))
+
+        q1 = str(ev.q1_threshold) if ev.q1_threshold is not None else "--"
+        q2 = str(ev.q2_threshold) if ev.q2_threshold is not None else "--"
+        q3 = str(ev.q3_threshold) if ev.q3_threshold is not None else "--"
+        q4 = str(ev.q4_threshold) if ev.q4_threshold is not None else "--"
 
         meta_rows = [
             [
-                Paragraph("<b>Organización Evaluadora:</b>", style_cell_body),
-                Paragraph(org_name, style_cell_body),
-                Paragraph("<b>Sector / Rubro:</b>", style_cell_body),
-                Paragraph(org_sector, style_cell_body),
+                Paragraph("EVALUADOR RESPONSABLE", styles["th_left"]),
+                Paragraph(xml_escape(sanitize_pdf_text(ctx["evaluator_name"])), styles["td_left"]),
+                Paragraph("DIMENSIONES / FACTORES", styles["th_left"]),
+                Paragraph(
+                    f"{len(ctx['dimensions_ordered'])} dimensiones · {ctx['relevant_count']} relevantes de {ctx['total_factors']}",
+                    styles["td_left"],
+                ),
             ],
             [
-                Paragraph("<b>Responsable Técnico:</b>", style_cell_body),
-                Paragraph(evaluator_name, style_cell_body),
-                Paragraph("<b>Estado de Auditoría:</b>", style_cell_body),
-                Paragraph(f"<b>{evaluation.get_status_display()}</b>", style_cell_body),
+                Paragraph("ESTADO METODOLÓGICO", styles["th_left"]),
+                Paragraph(xml_escape(sanitize_pdf_text(ev.get_status_display())), styles["td_left"]),
+                Paragraph("TAMAÑO / HORIZONTE", styles["th_left"]),
+                Paragraph(
+                    f"{xml_escape(sanitize_pdf_text(ev.org_size or 'No especificado'))} · "
+                    f"{xml_escape(sanitize_pdf_text(ev.target_timeline or 'Sin plazo definido'))}",
+                    styles["td_left"],
+                ),
             ],
             [
-                Paragraph("<b>Plazo Previsto de Adopción:</b>", style_cell_body),
-                Paragraph(sanitize_pdf_text(evaluation.target_timeline or 'No registrado'), style_cell_body),
-                Paragraph("<b>Tamaño de Organización:</b>", style_cell_body),
-                Paragraph(sanitize_pdf_text(evaluation.org_size or 'No registrado'), style_cell_body),
+                Paragraph("CORTE CUARTIL (r_i)", styles["th_left"]),
+                Paragraph(
+                    f"<font face='Courier' size='7.5'>Q1={q1}  |  Q2={q2}  |  Q3={q3}  |  Q4={q4}</font>",
+                    styles["td_left"],
+                ),
+                Paragraph("EVIDENCIA OPENALEX", styles["th_left"]),
+                Paragraph(
+                    f"{ctx['total_citations']} citas asignadas · {len(ctx['all_sources'])} referencias DOI",
+                    styles["td_left"],
+                ),
             ],
             [
-                Paragraph("<b>Expediente UUID:</b>", style_cell_body),
-                Paragraph(f"<font color='#059669' size='6.5'><b>{evaluation.uuid}</b></font>", style_cell_body),
-                Paragraph("<b>Hash de Integridad:</b>", style_cell_body),
-                Paragraph(f"<font color='#475569' size='6.5'><b>SHA256:{expediente_hash}</b></font>", style_cell_body),
+                Paragraph("UUID DE EXPEDIENTE", styles["th_left"]),
+                Paragraph(f"<font face='Courier' size='7.2'>{ev.uuid}</font>", styles["td_left"]),
+                Paragraph("REPOSITORIO / ENLACE", styles["th_left"]),
+                Paragraph(
+                    xml_escape(sanitize_pdf_text(ev.software_repo_url or "No registrado"))[:52],
+                    styles["td_muted"],
+                ),
             ],
         ]
-        meta_table = Table(meta_rows, colWidths=[CONTENT_W * 0.22, CONTENT_W * 0.32, CONTENT_W * 0.20, CONTENT_W * 0.26])
-        meta_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), COLOR_BG_PAGE),
-            ('BOX', (0, 0), (-1, -1), 0.5, COLOR_BORDER),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, COLOR_BORDER_LIGHT),
-            ('TOPPADDING', (0, 0), (-1, -1), 4.5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4.5),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        repo_health = getattr(ev, "repo_health_metrics", None)
+        if isinstance(repo_health, dict) and repo_health.get("status") == "ok":
+            lic_lbl = xml_escape(sanitize_pdf_text(repo_health.get("license_spdx") or "Sin SPDX"))
+            days_lbl = (
+                f"{repo_health['days_since_last_push']}d"
+                if repo_health.get("days_since_last_push") is not None
+                else "N/D"
+            )
+            rel_tag = (repo_health.get("latest_release") or {}).get("tag_name") or "Sin release"
+            contrib_lbl = repo_health.get("contributors_count") or "N/D"
+            meta_rows.append([
+                Paragraph("PULSO REPOSITORIO", styles["th_left"]),
+                Paragraph(
+                    f"<font face='Courier-Bold' size='7.3'>{repo_health.get('health_score', 0)}/100 "
+                    f"({xml_escape(sanitize_pdf_text(repo_health.get('health_grade', '')))})</font> · "
+                    f"Licencia {lic_lbl} · Últ. push {days_lbl}",
+                    styles["td_left"],
+                ),
+                Paragraph("COMUNIDAD / RELEASE", styles["th_left"]),
+                Paragraph(
+                    f"Release {xml_escape(sanitize_pdf_text(str(rel_tag)))} · "
+                    f"{repo_health.get('stars', 0)} stars · {contrib_lbl} contrib.",
+                    styles["td_left"],
+                ),
+            ])
+        meta_tbl = Table(meta_rows, colWidths=[W * 0.21, W * 0.29, W * 0.21, W * 0.29])
+        meta_tbl.setStyle(TableStyle([
+            ("LINEBELOW", (0, 0), (-1, -1), 0.45, RULE_LIGHT),
+            ("TOPPADDING", (0, 0), (-1, -1), 5.5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5.5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ]))
-        story.append(meta_table)
-        story.append(Spacer(1, 16))
+        flow.append(meta_tbl)
+        return flow
 
-        # 5. Declaración de Certificación Metodológica en la Portada
-        cert_p = Paragraph(
-            "<b>Certificación Metodológica GUIOS:</b> El presente informe técnico certifica la evaluación "
-            "integral del software candidato conforme al modelo metodológico GUIOS. La ponderación de factores "
-            "incorpora minería de literatura científica indexada (OpenAlex) para calcular la importancia de la literatura (IL), "
-            "ponderación del decisor institucional (ID) y calificación técnica de afirmaciones verificables (PM). "
-            "Este documento constituye el sustento oficial para la toma de decisiones tecnológicas.",
-            style_cell_body_muted,
-        )
-        cert_box = Table([[cert_p]], colWidths=[CONTENT_W])
-        cert_box.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), COLOR_PRIMARY_LIGHT),
-            ('BOX', (0, 0), (-1, -1), 0.5, COLOR_PRIMARY),
-            ('LEFTPADDING', (0, 0), (-1, -1), 10),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        story.append(cert_box)
-        story.append(PageBreak())
+    # ── FOLIO 2: BRIEFING EJECUTIVO, GRÁFICO VECTORIAL Y TOPOGRAFÍA FODA ─────
 
-        # ══════════════════════════════════════════════════════════════════════
-        # ── PÁGINA 2: RESUMEN EJECUTIVO Y MATRIZ FODA CONSOLIDADA ─────────────
-        # ══════════════════════════════════════════════════════════════════════
+    @classmethod
+    def _build_executive_briefing(cls, ctx: dict, styles: dict) -> list:
+        W = cls.CONTENT_W
+        verdict = ctx["verdict"]
+        rec_hex = ctx["rec_meta"]["hex"]
+        flow = []
 
-        story.append(Paragraph("1. Resumen Ejecutivo y Diagnóstico FODA Consolidado", style_h1))
-        story.append(Spacer(1, 4))
-
-        # 1. Cuatro Tarjetas KPI Cuantitativas con Celdas Estructuradas (Sin solapamientos)
-        kpi_col_w = CONTENT_W / 4
+        # 1. Tira Tipográfica KPI (sin tarjetas grises encajonadas)
         kpi_cells = [
             [
-                [
-                    Paragraph("DICTAMEN OFICIAL", style_kpi_label),
-                    Spacer(1, 2),
-                    Paragraph(f"<font color='{rec_color.hexval()}'>Rec. {rec_code}</font>", style_kpi_val),
-                    Spacer(1, 2),
-                    Paragraph(sanitize_pdf_text(evaluation.software_name)[:18], style_kpi_sub),
-                ],
-                [
-                    Paragraph("PM GLOBAL PROMEDIO", style_kpi_label),
-                    Spacer(1, 2),
-                    Paragraph(f"{avg_pm:.2f} <font size='7' color='#64748B'>/ 4.0</font>", style_kpi_val),
-                    Spacer(1, 2),
-                    Paragraph(
-                        f"<font color='{'#059669' if avg_pm >= 3.0 else '#D97706'}'><b>{'Calificación Favorable' if avg_pm >= 3.0 else 'Requiere Mitigación'}</b></font>",
-                        style_kpi_sub,
-                    ),
-                ],
-                [
-                    Paragraph("FACTORES EVALUADOS", style_kpi_label),
-                    Spacer(1, 2),
-                    Paragraph(f"{len(relevant_factors)} <font size='7' color='#64748B'>de {len(factors_qs)}</font>", style_kpi_val),
-                    Spacer(1, 2),
-                    Paragraph(f"{len(discarded_factors)} descartados (IR=1)", style_kpi_sub),
-                ],
-                [
-                    Paragraph("BALANCE FODA", style_kpi_label),
-                    Spacer(1, 2),
-                    Paragraph(
-                        f"<font color='#059669'>{len(strengths)}F</font> &nbsp; "
-                        f"<font color='#0284C7'>{len(opportunities)}O</font> &nbsp; "
-                        f"<font color='#D97706'>{len(weaknesses)}D</font> &nbsp; "
-                        f"<font color='#DC2626'>{len(threats)}A</font>",
-                        style_kpi_val,
-                    ),
-                    Spacer(1, 2),
-                    Paragraph(f"{len(strengths) + len(opportunities)} favorables | {len(weaknesses) + len(threats)} de riesgo", style_kpi_sub),
-                ],
-            ]
-        ]
-        kpi_table = Table(kpi_cells, colWidths=[kpi_col_w] * 4)
-        kpi_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), COLOR_BG_PAGE),
-            ('BOX', (0, 0), (-1, -1), 0.8, COLOR_BORDER),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, COLOR_BORDER_LIGHT),
-            ('TOPPADDING', (0, 0), (-1, -1), 5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        story.append(kpi_table)
-        story.append(Spacer(1, 6))
-
-        # 2. Resumen Ejecutivo Narrativo / Diagnóstico de Inteligencia (Parsed Markdown Callout)
-        exec_text = (verdict.ai_executive_summary or verdict.explanation_text) if verdict else 'Sin resumen registrado.'
-        summary_box = build_callout_box(
-            "Diagnóstico Institucional del Dictamen:",
-            exec_text,
-            CONTENT_W,
-            box_styles,
-            accent_color=COLOR_PRIMARY,
-            bg_color=COLOR_BG_PAGE,
-        )
-        story.append(summary_box)
-        story.append(Spacer(1, 6))
-
-        # 3. Matriz FODA Consolidada Gráfica (2x2)
-        story.append(Paragraph("Matriz FODA Consolidada (2×2)", style_h2))
-        story.append(Spacer(1, 2))
-
-        style_foda_head = ParagraphStyle('FodaHead', fontName='Helvetica-Bold', fontSize=7, leading=8.5, textColor=COLOR_WHITE)
-        style_foda_item = ParagraphStyle('FodaItem', fontName='Helvetica', fontSize=6.2, leading=7.8, textColor=COLOR_TEXT_PRIMARY)
-
-        def make_foda_quadrant_content(items, empty_msg):
-            if not items:
-                return f"<i><font color='#64748B'>{empty_msg}</font></i>"
-            lines = [f"&bull; <b>{sanitize_pdf_text(ef.factor.name)}</b> <font color='#475569'>(PM: {pm:.2f})</font>" for ef, pm in items]
-            return "<br/>".join(lines)
-
-        str_content = make_foda_quadrant_content(strengths, "Sin factores en este cuadrante")
-        opp_content = make_foda_quadrant_content(opportunities, "Sin factores en este cuadrante")
-        wea_content = make_foda_quadrant_content(weaknesses, "Sin factores en este cuadrante")
-        thr_content = make_foda_quadrant_content(threats, "Sin factores en este cuadrante")
-
-        QUAD_W = (CONTENT_W - 6) / 2
-
-        # Cuadrante Fortalezas
-        table_f = Table([
-            [Paragraph(f"FORTALEZAS (F) — {len(strengths)} Factores Internos (PM >= 3.0)", style_foda_head)],
-            [Paragraph(str_content, style_foda_item)],
-        ], colWidths=[QUAD_W])
-        table_f.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), COLOR_REC_A),
-            ('BACKGROUND', (0, 1), (-1, 1), COLOR_REC_A_BG),
-            ('BOX', (0, 0), (-1, -1), 0.8, COLOR_REC_A),
-            ('PADDING', (0, 0), (-1, -1), 4),
-        ]))
-
-        # Cuadrante Oportunidades
-        table_o = Table([
-            [Paragraph(f"OPORTUNIDADES (O) — {len(opportunities)} Factores Externos (PM >= 3.0)", style_foda_head)],
-            [Paragraph(opp_content, style_foda_item)],
-        ], colWidths=[QUAD_W])
-        table_o.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), COLOR_FODA_O),
-            ('BACKGROUND', (0, 1), (-1, 1), COLOR_FODA_O_BG),
-            ('BOX', (0, 0), (-1, -1), 0.8, COLOR_FODA_O),
-            ('PADDING', (0, 0), (-1, -1), 4),
-        ]))
-
-        # Cuadrante Debilidades
-        table_d = Table([
-            [Paragraph(f"DEBILIDADES (D) — {len(weaknesses)} Factores Internos (PM &lt; 3.0)", style_foda_head)],
-            [Paragraph(wea_content, style_foda_item)],
-        ], colWidths=[QUAD_W])
-        table_d.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), COLOR_REC_B),
-            ('BACKGROUND', (0, 1), (-1, 1), COLOR_REC_B_BG),
-            ('BOX', (0, 0), (-1, -1), 0.8, COLOR_REC_B),
-            ('PADDING', (0, 0), (-1, -1), 4),
-        ]))
-
-        # Cuadrante Amenazas
-        table_a = Table([
-            [Paragraph(f"AMENAZAS (A) — {len(threats)} Factores Externos (PM &lt; 3.0)", style_foda_head)],
-            [Paragraph(thr_content, style_foda_item)],
-        ], colWidths=[QUAD_W])
-        table_a.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), COLOR_REC_C),
-            ('BACKGROUND', (0, 1), (-1, 1), COLOR_REC_C_BG),
-            ('BOX', (0, 0), (-1, -1), 0.8, COLOR_REC_C),
-            ('PADDING', (0, 0), (-1, -1), 4),
-        ]))
-
-        foda_2x2_grid = Table([
-            [table_f, table_o],
-            [table_d, table_a],
-        ], colWidths=[QUAD_W + 3, QUAD_W + 3])
-        foda_2x2_grid.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('PADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ]))
-        story.append(foda_2x2_grid)
-        story.append(PageBreak())
-
-        # ══════════════════════════════════════════════════════════════════════
-        # ── PÁGINA 3+: SCORECARD TÉCNICO Y SUBFACTORES POR DIMENSIÓN ──────────
-        # ══════════════════════════════════════════════════════════════════════
-
-        story.append(Paragraph("2. Evaluación Ponderada de Factores y Auditoría Técnica", style_h1))
-        story.append(Paragraph(
-            "Desglose de los 18 factores metodológicos agrupados por sus dimensiones rectoras. "
-            "Se detallan las ponderaciones medias obtenidas (PM), el nivel de importancia relativa (IR) y los "
-            "indicadores de literatura científica indexada (citas c_i, ratio r_i y cuartil IL).",
-            style_body,
-        ))
-        story.append(Spacer(1, 6))
-
-        # Agrupar factores por Dimensión
-        dimensions_dict = {}
-        for ef in factors_qs:
-            dim = ef.factor.dimension
-            dim_list = dimensions_dict.setdefault(dim, [])
-            dim_list.append(ef)
-
-        # Ordenar dimensiones por orden
-        sorted_dims = sorted(dimensions_dict.keys(), key=lambda d: d.order)
-
-        for dim in sorted_dims:
-            dim_factors = dimensions_dict[dim]
-
-            # Banner de Dimensión
-            dim_header = Table([
-                [Paragraph(f"<b>DIMENSIÓN {dim.order}: {dim.name.upper()}</b>", style_cell_header)]
-            ], colWidths=[CONTENT_W])
-            dim_header.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, -1), COLOR_PRIMARY_DARK),
-                ('TOPPADDING', (0, 0), (-1, -1), 3.5),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
-                ('LEFTPADDING', (0, 0), (-1, -1), 8),
-            ]))
-
-            factor_table_rows = [
-                [
-                    Paragraph("Factor Metodológico", style_cell_header),
-                    Paragraph("IR", style_cell_header_center),
-                    Paragraph("PM", style_cell_header_center),
-                    Paragraph("Diagnóstico FODA", style_cell_header_center),
-                    Paragraph("Citas (c_i)", style_cell_header_center),
-                    Paragraph("Ratio (r_i)", style_cell_header_center),
-                    Paragraph("IL", style_cell_header_center),
-                    Paragraph("ID", style_cell_header_center),
-                    Paragraph("IS", style_cell_header_center),
-                ]
-            ]
-
-            for ef in dim_factors:
-                res = results_by_factor.get(ef.factor_id)
-                is_disc = ef.relative_importance == 1 or ef.is_relevant is False
-
-                if is_disc:
-                    foda_text = "<font color='#64748B'>Descartado</font>"
-                    pm_text = "<font color='#64748B'>—</font>"
-                elif res and res.weighted_average is not None:
-                    pm_val = float(res.weighted_average)
-                    pm_text = f"<b>{pm_val:.2f}</b>"
-                    f_disp = res.get_foda_classification_display()
-                    if 'fortaleza' in f_disp.lower():
-                        foda_text = f"<font color='#059669'><b>{f_disp}</b></font>"
-                    elif 'oportunidad' in f_disp.lower():
-                        foda_text = f"<font color='#0284C7'><b>{f_disp}</b></font>"
-                    elif 'debilidad' in f_disp.lower():
-                        foda_text = f"<font color='#D97706'><b>{f_disp}</b></font>"
-                    elif 'amenaza' in f_disp.lower():
-                        foda_text = f"<font color='#DC2626'><b>{f_disp}</b></font>"
-                    else:
-                        foda_text = f_disp
-                else:
-                    pm_text = "—"
-                    foda_text = "—"
-
-                ci = str(ef.citations_count) if ef.citations_count is not None else '-'
-                ri = f"{ef.citation_ratio:.2f}" if ef.citation_ratio is not None else '-'
-                il = str(ef.literature_importance_calculated) if ef.literature_importance_calculated is not None else '-'
-                did = str(ef.decisor_importance) if ef.decisor_importance is not None else '-'
-                is_val = str(ef.systemic_importance_snapshot) if ef.systemic_importance_snapshot is not None else '-'
-                ir_val = str(ef.relative_importance) if ef.relative_importance is not None else '-'
-
-                factor_table_rows.append([
-                    Paragraph(f"<b>{sanitize_pdf_text(ef.factor.name)}</b>", style_cell_body),
-                    Paragraph(f"<b>{ir_val}</b>", style_cell_body_center),
-                    Paragraph(pm_text, style_cell_body_center),
-                    Paragraph(foda_text, style_cell_body_center),
-                    Paragraph(ci, style_cell_body_center),
-                    Paragraph(ri, style_cell_body_center),
-                    Paragraph(il, style_cell_body_center),
-                    Paragraph(did, style_cell_body_center),
-                    Paragraph(is_val, style_cell_body_center),
-                ])
-
-            # Anchos calculados exactamente a CONTENT_W (515 pt)
-            dim_table = Table(
-                factor_table_rows,
-                colWidths=[155, 35, 45, 85, 40, 45, 35, 35, 40],
-                repeatRows=1,
-            )
-            dim_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), COLOR_PRIMARY_DARK),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COLOR_WHITE, COLOR_BG_PAGE]),
-                ('GRID', (0, 0), (-1, -1), 0.5, COLOR_BORDER_LIGHT),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ]))
-
-            story.append(KeepTogether([
-                dim_header,
-                dim_table,
-                Spacer(1, 8),
-            ]))
-
-        # Subfactores detallados (Auditoría de Afirmaciones Técnicas Verificables)
-        story.append(Spacer(1, 4))
-        story.append(Paragraph("2.1 Desglose de Afirmaciones Técnicas Evaluadas (Subfactores)", style_h2))
-        story.append(Paragraph(
-            "Registro de las afirmaciones verificables calificadas en Fase 2. Escala: "
-            "<b>1</b> = No cumple | <b>2</b> = Desconocido | "
-            "<b>3</b> = Parcialmente favorable | <b>4</b> = Totalmente satisfactorio.",
-            style_cell_body_muted,
-        ))
-        story.append(Spacer(1, 4))
-
-        sf_table_rows = [
-            [
-                Paragraph("Factor", style_cell_header),
-                Paragraph("Afirmación Técnica Verificable", style_cell_header),
-                Paragraph("Calificación", style_cell_header_center),
-            ]
-        ]
-
-        for ef in factors_qs:
-            sfs = subfactors_by_factor.get(ef.factor_id, [])
-            if not sfs:
-                continue
-
-            for esf in sfs:
-                r_val = esf.rating
-                if r_val == 4:
-                    badge = "<font color='#059669'><b>4 / 4 • Cumple</b></font>"
-                elif r_val == 3:
-                    badge = "<font color='#0284C7'><b>3 / 4 • Parcial</b></font>"
-                elif r_val == 2:
-                    badge = "<font color='#D97706'><b>2 / 4 • Desconoce</b></font>"
-                elif r_val == 1:
-                    badge = "<font color='#DC2626'><b>1 / 4 • No cumple</b></font>"
-                else:
-                    badge = "<font color='#64748B'>— (Excluido)</font>"
-
-                sf_desc = sanitize_pdf_text(esf.description_snapshot or '')
-                sf_desc = xml_escape(sf_desc)
-
-                sf_table_rows.append([
-                    Paragraph(f"<font size='6.8'><b>{sanitize_pdf_text(ef.factor.name)}</b></font>", style_cell_body),
-                    Paragraph(sf_desc, style_cell_body),
-                    Paragraph(badge, style_cell_body_center),
-                ])
-
-        sf_table = Table(
-            sf_table_rows,
-            colWidths=[CONTENT_W * 0.25, CONTENT_W * 0.55, CONTENT_W * 0.20],
-            repeatRows=1,
-        )
-        sf_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), COLOR_PRIMARY_DARK),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COLOR_WHITE, COLOR_BG_PAGE]),
-            ('GRID', (0, 0), (-1, -1), 0.5, COLOR_BORDER_LIGHT),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ]))
-        story.append(sf_table)
-        story.append(PageBreak())
-
-        # ══════════════════════════════════════════════════════════════════════
-        # ── PÁGINA N: PLAN DE MITIGACIÓN DE BRECHAS Y RIESGOS ─────────────────
-        # ══════════════════════════════════════════════════════════════════════
-
-        has_negatives = len(weaknesses) > 0 or len(threats) > 0
-        mitigation_text = verdict.ai_mitigation_plan if verdict else ''
-
-        if has_negatives or mitigation_text:
-            story.append(Paragraph("3. Plan de Mitigación de Brechas Metodológicas", style_h1))
-            story.append(Paragraph(
-                "Para viabilizar la adopción institucional o mitigar riesgos de gobernanza y seguridad, "
-                "se formulan las siguientes acciones prioritarias sobre los factores clasificados en cuadrantes desfavorables.",
-                style_body,
-            ))
-            story.append(Spacer(1, 6))
-
-            mitigation_rows = [
-                [
-                    Paragraph("Factor / Brecha", style_cell_header),
-                    Paragraph("Riesgo Metodológico", style_cell_header),
-                    Paragraph("Acción Correctiva Sugerida", style_cell_header),
-                    Paragraph("Responsable / Meta", style_cell_header),
-                ]
-            ]
-
-            negative_factors = weaknesses + threats
-            for ef, pm in negative_factors:
-                res = results_by_factor.get(ef.factor_id)
-                foda_label = res.get_foda_classification_display() if res else "Riesgo"
-                is_threat = 'amenaza' in foda_label.lower()
-
-                factor_name_clean = sanitize_pdf_text(ef.factor.name)
-
-                riesgo_desc = (
-                    f"Impacto crítico externo (PM={pm:.2f} &lt; 3.0). Riesgo de dependencia o vulnerabilidad externa."
-                    if is_threat else
-                    f"Carencia interna operativa (PM={pm:.2f} &lt; 3.0). Insuficiencia en procesos, capacitación o infraestructura."
-                )
-
-                accion_desc = (
-                    f"Establecer plan de contingencia técnico, auditorías trimestrales y acuerdos de nivel de servicio (SLA) para {factor_name_clean}."
-                    if is_threat else
-                    f"Diseñar programa de capacitación interna, asignación presupuestaria y endurecimiento de procesos para {factor_name_clean}."
-                )
-
-                meta_desc = f"<b>Área de TI / Seguridad</b><br/><font color='#059669'>Elevar PM &gt;= 3.0 en 90 días</font>"
-
-                mitigation_rows.append([
-                    Paragraph(f"<b>{factor_name_clean}</b><br/><font size='6.5' color='{'#DC2626' if is_threat else '#D97706'}'>{foda_label}</font>", style_cell_body),
-                    Paragraph(riesgo_desc, style_cell_body),
-                    Paragraph(accion_desc, style_cell_body),
-                    Paragraph(meta_desc, style_cell_body),
-                ])
-
-            mit_table = Table(
-                mitigation_rows,
-                colWidths=[CONTENT_W * 0.22, CONTENT_W * 0.28, CONTENT_W * 0.30, CONTENT_W * 0.20],
-                repeatRows=1,
-            )
-            mit_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), COLOR_PRIMARY_DARK),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COLOR_WHITE, COLOR_BG_PAGE]),
-                ('GRID', (0, 0), (-1, -1), 0.5, COLOR_BORDER_LIGHT),
-                ('TOPPADDING', (0, 0), (-1, -1), 3.5),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ]))
-            story.append(mit_table)
-            story.append(Spacer(1, 10))
-
-            if mitigation_text:
-                plan_callout = build_callout_box(
-                    "Recomendaciones Estratégicas Complementarias de Mitigación:",
-                    mitigation_text,
-                    CONTENT_W,
-                    box_styles,
-                    accent_color=COLOR_REC_B,
-                    bg_color=COLOR_BG_PAGE,
-                )
-                story.append(plan_callout)
-
-            story.append(PageBreak())
-
-        # ══════════════════════════════════════════════════════════════════════
-        # ── PÁGINA FINAL: EVIDENCIAS CIENTÍFICAS DOI Y BLOQUE DE FIRMAS ───────
-        # ══════════════════════════════════════════════════════════════════════
-
-        story.append(Paragraph("4. Evidencias Bibliográficas Científicas Indexadas (OpenAlex)", style_h1))
-        story.append(Paragraph(
-            "Artículos académicos y publicaciones indexadas con DOI que respaldan los criterios evaluados. "
-            f"Umbrales de corte cuartílico aplicados: "
-            f"<b>Q1</b> = {evaluation.q1_threshold or '—'} | "
-            f"<b>Q2 (Mediana)</b> = {evaluation.q2_threshold or '—'} | "
-            f"<b>Q3</b> = {evaluation.q3_threshold or '—'} | "
-            f"<b>Q4 (Máx)</b> = {evaluation.q4_threshold or '—'}.",
-            style_body,
-        ))
-        story.append(Spacer(1, 6))
-
-        all_sources = []
-        for ef in factors_qs:
-            for s in (ef.ai_literature_sources or []):
-                if s.get("doi") or s.get("title"):
-                    all_sources.append({
-                        "dimension": ef.factor.dimension.name,
-                        "factor": ef.factor.name,
-                        "doi": s.get("doi") or "",
-                        "title": s.get("title") or "Sin título registrado",
-                        "url": s.get("url") or "",
-                        "snippet": s.get("snippet") or "",
-                    })
-
-        if all_sources:
-            source_rows = [
-                [
-                    Paragraph("Factor Evaluado", style_cell_header),
-                    Paragraph("Título y Referencia Académica Indexada", style_cell_header),
-                    Paragraph("Enlace DOI", style_cell_header_center),
-                ]
-            ]
-
-            for src in all_sources:
-                doi_link = (
-                    f"<a href='https://doi.org/{src['doi']}' color='#059669'><u>{src['doi']}</u></a>"
-                    if src['doi'] else "<font color='#64748B'>—</font>"
-                )
-                safe_title = xml_escape(sanitize_pdf_text(src['title']))
-                title_text = f"<b>{safe_title}</b>"
-                if src['snippet']:
-                    safe_snippet = xml_escape(sanitize_pdf_text(src['snippet'][:180]))
-                    title_text += f"<br/><font color='#64748B' size='6.5'>{safe_snippet}...</font>"
-
-                source_rows.append([
-                    Paragraph(sanitize_pdf_text(src["factor"]), style_cell_body),
-                    Paragraph(title_text, style_cell_body),
-                    Paragraph(doi_link, style_cell_body_center),
-                ])
-
-            source_table = Table(
-                source_rows,
-                colWidths=[CONTENT_W * 0.22, CONTENT_W * 0.58, CONTENT_W * 0.20],
-                repeatRows=1,
-            )
-            source_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), COLOR_PRIMARY_DARK),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [COLOR_WHITE, COLOR_BG_PAGE]),
-                ('GRID', (0, 0), (-1, -1), 0.5, COLOR_BORDER_LIGHT),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ]))
-            story.append(source_table)
-        else:
-            story.append(Paragraph("<i>No se registraron citas científicas adicionales con DOI para esta sesión.</i>", style_cell_body_muted))
-
-        story.append(Spacer(1, 10))
-
-        # Sello inferior estructurado de verificación criptográfica (Cierre formal de expediente)
-        crypto_table = Table([
-            [
-                Paragraph(
-                    "<b>CERTIFICACIÓN DE INTEGRIDAD CRIPTOGRÁFICA DE EXPEDIENTE</b>",
-                    ParagraphStyle('CryptoH', parent=style_cell_body_center, fontName='Helvetica-Bold', fontSize=6.5, leading=8, textColor=COLOR_PRIMARY_DARK),
-                )
+                Paragraph("PONDERACIÓN MEDIA GLOBAL", styles["kpi_label"]),
+                Paragraph("FACTORES RELEVANTES", styles["kpi_label"]),
+                Paragraph("CUMPLIMIENTO (>= 3.00)", styles["kpi_label"]),
+                Paragraph("EVIDENCIA BIBLIOGRÁFICA", styles["kpi_label"]),
             ],
             [
-                Table([
-                    [
-                        Paragraph(f"<b>UUID:</b> <font color='#475569'>{evaluation.uuid}</font>", ParagraphStyle('CUuid', parent=style_cell_body, fontSize=6, leading=7.5)),
-                        Paragraph(f"<b>HASH:</b> <font color='#475569'>SHA256:{expediente_hash}</font>", ParagraphStyle('CHash', parent=style_cell_body_center, fontSize=6, leading=7.5)),
-                        Paragraph(f"<b>Emisión:</b> <font color='#475569'>{emission_datetime}</font>", ParagraphStyle('CDate', parent=style_cell_body, alignment=TA_RIGHT, fontSize=6, leading=7.5)),
-                    ]
-                ], colWidths=[CONTENT_W * 0.44, CONTENT_W * 0.32, CONTENT_W * 0.24])
-            ]
-        ], colWidths=[CONTENT_W])
-        crypto_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), COLOR_BG_PAGE),
-            ('BOX', (0, 0), (-1, -1), 0.5, COLOR_BORDER),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, COLOR_BORDER_LIGHT),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-            ('LEFTPADDING', (0, 0), (-1, -1), 8),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                Paragraph(
+                    f"<font color='{rec_hex}'>{ctx['avg_pm']:.2f}</font>"
+                    f"<font size='9' color='#71717A'> / 4.00</font>",
+                    styles["kpi_value"],
+                ),
+                Paragraph(
+                    f"{ctx['relevant_count']}"
+                    f"<font size='9' color='#71717A'> / {ctx['total_factors']}</font>",
+                    styles["kpi_value"],
+                ),
+                Paragraph(
+                    f"{ctx['pass_rate_pct']:.1f}%",
+                    styles["kpi_value"],
+                ),
+                Paragraph(
+                    f"{ctx['total_citations']}"
+                    f"<font size='9' color='#71717A'> citas</font>",
+                    styles["kpi_value"],
+                ),
+            ],
+            [
+                Paragraph(f"Dictamen {ctx['rec_code']} · {ctx['rec_meta']['short']}", styles["kpi_sub"]),
+                Paragraph(f"{ctx['total_factors'] - ctx['relevant_count']} descartados (IR=1)", styles["kpi_sub"]),
+                Paragraph(f"{ctx['passed_count']} superan · {ctx['relevant_count'] - ctx['passed_count']} bajo umbral", styles["kpi_sub"]),
+                Paragraph(f"{len(ctx['all_sources'])} documentos DOI indexados", styles["kpi_sub"]),
+            ],
+        ]
+        kpi_tbl = Table(kpi_cells, colWidths=[W * 0.25] * 4)
+        kpi_tbl.setStyle(TableStyle([
+            ("LINEABOVE", (0, 0), (-1, 0), 1.1, RULE_HEAVY),
+            ("LINEBELOW", (0, -1), (-1, -1), 0.75, RULE_MED),
+            ("LINEAFTER", (0, 0), (2, -1), 0.45, RULE_LIGHT),
+            ("TOPPADDING", (0, 0), (-1, 0), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
+            ("TOPPADDING", (0, 1), (-1, 1), 1),
+            ("BOTTOMPADDING", (0, 1), (-1, 1), 2),
+            ("TOPPADDING", (0, 2), (-1, 2), 0),
+            ("BOTTOMPADDING", (0, 2), (-1, 2), 6),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
         ]))
+        flow.append(kpi_tbl)
+        flow.append(Spacer(1, 14))
 
-        story.append(KeepTogether([crypto_table]))
+        # 2. Gráfico Vectorial Cleveland Dot-Bar contra Umbral 3.00
+        if ctx["chart_entries"]:
+            flow.append(
+                build_section_header(
+                    "01",
+                    "PERFIL CUANTITATIVO POR FACTOR VS. UMBRAL (3.00)",
+                    f"{len(ctx['chart_entries'])} FACTORES EVALUADOS",
+                    W,
+                    styles,
+                )
+            )
+            flow.append(Spacer(1, 6))
+            chart_entries = ctx["chart_entries"][:24]
+            chart = build_factor_benchmark_chart(chart_entries, width=W)
+            if chart:
+                flow.append(chart)
+            if len(ctx["chart_entries"]) > 24:
+                flow.append(
+                    Paragraph(
+                        f"<i>Nota: el gráfico sintetiza los primeros 24 factores; el detalle completo figura en la Sección 03.</i>",
+                        styles["td_muted"],
+                    )
+                )
+            flow.append(Spacer(1, 12))
 
-        # Construcción del documento con NumberedCanvas
-        doc.build(story, canvasmaker=NumberedCanvas)
-        buffer.seek(0)
-        return buffer
+        # 3. Síntesis del Dictamen (prosa editorial abierta, sin caja gris)
+        flow.append(
+            build_section_header(
+                "02",
+                "SÍNTESIS EJECUTIVA DEL DICTAMEN",
+                f"RECOMENDACIÓN {ctx['rec_code']}",
+                W,
+                styles,
+            )
+        )
+        flow.append(Spacer(1, 6))
+        ai_summary = (verdict.ai_executive_summary or "").strip() if verdict else ""
+        narrative_src = ai_summary or (
+            verdict.explanation_text if verdict else "Dictamen pendiente de cierre de evaluación."
+        )
+        flow.extend(parse_markdown_to_editorial_flowables(narrative_src, styles))
+        flow.append(Spacer(1, 12))
+
+        # 4. Topografía FODA (Barra de proporción + Matriz 2x2 de filetes limpios)
+        flow.append(
+            build_section_header(
+                "03",
+                "MATRIZ TOPOGRÁFICA FODA",
+                "INTERNO / EXTERNO · CORTE 3.00",
+                W,
+                styles,
+            )
+        )
+        flow.append(Spacer(1, 6))
+        foda_counts = {k: len(v) for k, v in ctx["foda_buckets"].items()}
+        flow.append(build_foda_quadrant_visual(foda_counts, width=W))
+        flow.append(Spacer(1, 6))
+
+        def _foda_quadrant_cell(title_lbl: str, subtitle_lbl: str, hex_accent: str, items: list):
+            header = Paragraph(
+                f"<font face='Courier-Bold' size='7.2' color='{hex_accent}'>{title_lbl}</font> "
+                f"<font face='Helvetica' size='7' color='#71717A'>· {subtitle_lbl}</font>",
+                styles["raw_left"],
+            )
+            if items:
+                lines = [
+                    f"<font color='{hex_accent}'><b>--</b></font> "
+                    f"<b>{xml_escape(sanitize_pdf_text(ef.factor.name))}</b> "
+                    f"<font face='Courier' size='6.8' color='#52525B'>(PM {pm:.2f} · IR {ef.relative_importance or '-'})</font>"
+                    for ef, pm in items
+                ]
+                body = Paragraph("<br/>".join(lines), styles["foda_list"])
+            else:
+                body = Paragraph("<font color='#A1A1AA'>Sin factores clasificados en este cuadrante.</font>", styles["td_muted"])
+            return [header, Spacer(1, 3), body]
+
+        foda_tbl = Table(
+            [
+                [
+                    _foda_quadrant_cell("FORTALEZAS (F)", "Interno >= 3.00", "#047857", ctx["foda_buckets"][EvaluationResult.FODA_STRENGTH]),
+                    _foda_quadrant_cell("OPORTUNIDADES (O)", "Externo >= 3.00", "#1D4ED8", ctx["foda_buckets"][EvaluationResult.FODA_OPPORTUNITY]),
+                ],
+                [
+                    _foda_quadrant_cell("DEBILIDADES (D)", "Interno < 3.00", "#B45309", ctx["foda_buckets"][EvaluationResult.FODA_WEAKNESS]),
+                    _foda_quadrant_cell("AMENAZAS (A)", "Externo < 3.00", "#B91C1C", ctx["foda_buckets"][EvaluationResult.FODA_THREAT]),
+                ],
+            ],
+            colWidths=[W * 0.5, W * 0.5],
+        )
+        foda_tbl.setStyle(TableStyle([
+            ("LINEABOVE", (0, 0), (0, 0), 1.5, SEMANTIC_PASS),
+            ("LINEABOVE", (1, 0), (1, 0), 1.5, SEMANTIC_OPP),
+            ("LINEABOVE", (0, 1), (0, 1), 1.5, SEMANTIC_WARN),
+            ("LINEABOVE", (1, 1), (1, 1), 1.5, SEMANTIC_FAIL),
+            ("LINEBEFORE", (1, 0), (1, 1), 0.5, RULE_LIGHT),
+            ("LINEBELOW", (0, 1), (1, 1), 0.5, RULE_LIGHT),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        flow.append(KeepTogether([foda_tbl]))
+        return flow
+
+    # ── FOLIOS 3+: AUDITORÍA CUANTITATIVA POR DIMENSIÓN Y SUBFACTORES ────────
+
+    @classmethod
+    def _build_quantitative_sections(cls, ctx: dict, styles: dict) -> list:
+        W = cls.CONTENT_W
+        flow = []
+
+        flow.append(
+            build_section_header(
+                "03A",
+                "AUDITORÍA CUANTITATIVA POR DIMENSIÓN",
+                "ESCALA 1.00 - 4.00 · CORTE 3.00",
+                W,
+                styles,
+            )
+        )
+        flow.append(Spacer(1, 8))
+
+        for idx, dim_entry in enumerate(ctx["dimensions_ordered"], start=1):
+            dim = dim_entry["dimension"]
+            dim_pms = dim_entry["pms"]
+            dim_avg = f"PM MEDIO {sum(dim_pms)/len(dim_pms):.2f}" if dim_pms else "SIN FACTORES RELEVANTES"
+
+            dim_hdr = Table(
+                [[
+                    Paragraph(
+                        f"<font face='Courier-Bold' size='7.5' color='#71717A'>DIM {idx:02d}</font>  "
+                        f"<font face='Helvetica-Bold' size='10' color='#18181B'>{xml_escape(sanitize_pdf_text(dim.name))}</font>",
+                        styles["raw_left"],
+                    ),
+                    Paragraph(
+                        f"<font face='Courier-Bold' size='7.5' color='#18181B'>{dim_avg}</font>",
+                        styles["raw_right"],
+                    ),
+                ]],
+                colWidths=[W * 0.70, W * 0.30],
+            )
+            dim_hdr.setStyle(TableStyle([
+                ("LINEABOVE", (0, 0), (-1, 0), 0.8, RULE_HEAVY),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.45, RULE_MED),
+                ("BACKGROUND", (0, 0), (-1, 0), SURFACE_BAND),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]))
+
+            # Tabla de factores de la dimensión (sin rejilla vertical)
+            factor_rows = [[
+                Paragraph("FACTOR EVALUADO", styles["th_left"]),
+                Paragraph("IR", styles["th_center"]),
+                Paragraph("PM", styles["th_center"]),
+                Paragraph("DIAGNÓSTICO", styles["th_center"]),
+                Paragraph("CITAS", styles["th_right"]),
+                Paragraph("r_i", styles["th_right"]),
+                Paragraph("IL", styles["th_center"]),
+                Paragraph("ID", styles["th_center"]),
+                Paragraph("IS", styles["th_center"]),
+            ]]
+            row_styles = [
+                ("LINEBELOW", (0, 0), (-1, 0), 0.7, RULE_HEAVY),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+
+            subfactor_rows = []
+            for r_idx, (ef, res) in enumerate(dim_entry["factors"], start=1):
+                ir_val = ef.relative_importance if ef.relative_importance is not None else "-"
+                ratio_val = f"{float(ef.citation_ratio):.2f}" if ef.citation_ratio is not None else "0.00"
+                il_val = str(ef.literature_importance_calculated or "-")
+                id_val = str(ef.decisor_importance or "-")
+                is_val = str(ef.systemic_importance_snapshot or "-")
+                citas_val = str(ef.citations_count or 0)
+
+                if not ef.is_relevant:
+                    pm_html = "<font color='#A1A1AA'>--</font>"
+                    foda_html = "<font color='#A1A1AA' size='7'>No relevante</font>"
+                elif res and res.weighted_average is not None:
+                    pm_num = float(res.weighted_average)
+                    meets = bool(res.meets_threshold)
+                    pm_color = "#047857" if meets else "#B91C1C"
+                    pm_html = f"<font color='{pm_color}'><b>{pm_num:.2f}</b></font>"
+                    foda_txt = xml_escape(sanitize_pdf_text(res.get_foda_classification_display()))
+                    foda_color = {
+                        EvaluationResult.FODA_STRENGTH: "#047857",
+                        EvaluationResult.FODA_OPPORTUNITY: "#1D4ED8",
+                        EvaluationResult.FODA_WEAKNESS: "#B45309",
+                        EvaluationResult.FODA_THREAT: "#B91C1C",
+                    }.get(res.foda_classification, "#3F3F46")
+                    foda_html = f"<font color='{foda_color}' size='7.3'><b>{foda_txt}</b></font>"
+                    if not meets:
+                        row_styles.append(("BACKGROUND", (0, r_idx), (-1, r_idx), SEMANTIC_FAIL_BG))
+                else:
+                    pm_html = "--"
+                    foda_html = "<font color='#71717A'>Pendiente</font>"
+
+                factor_rows.append([
+                    Paragraph(f"<b>{xml_escape(sanitize_pdf_text(ef.factor.name))}</b>", styles["td_left"]),
+                    Paragraph(str(ir_val), styles["td_mono_center"]),
+                    Paragraph(pm_html, styles["td_mono_center"]),
+                    Paragraph(foda_html, styles["raw_center"]),
+                    Paragraph(citas_val, styles["td_mono_right"]),
+                    Paragraph(ratio_val, styles["td_mono_right"]),
+                    Paragraph(il_val, styles["td_mono_center"]),
+                    Paragraph(id_val, styles["td_mono_center"]),
+                    Paragraph(is_val, styles["td_mono_center"]),
+                ])
+                row_styles.append(("LINEBELOW", (0, r_idx), (-1, r_idx), 0.4, RULE_LIGHT))
+
+                # Subfactores del factor
+                for esf in ctx["subfactors_by_factor"].get(ef.factor_id, []):
+                    code, lbl, r_hex = cls.RATING_LABELS.get(esf.rating, ("--", "Sin calificar", "#71717A"))
+                    sub_desc = xml_escape(sanitize_pdf_text(esf.description_snapshot or ""))
+                    cites_tag = (
+                        f" <font face='Courier' size='6.3' color='#71717A'>[Citas IA: {esf.ai_citations_count}]</font>"
+                        if esf.ai_citations_count
+                        else ""
+                    )
+                    subfactor_rows.append([
+                        Paragraph(xml_escape(sanitize_pdf_text(ef.factor.name)), styles["td_muted"]),
+                        Paragraph(f"{sub_desc}{cites_tag}", styles["td_left"]),
+                        Paragraph(
+                            f"<font face='Courier-Bold' size='7' color='{r_hex}'>[{code}]</font> "
+                            f"<font size='7' color='{r_hex}'>{lbl}</font>",
+                            styles["raw_left"],
+                        ),
+                    ])
+
+            col_w = [
+                W * 0.28, W * 0.06, W * 0.08, W * 0.16,
+                W * 0.08, W * 0.09, W * 0.08, W * 0.08, W * 0.09,
+            ]
+            f_tbl = Table(factor_rows, colWidths=col_w, repeatRows=1)
+            f_tbl.setStyle(TableStyle(row_styles))
+
+            flow.append(KeepTogether([dim_hdr, f_tbl]))
+            flow.append(Spacer(1, 6))
+
+            if subfactor_rows:
+                sf_header = [
+                    Paragraph("FACTOR", styles["th_left"]),
+                    Paragraph("CRITERIO / SUBFACTOR EVALUADO", styles["th_left"]),
+                    Paragraph("CALIFICACIÓN", styles["th_left"]),
+                ]
+                sf_tbl = Table(
+                    [sf_header] + subfactor_rows,
+                    colWidths=[W * 0.22, W * 0.62, W * 0.16],
+                    repeatRows=1,
+                )
+                sf_tbl.setStyle(TableStyle([
+                    ("LINEBELOW", (0, 0), (-1, 0), 0.6, RULE_MED),
+                    ("LINEBELOW", (0, 1), (-1, -1), 0.35, RULE_LIGHT),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [PAPER_WHITE, SURFACE_ALT]),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ]))
+                flow.append(sf_tbl)
+                flow.append(Spacer(1, 14))
+
+        return flow
+
+    # ── SECCIÓN 04: PLAN DE MITIGACIÓN Y GOBERNANZA ──────────────────────────
+
+    @classmethod
+    def _build_mitigation_section(cls, ctx: dict, styles: dict) -> list:
+        verdict = ctx["verdict"]
+        W = cls.CONTENT_W
+
+        mitigation_text = (verdict.ai_mitigation_plan or "").strip() if verdict else ""
+        rows_by_factor = parse_mitigation_plan_sections(mitigation_text)
+
+        neg_factors = []
+        for ef in ctx["factors_qs"]:
+            res = ctx["results_map"].get(ef.factor_id)
+            if ef.is_relevant and res and not res.meets_threshold:
+                neg_factors.append((ef, res))
+
+        if not neg_factors and not rows_by_factor and not mitigation_text:
+            return []
+
+        flow = [
+            build_section_header(
+                "04",
+                "PLAN DE MITIGACIÓN Y GOBERNANZA",
+                f"{len(neg_factors)} BRECHAS BAJO UMBRAL" if neg_factors else "VIGILANCIA PREVENTIVA",
+                W,
+                styles,
+            ),
+            Spacer(1, 8),
+        ]
+
+        # Normalizar conjunto de filas a mostrar (brechas reales + filas estructuradas extra)
+        render_items = []
+        seen_names = set()
+        for ef, res in neg_factors:
+            fname_key = _fold_label(ef.factor.name)
+            seen_names.add(fname_key)
+            matched = rows_by_factor.get(fname_key, {})
+            pm = float(res.weighted_average)
+            is_threat = res.foda_classification == EvaluationResult.FODA_THREAT
+            foda_label = "AMENAZA" if is_threat else "DEBILIDAD"
+            badge_hex = "#B91C1C" if is_threat else "#B45309"
+
+            render_items.append({
+                "factor": ef.factor.name,
+                "meta_line": f"{foda_label} · PM {pm:.2f} · IR {ef.relative_importance or '-'}",
+                "badge_hex": badge_hex,
+                "riesgo": matched.get("riesgo_metodologico")
+                or f"Desviación técnica en {ef.factor.name} (PM {pm:.2f} < 3.00).",
+                "accion": matched.get("accion_correctiva")
+                or f"Ejecutar piloto técnico o adecuación operativa sobre {ef.factor.name}.",
+                "responsable": matched.get("responsable")
+                or default_responsible_for_factor(
+                    ef.factor.name,
+                    dimension=ef.factor.dimension.name,
+                    scope=ef.factor.scope,
+                ),
+                "meta": matched.get("meta_aprobacion")
+                or f"Reevaluar {ef.factor.name} hasta alcanzar PM >= 3.00.",
+            })
+
+        # Si todos superaron el umbral pero hay vigilancia preventiva estructurada
+        if not neg_factors and rows_by_factor:
+            for f_key, srow in rows_by_factor.items():
+                fname = str(srow.get("factor", "")).strip()
+                if not fname or f_key in seen_names:
+                    continue
+                render_items.append({
+                    "factor": fname,
+                    "meta_line": "VIGILANCIA PREVENTIVA · PM >= 3.00",
+                    "badge_hex": "#047857",
+                    "riesgo": srow.get("riesgo_metodologico", ""),
+                    "accion": srow.get("accion_correctiva", ""),
+                    "responsable": srow.get("responsable") or "Arquitectura TI",
+                    "meta": srow.get("meta_aprobacion") or "Mantener PM >= 3.00 en producción.",
+                })
+
+        if render_items:
+            table_rows = [[
+                Paragraph("FACTOR / BRECHA", styles["th_left"]),
+                Paragraph("RIESGO METODOLÓGICO", styles["th_left"]),
+                Paragraph("ACCIÓN CORRECTIVA", styles["th_left"]),
+                Paragraph("RESPONSABLE", styles["th_left"]),
+                Paragraph("META DE APROBACIÓN", styles["th_left"]),
+            ]]
+            for item in render_items:
+                table_rows.append([
+                    Paragraph(
+                        f"<b>{xml_escape(sanitize_pdf_text(item['factor']))}</b><br/>"
+                        f"<font face='Courier-Bold' size='6.3' color='{item['badge_hex']}'>"
+                        f"{xml_escape(sanitize_pdf_text(item['meta_line']))}</font>",
+                        styles["td_left"],
+                    ),
+                    Paragraph(xml_escape(sanitize_pdf_text(item["riesgo"])), styles["td_left"]),
+                    Paragraph(xml_escape(sanitize_pdf_text(item["accion"])), styles["td_left"]),
+                    Paragraph(f"<b>{xml_escape(sanitize_pdf_text(item['responsable']))}</b>", styles["td_left"]),
+                    Paragraph(
+                        f"<font color='#047857'>{xml_escape(sanitize_pdf_text(item['meta']))}</font>",
+                        styles["td_left"],
+                    ),
+                ])
+
+            mit_tbl = Table(
+                table_rows,
+                colWidths=[W * 0.20, W * 0.23, W * 0.25, W * 0.14, W * 0.18],
+                repeatRows=1,
+            )
+            mit_tbl.setStyle(TableStyle([
+                ("LINEABOVE", (0, 0), (-1, 0), 1.0, RULE_HEAVY),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.7, RULE_HEAVY),
+                ("LINEBELOW", (0, 1), (-1, -1), 0.4, RULE_LIGHT),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [PAPER_WHITE, SURFACE_ALT]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]))
+            flow.append(mit_tbl)
+            flow.append(Spacer(1, 10))
+        elif mitigation_text:
+            flow.extend(parse_markdown_to_editorial_flowables(mitigation_text, styles))
+
+        return flow
+
+    # ── SECCIÓN 05: BIBLIOGRAFÍA OPENALEX Y COLOFÓN DE INTEGRIDAD ────────────
+
+    @classmethod
+    def _build_literature_appendix(cls, ctx: dict, styles: dict) -> list:
+        ev = ctx["evaluation"]
+        W = cls.CONTENT_W
+        flow = [
+            build_section_header(
+                "05",
+                "EVIDENCIA CIENTÍFICA INDEXADA (OPENALEX)",
+                f"{len(ctx['all_sources'])} REFERENCIAS DOI",
+                W,
+                styles,
+            ),
+            Spacer(1, 6),
+        ]
+
+        q1 = ev.q1_threshold or "--"
+        q2 = ev.q2_threshold or "--"
+        q3 = ev.q3_threshold or "--"
+        q4 = ev.q4_threshold or "--"
+        flow.append(
+            Paragraph(
+                f"<font face='Courier' size='7.2' color='#52525B'>"
+                f"UMBRALES CUARTÍLICOS r_i = TC/NS:  Q1={q1}  ·  Q2={q2}  ·  Q3={q3}  ·  Q4={q4}"
+                f"</font>",
+                styles["raw_left"],
+            )
+        )
+        flow.append(Spacer(1, 8))
+
+        if ctx["all_sources"]:
+            src_rows = [[
+                Paragraph("REF", styles["th_center"]),
+                Paragraph("FACTOR", styles["th_left"]),
+                Paragraph("PUBLICACIÓN ACADÉMICA Y EXTRACTO", styles["th_left"]),
+                Paragraph("DOI", styles["th_right"]),
+            ]]
+            for idx, src in enumerate(ctx["all_sources"], start=1):
+                safe_title = xml_escape(sanitize_pdf_text(src["title"]))
+                title_html = f"<b>{safe_title}</b>"
+                if src["snippet"]:
+                    safe_snippet = xml_escape(sanitize_pdf_text(src["snippet"][:180]))
+                    title_html += f"<br/><font color='#71717A' size='6.8'>{safe_snippet}...</font>"
+
+                doi_clean = xml_escape(sanitize_pdf_text(src["doi"]))
+                doi_html = (
+                    f"<a href='https://doi.org/{doi_clean}' color='#1D4ED8'><u>{doi_clean}</u></a>"
+                    if doi_clean
+                    else "<font color='#A1A1AA'>--</font>"
+                )
+
+                src_rows.append([
+                    Paragraph(f"[{idx:02d}]", styles["td_mono_center"]),
+                    Paragraph(xml_escape(sanitize_pdf_text(src["factor"])), styles["td_left"]),
+                    Paragraph(title_html, styles["td_left"]),
+                    Paragraph(doi_html, styles["raw_right"]),
+                ])
+
+            src_tbl = Table(
+                src_rows,
+                colWidths=[W * 0.07, W * 0.21, W * 0.50, W * 0.22],
+                repeatRows=1,
+            )
+            src_tbl.setStyle(TableStyle([
+                ("LINEABOVE", (0, 0), (-1, 0), 1.0, RULE_HEAVY),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.7, RULE_HEAVY),
+                ("LINEBELOW", (0, 1), (-1, -1), 0.35, RULE_LIGHT),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [PAPER_WHITE, SURFACE_ALT]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]))
+            flow.append(src_tbl)
+        else:
+            flow.append(
+                Paragraph(
+                    "<i>No se registraron referencias bibliográficas indexadas con DOI en esta sesión.</i>",
+                    styles["td_muted"],
+                )
+            )
+
+        flow.append(Spacer(1, 18))
+
+        # Colofón minimalista de integridad criptográfica (sin caja gris anidada)
+        colophon = Table(
+            [
+                [
+                    Paragraph(
+                        "<font face='Courier-Bold' size='7' color='#18181B'>REGISTRO DE INTEGRIDAD DE EXPEDIENTE</font>",
+                        styles["raw_left"],
+                    ),
+                    Paragraph(
+                        f"<font face='Courier' size='6.8' color='#71717A'>EMISIÓN: {xml_escape(ctx['emission_str'])}</font>",
+                        styles["raw_right"],
+                    ),
+                ],
+                [
+                    Paragraph(
+                        f"<font face='Courier' size='6.5' color='#52525B'>UUID: {ev.uuid}</font>",
+                        styles["raw_left"],
+                    ),
+                    Paragraph(
+                        f"<font face='Courier' size='6.5' color='#52525B'>SHA256: {ctx['expediente_hash']}</font>",
+                        styles["raw_right"],
+                    ),
+                ],
+            ],
+            colWidths=[W * 0.58, W * 0.42],
+        )
+        colophon.setStyle(TableStyle([
+            ("LINEABOVE", (0, 0), (-1, 0), 1.1, RULE_HEAVY),
+            ("LINEBELOW", (0, -1), (-1, -1), 0.5, RULE_MED),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        flow.append(KeepTogether([colophon]))
+        return flow

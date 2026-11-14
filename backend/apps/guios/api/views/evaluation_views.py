@@ -38,6 +38,7 @@ from apps.guios.exceptions import (
     EvaluationValidationError,
 )
 from apps.guios.services.ai import ai_service
+from apps.guios.services.repository_health import sync_evaluation_repo_health
 from apps.guios.models import EvaluationFactor, EvaluationSubfactor
 from apps.guios.tasks import execute_evaluation_literature_ai_task
 from ..serializers.evaluation_serializers import (
@@ -52,6 +53,7 @@ from ..serializers.evaluation_serializers import (
     AISuggestImportanceInputSerializer,
     AISuggestRatingInputSerializer,
     AIAssistanceLogOutputSerializer,
+    RepoHealthSyncInputSerializer,
 )
 
 
@@ -76,6 +78,7 @@ class EvaluationViewSet(viewsets.GenericViewSet):
         'ai_suggest_importance': 'guios.evaluation_edit',
         'ai_suggest_rating': 'guios.evaluation_edit',
         'ai_logs': 'guios.evaluation_view',
+        'repo_health': 'guios.evaluation_edit',
         'export_pdf': 'guios.evaluation_export',
         'export_excel': 'guios.evaluation_export',
     }
@@ -425,4 +428,26 @@ class EvaluationViewSet(viewsets.GenericViewSet):
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         response['Access-Control-Expose-Headers'] = 'Content-Disposition'
         return response
+
+    @action(detail=True, methods=['post'], url_path='repo-health')
+    def repo_health(self, request, pk=None):
+        """
+        POST /api/v1/guios/evaluations/{id}/repo-health/
+        Sincroniza el pulso técnico del repositorio GitHub/GitLab asociado.
+        """
+        try:
+            evaluation = get_evaluation_or_error(pk)
+        except EvaluationNotFoundError as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = RepoHealthSyncInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        sync_evaluation_repo_health(
+            evaluation,
+            repo_url=serializer.validated_data.get('repo_url'),
+            force=True,
+        )
+        detailed = get_evaluation_detail_or_error(pk)
+        return Response(EvaluationDetailOutputSerializer(detailed).data, status=status.HTTP_200_OK)
 

@@ -56,6 +56,7 @@ class CohereAIProvider(BaseAIProvider):
                 {"role": "user", "content": user_prompt},
             ],
             "response_format": {"type": "json_object"},
+            "temperature": 0.0,
         }
         if max_tokens:
             payload["max_tokens"] = max_tokens

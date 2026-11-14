@@ -36,6 +36,7 @@ interface MitigationPlanTableProps {
 interface ParsedFactorPlan {
     risk: string;
     action: string;
+    responsible: string;
     indicator: string;
 }
 
@@ -52,6 +53,7 @@ interface FactorMitigationRow {
     isCritical: boolean;
     priorityLabel: 'Prioridad alta' | 'Prioridad media' | 'Prioridad baja';
     causesVerdict: boolean;
+    criticalSubfactor?: string;
     risk: string;
     action: string;
     responsible: string;
@@ -66,9 +68,48 @@ const cleanString = (s: string) =>
         .toLowerCase()
         .trim();
 
+const stripMarkdown = (s: string) =>
+    s
+        .replace(/\*\*/g, '')
+        .replace(/__/g, '')
+        .replace(/`+/g, '')
+        .trim();
+
+function getDefaultResponsible(
+    factorName: string,
+    dimensionName: string = '',
+    scope: 'internal' | 'external' = 'internal'
+): string {
+    const folded = cleanString(`${dimensionName} ${factorName}`);
+    if (/segur|privac|cumplim|normativ|riesgo|licenc/.test(folded)) {
+        return 'Seguridad de la Información y Cumplimiento';
+    }
+    if (/infra|desplieg|rendim|escalab|fiab|disponib|calidad/.test(folded)) {
+        return 'Infraestructura y Operaciones TI';
+    }
+    if (/comun|soporte|proveed|ecosist|madurez|document/.test(folded)) {
+        return 'Gobernanza Tecnológica y Soporte';
+    }
+    if (/capacit|formac|cultur|usabil|cambio|organiz|equipo/.test(folded)) {
+        return 'Gestión del Cambio y Talento';
+    }
+    return scope === 'external'
+        ? 'Gobernanza Tecnológica y Adquisiciones'
+        : 'Arquitectura y Liderazgo Técnico';
+}
+
+function matchFactorHeading(candidate: string, factorNames: string[]): string | undefined {
+    const cleaned = cleanString(stripMarkdown(candidate)).replace(/^[#*\s\d.-]+|[#*\s:]+$/g, '');
+    if (!cleaned) return undefined;
+    return factorNames.find((name) => cleanString(name) === cleaned)
+        || factorNames.find((name) => {
+            const cName = cleanString(name);
+            return cName.length > 4 && (cleaned.startsWith(cName) || cName.startsWith(cleaned));
+        });
+}
+
 /**
- * Parsea la narrativa real generada por el motor / IA para cada factor evaluado.
- * No genera contenido sintético arbitrario.
+ * Parsea la narrativa estructurada (Markdown canónico o tabla GFM) generada por el motor / IA.
  */
 function parseMitigationText(
     rawText: string = '',
@@ -86,64 +127,99 @@ function parseMitigationText(
 
         let risk = '';
         const actions: string[] = [];
+        let responsible = '';
         let indicator = '';
 
         for (const line of currentLines) {
             const tr = line.trim();
             if (!tr) continue;
 
-            if (/^(brecha|riesgo)[:\s]/i.test(tr)) {
-                risk = tr.replace(/^(brecha|riesgo)[:\s]+/i, '').trim();
-            } else if (/^[-*]\s*(brecha|riesgo)[:\s]/i.test(tr)) {
-                risk = tr.replace(/^[-*]\s*(brecha|riesgo)[:\s]+/i, '').trim();
-            } else if (/^(c[oó]mo comprobar|meta|indicador)[:\s]/i.test(tr)) {
-                indicator = tr.replace(/^(c[oó]mo comprobar|meta|indicador)[:\s]+/i, '').trim();
-            } else if (/^[-*]\s*(c[oó]mo comprobar|meta|indicador)[:\s]/i.test(tr)) {
-                indicator = tr.replace(/^[-*]\s*(c[oó]mo comprobar|meta|indicador)[:\s]+/i, '').trim();
-            } else if (/^\d+\.\s*(c[oó]mo comprobar|meta|indicador)[:\s]/i.test(tr)) {
-                indicator = tr.replace(/^\d+\.\s*(c[oó]mo comprobar|meta|indicador)[:\s]+/i, '').trim();
-            } else if (/^[-*]\s*(acci[oó]n\s*\d*[:\s]*)/i.test(tr)) {
-                const act = tr.replace(/^[-*]\s*(acci[oó]n\s*\d*[:\s]*)/i, '').trim();
-                if (act) actions.push(act);
-            } else if (/^\d+\.\s*(acci[oó]n\s*\d*[:\s]*)/i.test(tr)) {
-                const act = tr.replace(/^\d+\.\s*(acci[oó]n\s*\d*[:\s]*)/i, '').trim();
-                if (act) actions.push(act);
-            } else if (/^(acci[oó]n\s*\d*[:\s]*)/i.test(tr)) {
-                const act = tr.replace(/^(acci[oó]n\s*\d*[:\s]*)/i, '').trim();
-                if (act) actions.push(act);
-            } else if (/^[-*]\s+/.test(tr)) {
-                const act = tr.replace(/^[-*]\s+/, '').trim();
-                if (/^(c[oó]mo comprobar|meta|indicador)/i.test(act)) {
-                    indicator = act.replace(/^(c[oó]mo comprobar|meta|indicador)[:\s]+/i, '').trim();
-                } else if (act.length > 8) {
-                    actions.push(act);
+            const plainBullet = stripMarkdown(tr.replace(/^[-*•\d.)]+\s*/, ''));
+            const plainFolded = cleanString(plainBullet);
+
+            const colonIdx = plainBullet.indexOf(':');
+            if (colonIdx > 0) {
+                const labelFolded = cleanString(plainBullet.slice(0, colonIdx));
+                const value = plainBullet.slice(colonIdx + 1).trim();
+
+                if (/^(riesgo(?:\s+metodologico)?|brecha|impacto)/.test(labelFolded)) {
+                    if (value) risk = risk ? `${risk} ${value}` : value;
+                    continue;
                 }
-            } else if (!risk && !actions.length && tr.length > 15 && !tr.startsWith('#')) {
-                risk = tr;
+                if (/^(accion(?:\s+correctiva|\s*\d*)?|medida|solucion)/.test(labelFolded)) {
+                    if (value) actions.push(value);
+                    continue;
+                }
+                if (/^(responsable|area|rol)/.test(labelFolded)) {
+                    if (value) responsible = value;
+                    continue;
+                }
+                if (/^(meta(?:\s+de\s+aprobacion)?|indicador|criterio|objetivo|como\s+comprobar|verificacion)/.test(labelFolded)) {
+                    if (value) indicator = value;
+                    continue;
+                }
+            }
+
+            if (/^[-*•]\s+/.test(tr)) {
+                if (/^(como comprobar|meta|indicador)/.test(plainFolded)) {
+                    indicator = plainBullet.replace(/^(c[oó]mo comprobar|meta|indicador)[:\s]*/i, '').trim();
+                } else if (plainBullet.length > 8) {
+                    actions.push(plainBullet);
+                }
+            } else if (!risk && !actions.length && plainBullet.length > 15 && !tr.startsWith('#')) {
+                risk = plainBullet;
             }
         }
 
         map.set(currentFactor, {
             risk,
-            action: actions.join(' ') || '',
+            action: actions.join(' ').trim(),
+            responsible,
             indicator,
         });
     };
 
     for (const rawLine of lines) {
         const tr = rawLine.trim();
-        const cleanLine = cleanString(tr).replace(/^[#*\s\d.-]+|[#*\s]+$/g, '');
+        if (!tr) continue;
 
-        const matched = factorNames.find((name) => {
-            const cName = cleanString(name);
-            return cleanLine === cName || cleanLine.startsWith(cName) || cleanLine.endsWith(cName);
-        });
+        // Soporte para filas de tabla Markdown: | Factor | Riesgo | Acción | Responsable | Meta |
+        if (tr.startsWith('|') && tr.endsWith('|')) {
+            const cells = tr
+                .slice(1, -1)
+                .split('|')
+                .map((c) => stripMarkdown(c));
+            const isSeparator = cells.every((c) => /^[-:\s]+$/.test(c));
+            if (!isSeparator && cells.length >= 4) {
+                const matchedFromTable = matchFactorHeading(cells[0], factorNames);
+                if (matchedFromTable) {
+                    map.set(cleanString(matchedFromTable), {
+                        risk: cells[1] || '',
+                        action: cells[2] || '',
+                        responsible: cells.length >= 5 ? cells[3] || '' : '',
+                        indicator: cells.length >= 5 ? cells[4] || '' : cells[3] || '',
+                    });
+                }
+            }
+            continue;
+        }
 
-        if (matched) {
-            flush();
-            currentFactor = cleanString(matched);
-            currentLines = [];
-        } else if (currentFactor) {
+        const isHeadingLine =
+            /^#{1,6}\s+/.test(tr)
+            || (/^\*\*[^:]+\*\*$/.test(tr) && tr.length > 4)
+            || factorNames.some((n) => cleanString(n) === cleanString(stripMarkdown(tr)));
+
+        if (isHeadingLine) {
+            const matched = matchFactorHeading(tr, factorNames);
+            if (matched) {
+                flush();
+                currentFactor = cleanString(matched);
+                currentLines = [];
+                continue;
+            }
+        }
+
+        if (currentFactor) {
             currentLines.push(tr);
         }
     }
@@ -170,11 +246,13 @@ export const MitigationPlanTable: React.FC<MitigationPlanTableProps> = ({
         return map;
     }, [results]);
 
-    // Subfactor más deficiente (menor puntaje real) registrado en la base de datos
+    // Subfactor más deficiente (menor puntaje real < 4) registrado en la base de datos
     const lowestSubfactorMap = useMemo(() => {
         const map = new Map<number, { description: string; rating: number | null }>();
         factors.forEach((f) => {
-            const facSubfactors = subfactors.filter((s) => s.factor_id === f.factor_id);
+            const facSubfactors = subfactors.filter(
+                (s) => s.factor_id === f.factor_id && s.rating !== null && s.rating < 4
+            );
             if (facSubfactors.length > 0) {
                 const sorted = [...facSubfactors].sort((a, b) => (a.rating ?? 0) - (b.rating ?? 0));
                 const lowest = sorted[0];
@@ -240,13 +318,18 @@ export const MitigationPlanTable: React.FC<MitigationPlanTableProps> = ({
             }
 
             // 3. Responsable y plazo
-            const responsible = fac.dimension_name || 'Gestión técnica';
+            const responsible =
+                parsed?.responsible ||
+                getDefaultResponsible(fac.factor_name, fac.dimension_name, fac.scope_used);
             const timeline = isCritical ? 'Corto plazo' : 'Mediano plazo';
 
-            // 4. Indicador de cumplimiento
-            let indicator = lowestSub?.description || parsed?.indicator || '';
+            // 4. Meta de aprobación (prioriza criterio de verificación generado antes que descripción cruda del subfactor)
+            let indicator = parsed?.indicator || '';
             if (!indicator) {
-                indicator = `Superar el umbral metodológico con PM ≥ 3.00 en ${fac.factor_name}.`;
+                indicator =
+                    !meets && lowestSub?.description
+                        ? `Subsanar «${lowestSub.description}» hasta alcanzar PM ≥ 3.00.`
+                        : `Superar el umbral metodológico con PM ≥ 3.00 en ${fac.factor_name}.`;
             }
 
             return {
@@ -262,6 +345,7 @@ export const MitigationPlanTable: React.FC<MitigationPlanTableProps> = ({
                 isCritical,
                 priorityLabel,
                 causesVerdict,
+                criticalSubfactor: !meets ? lowestSub?.description : undefined,
                 risk,
                 action,
                 responsible,
@@ -361,13 +445,20 @@ export const MitigationPlanTable: React.FC<MitigationPlanTableProps> = ({
                                             >
                                                 {row.name}
                                             </button>
-                                            <div className="flex items-center gap-1.5 mt-1 text-[10px] font-mono text-[var(--color-text-primary)]">
-                                                <span>{row.dimension}</span>
+                                            <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] font-mono text-[var(--color-text-secondary)]">
+                                                <span>{row.fodaType}</span>
+                                                <span>•</span>
+                                                <span>PM {row.pm.toFixed(1)}</span>
                                                 <span>•</span>
                                                 <span className={row.isCritical ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}>
                                                     IR={row.ir} ({row.priorityLabel})
                                                 </span>
                                             </div>
+                                            {row.criticalSubfactor && (
+                                                <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)] leading-snug line-clamp-2">
+                                                    Brecha: {row.criticalSubfactor}
+                                                </p>
+                                            )}
                                         </td>
 
                                         {/* 2. Riesgo */}
