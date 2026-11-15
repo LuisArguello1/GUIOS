@@ -114,7 +114,7 @@ class DecisorFactorItemInputSerializer(serializers.Serializer):
     scope_used = serializers.ChoiceField(
         choices=[EvaluationFactor.SCOPE_INTERNAL, EvaluationFactor.SCOPE_EXTERNAL],
         required=False,
-        default=EvaluationFactor.SCOPE_INTERNAL,
+        allow_null=True,
     )
 
 

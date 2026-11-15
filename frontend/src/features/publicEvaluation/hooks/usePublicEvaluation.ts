@@ -115,6 +115,7 @@ export const usePublicEvaluation = () => {
     const [aiSuggesting, setAiSuggesting] = useState<'importance' | 'ratings' | null>(null);
     const [syncingRepoHealth, setSyncingRepoHealth] = useState<boolean>(false);
     const autoSyncedRepoRef = useRef<string | null>(null);
+    const aiRequestEpochRef = useRef<number>(0);
 
     // ── Estados Locales de Formulario Reactivo (para <100ms de latencia en sliders) ──
     const [decisorMap, setDecisorMap] = useState<Record<number, LocalDecisorState>>({});
@@ -305,7 +306,7 @@ export const usePublicEvaluation = () => {
         if (!evaluation?.uuid || evaluation.ai_status !== 'searching') return;
 
         let cancelled = false;
-        const MAX_LITERATURE_WAIT_MS = 20000;
+        const MAX_LITERATURE_WAIT_MS = 240000;
         const startedAtMs = Date.now();
 
         const handleTimeout = () => {
@@ -862,11 +863,13 @@ export const usePublicEvaluation = () => {
                 return;
             }
 
+            const requestEpoch = aiRequestEpochRef.current;
             setAiSuggesting('importance');
             setAiLoadingFactors((prev) => ({ ...prev, [factorId]: true }));
 
             try {
                 const res = await publicEvaluationService.aiSuggestImportance(evaluationUuid, factorId);
+                if (aiRequestEpochRef.current !== requestEpoch) return;
                 if (res.suggested_id) {
                     setDecisorMap((prev) => ({
                         ...prev,
@@ -893,6 +896,7 @@ export const usePublicEvaluation = () => {
                     } : prev);
                 }
             } catch (err: unknown) {
+                if (aiRequestEpochRef.current !== requestEpoch) return;
                 const message = getErrorDetail(
                     err,
                     'El asistente de IA no pudo generar la sugerencia en este momento.'
@@ -943,6 +947,7 @@ export const usePublicEvaluation = () => {
                 return;
             }
 
+            const requestEpoch = aiRequestEpochRef.current;
             setAiSuggesting('ratings');
             setAiLoadingSubfactors((prev) => {
                 const next = { ...prev };
@@ -954,6 +959,7 @@ export const usePublicEvaluation = () => {
 
             try {
                 const res = await publicEvaluationService.aiSuggestFactorRatings(evaluationUuid, factorId);
+                if (aiRequestEpochRef.current !== requestEpoch) return;
                 setSubfactorRatingsMap((prev) => {
                     const next = { ...prev };
                     for (const item of res.ratings) {
@@ -986,6 +992,7 @@ export const usePublicEvaluation = () => {
                     message: `Sugerencias listas para ${res.ratings.length} subfactores de este factor. Revísalas y guárdalas.`,
                 });
             } catch (err: unknown) {
+                if (aiRequestEpochRef.current !== requestEpoch) return;
                 const message = getErrorDetail(
                     err,
                     'El asistente de IA no pudo calificar los subfactores de este factor.'
@@ -1008,10 +1015,12 @@ export const usePublicEvaluation = () => {
     const handleAISuggestRating = useCallback(
         async (subfactorId: number) => {
             if (!evaluationUuid) return;
+            const requestEpoch = aiRequestEpochRef.current;
             setAiLoadingSubfactors((prev) => ({ ...prev, [subfactorId]: true }));
 
             try {
                 const res = await publicEvaluationService.aiSuggestRating(evaluationUuid, subfactorId);
+                if (aiRequestEpochRef.current !== requestEpoch) return;
                 if (res.suggested_rating) {
                     setSubfactorRatingsMap((prev) => ({
                         ...prev,
@@ -1028,6 +1037,7 @@ export const usePublicEvaluation = () => {
                     });
                 }
             } catch (err: unknown) {
+                if (aiRequestEpochRef.current !== requestEpoch) return;
                 const message = getErrorDetail(
                     err,
                     'El asistente de IA no pudo generar la calificación del subfactor.'
@@ -1430,20 +1440,57 @@ export const usePublicEvaluation = () => {
         setIsHelpModalOpen(true);
     }, []);
 
-    const handleSkipAiThinking = useCallback(() => {
-        setEvaluation((prev) =>
-            prev && prev.ai_status === 'searching'
-                ? { ...prev, ai_status: 'failed' }
-                : prev
-        );
+    const handleSkipAiThinking = useCallback(async () => {
+        aiRequestEpochRef.current += 1;
         setAiSuggesting(null);
         setAiLoadingFactors({});
         setAiLoadingSubfactors({});
+
+        const wasSearchingLiterature = evaluation?.ai_status === 'searching' && Boolean(evaluation?.uuid);
+        if (wasSearchingLiterature && evaluation) {
+            const evaluationUuidToDisable = evaluation.uuid;
+            setEvaluation((prev) =>
+                prev && prev.uuid === evaluationUuidToDisable
+                    ? { ...prev, ai_enabled: false, ai_status: 'pending' }
+                    : prev
+            );
+            try {
+                const updated = await publicEvaluationService.disableAi(evaluationUuidToDisable);
+                setEvaluation((prev) =>
+                    prev && prev.uuid === evaluationUuidToDisable ? updated : prev
+                );
+                saveEvaluationToHistory({
+                    uuid: updated.uuid,
+                    software_name: updated.software_name,
+                    software_version: updated.software_version || undefined,
+                    software_category: updated.software_category || undefined,
+                    org_name: updated.org_name,
+                    org_sector: updated.org_sector || undefined,
+                    created_at: updated.started_at || new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    step: currentStep || 1,
+                    status: updated.status === 'completed' ? 'completed' : 'in_progress',
+                    recommendation: updated.verdict?.recommendation || undefined,
+                    recommendation_display: updated.verdict?.recommendation_display || undefined,
+                    factors_count: updated.factors?.length || 0,
+                    ai_enabled: false,
+                });
+                setSavedEvaluations(getSavedEvaluations());
+            } catch (err: unknown) {
+                console.warn('No se pudo persistir la desactivación de IA en el servidor.', err);
+            }
+            addToast({
+                type: 'info',
+                message: 'Continuarás esta evaluación sin asistencia de IA usando los valores base del catálogo.',
+            });
+            return;
+        }
+
         addToast({
             type: 'info',
-            message: 'Se omitió la espera de IA. Puedes continuar evaluando sin asistencia de IA.',
+            message: 'Se omitió la espera de la sugerencia de IA. Puedes continuar evaluando manualmente.',
         });
-    }, [addToast]);
+    }, [evaluation, currentStep, addToast]);
 
     return {
         // Estado de evaluación y catálogo

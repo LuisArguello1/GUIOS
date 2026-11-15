@@ -6,6 +6,27 @@ Utilidades de seguridad, privacidad y auditoría para controladores REST GUIOS.
 
 import hashlib
 from django.conf import settings
+from rest_framework import status
+from rest_framework.response import Response
+
+
+def require_ai_consent_response(evaluation):
+    """
+    Verifica que la evaluación tenga habilitada la asistencia por IA y cuente
+    con consentimiento explícito de procesamiento (D-13). Retorna HTTP 403 si
+    no se cumplen ambas condiciones, o None cuando la solicitud es válida.
+    """
+    if not evaluation.ai_enabled or not evaluation.ai_processing_consent:
+        return Response(
+            {
+                'error': (
+                    'La asistencia de IA no está habilitada o no cuenta con '
+                    'consentimiento de procesamiento para esta evaluación.'
+                )
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return None
 
 
 def get_client_ip_hash(request) -> str:

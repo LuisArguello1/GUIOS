@@ -407,6 +407,8 @@ class AIServiceTestCase(TestCase):
             org_name="Hospital Universitario",
             org_sector="Salud",
             org_description="Gestión de historias clínicas y alta concurrencia",
+            ai_enabled=True,
+            ai_processing_consent=True,
             created_by=self.user,
         )
         offline = AIService(
