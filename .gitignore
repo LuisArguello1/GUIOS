@@ -24,6 +24,7 @@ Gdrives/
 *.backup
 *.sha256
 MANIFEST.txt
+.coverage
 
 # Environment
 .env

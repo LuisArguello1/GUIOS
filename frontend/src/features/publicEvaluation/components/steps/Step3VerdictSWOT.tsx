@@ -177,7 +177,7 @@ export const Step3VerdictSWOT: React.FC<Step3VerdictSWOTProps> = ({
 
         const factorInputs = results.map((r) => ({
             meetsThreshold: r.meets_threshold,
-            relativeImportance: factorMap.get(r.factor_id) ?? 2,
+            relativeImportance: factorMap.get(r.factor_id) ?? 1,
         }));
 
         return classifyRecommendation(factorInputs);
