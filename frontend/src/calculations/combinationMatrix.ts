@@ -30,11 +30,11 @@ export const calculateRelativeImportance = (
     decisorImportance: number,
 ): number => combineImportance(decisorImportance, suggestedImportance);
 
-/** PM redondeada a 1 decimal, igual que el motor del backend. */
+/** PM redondeada a 1 decimal, igual que el motor del backend (ROUND_HALF_UP). */
 export const roundWeightedAverage = (ratings: number[]): number => {
     if (ratings.length === 0) return 0;
-    const raw = ratings.reduce((total, rating) => total + rating, 0) / ratings.length;
-    return Math.round(raw * 10) / 10;
+    const sum = ratings.reduce((total, rating) => total + rating, 0);
+    return Math.round((sum * 10) / ratings.length) / 10;
 };
 
 /** Ecuación 5.3. El umbral es 3.0. */
@@ -47,19 +47,24 @@ export const classifyFoda = (weightedAverage: number, scope: 'internal' | 'exter
 export type RecommendationCode = 'A' | 'B' | 'C';
 
 /**
- * Dictamen A, B o C.
- * Un fallo con IR = 1 no cuenta. B exige que todos los fallos sean IR = 2.
- * C aparece en cuanto un fallo tiene IR >= 3.
+ * Dictamen A, B o C (alineado con verdict.py del backend, tesis págs. 104-106).
+ * Un fallo con IR = 1 no cuenta.
+ * C aparece si algún fallo tiene IR >= 3 o si los fallos opcionales (IR = 2)
+ * superan en cantidad a los positivos (PM >= 3.0).
+ * B exige que todos los fallos relevantes sean IR = 2 y no superen a los positivos.
  */
 export const classifyRecommendation = (
     factors: { meetsThreshold: boolean; relativeImportance: number }[],
 ): RecommendationCode | null => {
     if (factors.length === 0) return null;
-    const failures = factors.filter((factor) => !factor.meetsThreshold);
+    const positives = factors.filter((factor) => factor.meetsThreshold);
+    const failures = factors.filter(
+        (factor) => !factor.meetsThreshold && factor.relativeImportance > 1,
+    );
     if (failures.length === 0) return 'A';
     if (failures.some((factor) => factor.relativeImportance >= 3)) return 'C';
-    if (failures.every((factor) => factor.relativeImportance === 2)) return 'B';
-    return 'A';
+    if (failures.length > positives.length) return 'C';
+    return 'B';
 };
 
 export const RECOMMENDATION_LABELS: Record<RecommendationCode, string> = {
