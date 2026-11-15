@@ -421,6 +421,25 @@ def lock_evaluation_phases(evaluation_id: int | str) -> Evaluation:
 
 
 @transaction.atomic
+def disable_evaluation_ai(evaluation_id: int | str) -> Evaluation:
+    """
+    Desactiva la asistencia de IA para una evaluación específica (cuando el usuario elige
+    'Continuar sin IA'), asegurando las métricas base del catálogo y desbloqueando la edición.
+    """
+    evaluation = get_evaluation_or_error(evaluation_id)
+    if evaluation.status == Evaluation.STATUS_COMPLETED:
+        return evaluation
+
+    if not evaluation.evaluation_factors.exists():
+        calculate_evaluation_literature(evaluation_id=evaluation.id)
+
+    evaluation.ai_enabled = False
+    evaluation.ai_status = Evaluation.AI_STATUS_PENDING
+    evaluation.save(update_fields=['ai_enabled', 'ai_status'])
+    return evaluation
+
+
+@transaction.atomic
 def save_decisor_importance(
     evaluation_id: int | str,
     *,

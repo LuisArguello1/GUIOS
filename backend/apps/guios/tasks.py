@@ -8,10 +8,14 @@ Sigue las reglas de celery-patterns.md:
 - Actualización reactiva del estado `ai_status` en la entidad Evaluation.
 """
 import logging
+from datetime import timedelta
 from unittest.mock import NonCallableMock
 from celery import current_app, shared_task
+from celery.signals import task_postrun, task_prerun, worker_shutdown
 from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
+from django.utils import timezone
 
 from apps.guios.models.evaluation import Evaluation
 from apps.guios.services.ai import ai_service
@@ -19,6 +23,26 @@ from apps.guios.services.evaluation import calculate_evaluation_literature
 from apps.guios.services.repository_health import sync_evaluation_repo_health
 
 logger = logging.getLogger(__name__)
+
+_CELERY_BUSY_CACHE_KEY = "guios_celery_worker_busy"
+_CELERY_BUSY_TTL_SECONDS = 300
+
+
+@task_prerun.connect
+def _mark_worker_busy(task_id=None, task=None, **kwargs):
+    if getattr(task, "name", "").endswith("execute_evaluation_literature_ai_task"):
+        cache.set(_CELERY_BUSY_CACHE_KEY, True, timeout=_CELERY_BUSY_TTL_SECONDS)
+
+
+@task_postrun.connect
+def _clear_worker_busy(task_id=None, task=None, **kwargs):
+    if getattr(task, "name", "").endswith("execute_evaluation_literature_ai_task"):
+        cache.delete(_CELERY_BUSY_CACHE_KEY)
+
+
+@worker_shutdown.connect
+def _clear_worker_busy_on_shutdown(**kwargs):
+    cache.delete(_CELERY_BUSY_CACHE_KEY)
 
 
 def _has_ai_credentials_configured() -> bool:
@@ -33,13 +57,27 @@ def _has_ai_credentials_configured() -> bool:
 
 
 def _has_active_celery_worker() -> bool:
-    """Comprueba de forma segura si existe al menos un worker Celery activo."""
+    """
+    Comprueba de forma segura si existe al menos un worker Celery activo.
+    Si el worker está ocupado ejecutando otra búsqueda (p. ej. --pool=solo en Windows),
+    evita marcar erróneamente como caído un encolamiento concurrente.
+    """
     try:
         ping_result = current_app.control.inspect(timeout=1.0).ping()
-        return bool(ping_result)
+        if ping_result:
+            return True
     except Exception as exc:
         logger.warning("No se pudo verificar el estado de los workers de Celery: %s", exc)
-        return False
+
+    if cache.get(_CELERY_BUSY_CACHE_KEY):
+        return True
+
+    recent_cutoff = timezone.now() - timedelta(seconds=_CELERY_BUSY_TTL_SECONDS)
+    return Evaluation.objects.filter(
+        ai_enabled=True,
+        ai_status=Evaluation.AI_STATUS_SEARCHING,
+        started_at__gte=recent_cutoff,
+    ).exists()
 
 
 def enqueue_literature_search(evaluation_id: int) -> str | None:
@@ -98,6 +136,10 @@ def execute_evaluation_literature_ai_task(self, evaluation_id: int) -> dict:
         logger.error("Tarea Celery abortada: Evaluación #%s no existe.", evaluation_id)
         return {"success": False, "error": f"Evaluation #{evaluation_id} not found"}
 
+    if not evaluation.ai_enabled:
+        logger.info("Tarea de literatura omitida: Evaluación #%s continúa sin IA.", evaluation.id)
+        return {"success": False, "evaluation_id": evaluation.id, "skipped": True}
+
     # Actualizar estado a "Buscando literatura"
     evaluation.ai_status = Evaluation.AI_STATUS_SEARCHING
     evaluation.save(update_fields=['ai_status'])
@@ -117,8 +159,16 @@ def execute_evaluation_literature_ai_task(self, evaluation_id: int) -> dict:
         citations_by_subfactor = ai_result.get("citations_by_subfactor", {})
         sources_by_factor = ai_result.get("sources_by_factor", {})
 
-        # Solo citas y cuartiles. Las sugerencias de factores y subfactores se piden aparte.
+        # Si el usuario optó por continuar sin IA mientras la tarea corría, no sobrescribir
         with transaction.atomic():
+            evaluation.refresh_from_db()
+            if not evaluation.ai_enabled:
+                logger.info(
+                    "Búsqueda IA completada pero descartada porque Evaluación #%s pasó a modo sin IA.",
+                    evaluation.id,
+                )
+                return {"success": False, "evaluation_id": evaluation.id, "skipped": True}
+
             calculate_evaluation_literature(
                 evaluation_id=evaluation.id,
                 ai_citations_by_subfactor=citations_by_subfactor,

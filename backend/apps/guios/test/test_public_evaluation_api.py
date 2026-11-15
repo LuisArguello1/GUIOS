@@ -339,7 +339,7 @@ class PublicEvaluationAPITests(APITestCase):
     @patch("apps.guios.tasks._has_active_celery_worker", return_value=False)
     @patch("apps.guios.tasks._has_ai_credentials_configured", return_value=True)
     def test_d31_ai_degrades_gracefully_without_celery_worker_and_on_timeout(self, _cred, _worker):
-        """D-31: sin worker Celery o al expirar 25s, ai_status pasa a 'failed' y deja continuar."""
+        """D-31: sin worker Celery o al expirar 240s, ai_status pasa a 'failed' y deja continuar."""
         res_create = self.client.post(
             "/api/v1/guios/public/evaluations/",
             {
@@ -355,15 +355,61 @@ class PublicEvaluationAPITests(APITestCase):
         self.assertEqual(res_create.data["ai_status"], Evaluation.AI_STATUS_FAILED)
         self.assertGreaterEqual(len(res_create.data["factors"]), 2)
 
-        # Timeout automático en retrieve si una búsqueda quedó atascada > 25s
+        # Timeout automático en retrieve si una búsqueda quedó atascada > 240s
         eval_obj = Evaluation.objects.get(uuid=res_create.data["uuid"])
         Evaluation.objects.filter(pk=eval_obj.pk).update(
             ai_status=Evaluation.AI_STATUS_SEARCHING,
-            started_at=timezone.now() - timedelta(seconds=30),
+            started_at=timezone.now() - timedelta(seconds=250),
         )
         res_get = self.client.get(f"/api/v1/guios/public/evaluations/{eval_obj.uuid}/")
         self.assertEqual(res_get.status_code, status.HTTP_200_OK)
         self.assertEqual(res_get.data["ai_status"], Evaluation.AI_STATUS_FAILED)
+
+    @patch("apps.guios.tasks._has_active_celery_worker", return_value=True)
+    @patch("apps.guios.tasks._has_ai_credentials_configured", return_value=True)
+    @patch("apps.guios.tasks.execute_evaluation_literature_ai_task.delay")
+    def test_disable_ai_action_cancels_searching_and_allows_manual_continue(
+        self, _delay_mock, _cred, _worker
+    ):
+        """Al elegir continuar sin IA, disable-ai desactiva la IA limpiamente y desbloquea apply-decisor."""
+        res_create = self.client.post(
+            "/api/v1/guios/public/evaluations/",
+            {
+                "software_name": "Keycloak",
+                "org_name": "UNEMI",
+                "ai_enabled": True,
+                "data_storage_consent": True,
+                "ai_processing_consent": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res_create.data["ai_status"], Evaluation.AI_STATUS_SEARCHING)
+        uuid_str = res_create.data["uuid"]
+
+        res_disable = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/disable-ai/",
+            {},
+            format="json",
+        )
+        self.assertEqual(res_disable.status_code, status.HTTP_200_OK)
+        self.assertFalse(res_disable.data["ai_enabled"])
+        self.assertEqual(res_disable.data["ai_status"], Evaluation.AI_STATUS_PENDING)
+
+        res_decisor = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {
+                "factors": [
+                    {
+                        "factor_id": self.factor_func.id,
+                        "decisor_importance": 4,
+                        "scope_used": "internal",
+                    }
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(res_decisor.status_code, status.HTTP_200_OK)
 
     def test_d32_discarded_ir1_factor_excluded_from_mitigation_and_verdict(self):
         """D-32: un factor descartado (IR=1, is_relevant=False) no aparece en resultados ni mitigación."""
@@ -434,3 +480,237 @@ class PublicEvaluationAPITests(APITestCase):
             ],
         )
         self.assertNotIn("Soporte", narrative["mitigation_plan"])
+
+    def test_d12_public_compute_verdict_ignores_client_xss_and_generates_server_side(self):
+        """D-12: compute-verdict público ignora textos XSS del cliente y genera narrativa en el servidor."""
+        res_create = self.client.post(
+            "/api/v1/guios/public/evaluations/",
+            {
+                "software_name": "Mattermost",
+                "org_name": "UNEMI",
+                "ai_enabled": False,
+                "data_storage_consent": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        uuid_str = res_create.data["uuid"]
+
+        self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": self.factor_func.id, "decisor_importance": 4, "scope_used": "internal"},
+                    {"factor_id": self.factor_soporte.id, "decisor_importance": 3, "scope_used": "external"},
+                ]
+            },
+            format="json",
+        )
+        self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/rate-subfactors/",
+            {
+                "ratings": {
+                    str(self.sub_func_1.id): 4,
+                    str(self.sub_func_2.id): 4,
+                    str(self.sub_sop_1.id): 4,
+                }
+            },
+            format="json",
+        )
+
+        xss_summary = "<script>alert('xss')</script>Resumen falso"
+        xss_plan = '<img src="x" onerror="alert(1)">Plan falso'
+        res_verdict = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/compute-verdict/",
+            {
+                "ai_executive_summary": xss_summary,
+                "ai_mitigation_plan": xss_plan,
+            },
+            format="json",
+        )
+        self.assertEqual(res_verdict.status_code, status.HTTP_200_OK)
+        saved_summary = res_verdict.data["verdict"]["ai_executive_summary"]
+        saved_plan = res_verdict.data["verdict"]["ai_mitigation_plan"]
+        self.assertNotIn("<script", saved_summary)
+        self.assertNotIn("onerror", saved_plan)
+        self.assertIn("Mattermost", saved_summary)
+
+    def test_d13_ai_suggest_endpoints_require_ai_enabled_and_consent(self):
+        """D-13: Los endpoints ai-suggest-* rechazan con 403 si falta ai_enabled o ai_processing_consent."""
+        from apps.guios.models import EvaluationFactor, EvaluationSubfactor
+
+        eval_disabled = Evaluation.objects.create(
+            software_name="Redmine",
+            org_name="UNEMI",
+            ai_enabled=False,
+            ai_processing_consent=False,
+            data_storage_consent=True,
+        )
+        EvaluationFactor.objects.create(
+            evaluation=eval_disabled,
+            factor=self.factor_func,
+            systemic_importance_snapshot=3,
+            expert_importance_snapshot=3,
+        )
+        EvaluationSubfactor.objects.create(
+            evaluation=eval_disabled,
+            subfactor=self.sub_func_1,
+        )
+
+        eval_no_consent = Evaluation.objects.create(
+            software_name="Redmine",
+            org_name="UNEMI",
+            ai_enabled=True,
+            ai_processing_consent=False,
+            data_storage_consent=True,
+        )
+        EvaluationFactor.objects.create(
+            evaluation=eval_no_consent,
+            factor=self.factor_func,
+            systemic_importance_snapshot=3,
+            expert_importance_snapshot=3,
+        )
+        EvaluationSubfactor.objects.create(
+            evaluation=eval_no_consent,
+            subfactor=self.sub_func_1,
+        )
+
+        for ev in (eval_disabled, eval_no_consent):
+            r_imp = self.client.post(
+                f"/api/v1/guios/public/evaluations/{ev.uuid}/ai-suggest-importance/",
+                {"factor_id": self.factor_func.id},
+                format="json",
+            )
+            r_rat = self.client.post(
+                f"/api/v1/guios/public/evaluations/{ev.uuid}/ai-suggest-rating/",
+                {"subfactor_id": self.sub_func_1.id},
+                format="json",
+            )
+            r_fac = self.client.post(
+                f"/api/v1/guios/public/evaluations/{ev.uuid}/ai-suggest-factor-ratings/",
+                {"factor_id": self.factor_func.id},
+                format="json",
+            )
+            self.assertEqual(r_imp.status_code, status.HTTP_403_FORBIDDEN)
+            self.assertEqual(r_rat.status_code, status.HTTP_403_FORBIDDEN)
+            self.assertEqual(r_fac.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_d14_apply_decisor_enforces_factor_scope_configurability(self):
+        """D-14: Solo factores configurables permiten cambiar ámbito; omitir scope_used conserva el del catálogo."""
+        from apps.guios.models import EvaluationFactor
+
+        factor_ext = Factor.objects.create(
+            dimension=self.dim,
+            name="Compatibilidad",
+            systemic_importance=3,
+            expert_importance=3,
+            scope=Factor.SCOPE_EXTERNAL,
+            scope_configurable=False,
+            order=3,
+            is_base=True,
+        )
+        Subfactor.objects.create(
+            factor=factor_ext,
+            description="Soporta formatos e interfaces estándar del entorno.",
+            base_citations_count=2,
+            order=1,
+        )
+
+        res_create = self.client.post(
+            "/api/v1/guios/public/evaluations/",
+            {
+                "software_name": "Gitea",
+                "org_name": "UNEMI",
+                "ai_enabled": False,
+                "data_storage_consent": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        uuid_str = res_create.data["uuid"]
+
+        # 1. Omitir scope_used en un factor externo no debe cambiarlo a internal; Soporte sí permite cambiar
+        res_ok = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": self.factor_func.id, "decisor_importance": 4},
+                    {"factor_id": self.factor_soporte.id, "decisor_importance": 3, "scope_used": "internal"},
+                    {"factor_id": factor_ext.id, "decisor_importance": 3},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(res_ok.status_code, status.HTTP_200_OK)
+        ef_ext = EvaluationFactor.objects.get(evaluation__uuid=uuid_str, factor=factor_ext)
+        ef_sop = EvaluationFactor.objects.get(evaluation__uuid=uuid_str, factor=self.factor_soporte)
+        self.assertEqual(ef_ext.scope_used, EvaluationFactor.SCOPE_EXTERNAL)
+        self.assertEqual(ef_sop.scope_used, EvaluationFactor.SCOPE_INTERNAL)
+
+        # 2. Intentar cambiar el ámbito de un factor no configurable devuelve HTTP 400
+        res_bad = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": self.factor_func.id, "decisor_importance": 4, "scope_used": "internal"},
+                    {"factor_id": self.factor_soporte.id, "decisor_importance": 3, "scope_used": "external"},
+                    {"factor_id": factor_ext.id, "decisor_importance": 3, "scope_used": "internal"},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(res_bad.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_d16_compute_verdict_requires_pm_on_all_relevant_factors(self):
+        """D-16: compute-verdict rechaza emitir el dictamen si algún factor relevante aún no tiene PM."""
+        res_create = self.client.post(
+            "/api/v1/guios/public/evaluations/",
+            {
+                "software_name": "RocketChat",
+                "org_name": "UNEMI",
+                "ai_enabled": False,
+                "data_storage_consent": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        uuid_str = res_create.data["uuid"]
+
+        self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": self.factor_func.id, "decisor_importance": 4, "scope_used": "internal"},
+                    {"factor_id": self.factor_soporte.id, "decisor_importance": 4, "scope_used": "external"},
+                ]
+            },
+            format="json",
+        )
+
+        # Calificar solo Funcionalidad, dejando Soporte relevante sin PM
+        self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/rate-subfactors/",
+            {"ratings": {str(self.sub_func_1.id): 4, str(self.sub_func_2.id): 4}},
+            format="json",
+        )
+
+        res_incomplete = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/compute-verdict/",
+            {},
+            format="json",
+        )
+        self.assertEqual(res_incomplete.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Completar Soporte y reintentar
+        self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/rate-subfactors/",
+            {"ratings": {str(self.sub_sop_1.id): 4}},
+            format="json",
+        )
+        res_complete = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/compute-verdict/",
+            {},
+            format="json",
+        )
+        self.assertEqual(res_complete.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_complete.data["verdict"]["recommendation"], "A")

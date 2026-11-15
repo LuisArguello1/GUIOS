@@ -21,7 +21,7 @@ from apps.guios.selectors.evaluation import (
     get_evaluation_or_error,
     get_evaluation_detail_or_error,
 )
-from .security_utils import get_client_ip_hash
+from .security_utils import get_client_ip_hash, require_ai_consent_response
 from apps.guios.services.evaluation import (
     create_evaluation,
     update_evaluation,
@@ -33,6 +33,7 @@ from apps.guios.services.evaluation import (
     store_factor_rating_suggestions,
     restore_ai_suggestions_from_logs,
     lock_evaluation_phases,
+    disable_evaluation_ai,
 )
 from apps.guios.exceptions import (
     EvaluationNotFoundError,
@@ -77,6 +78,7 @@ class EvaluationViewSet(viewsets.GenericViewSet):
         'apply_decisor': 'guios.evaluation_edit',
         'rate_subfactors': 'guios.evaluation_edit',
         'lock_phases': 'guios.evaluation_edit',
+        'disable_ai': 'guios.evaluation_edit',
         'compute_verdict': 'guios.evaluation_edit',
         'ai_suggest_importance': 'guios.evaluation_edit',
         'ai_suggest_rating': 'guios.evaluation_edit',
@@ -116,7 +118,7 @@ class EvaluationViewSet(viewsets.GenericViewSet):
         if (
             evaluation.ai_status == Evaluation.AI_STATUS_SEARCHING
             and evaluation.started_at
-            and (timezone.now() - evaluation.started_at).total_seconds() > 25
+            and (timezone.now() - evaluation.started_at).total_seconds() > 240
         ):
             evaluation.ai_status = Evaluation.AI_STATUS_FAILED
             evaluation.save(update_fields=['ai_status'])
@@ -195,6 +197,9 @@ class EvaluationViewSet(viewsets.GenericViewSet):
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         if serializer.validated_data.get('async_mode'):
+            if not evaluation.ai_enabled:
+                evaluation.ai_enabled = True
+                evaluation.save(update_fields=['ai_enabled'])
             task = execute_evaluation_literature_ai_task.delay(int(evaluation.id))
             return Response({
                 'status': 'searching',
@@ -266,6 +271,22 @@ class EvaluationViewSet(viewsets.GenericViewSet):
         detailed = get_evaluation_detail_or_error(pk)
         return Response(EvaluationDetailOutputSerializer(detailed).data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='disable-ai')
+    def disable_ai(self, request, pk=None):
+        """
+        POST /api/v1/guios/evaluations/{id}/disable-ai/
+        Permite continuar la evaluación sin IA manteniendo los valores base del catálogo.
+        """
+        try:
+            disable_evaluation_ai(pk)
+        except EvaluationNotFoundError as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except (EvaluationAlreadyCompletedError, EvaluationValidationError) as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        detailed = get_evaluation_detail_or_error(pk)
+        return Response(EvaluationDetailOutputSerializer(detailed).data, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post'], url_path='lock-phases')
     def lock_phases(self, request, pk=None):
         """
@@ -316,9 +337,15 @@ class EvaluationViewSet(viewsets.GenericViewSet):
 
         try:
             evaluation = get_evaluation_or_error(pk)
-            eval_factor = EvaluationFactor.objects.get(evaluation=evaluation, factor_id=factor_id)
         except EvaluationNotFoundError as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        consent_error = require_ai_consent_response(evaluation)
+        if consent_error is not None:
+            return consent_error
+
+        try:
+            eval_factor = EvaluationFactor.objects.get(evaluation=evaluation, factor_id=factor_id)
         except EvaluationFactor.DoesNotExist:
             return Response({'error': f'Factor #{factor_id} no está registrado en la evaluación #{pk}.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -346,9 +373,15 @@ class EvaluationViewSet(viewsets.GenericViewSet):
 
         try:
             evaluation = get_evaluation_or_error(pk)
-            eval_subfactor = EvaluationSubfactor.objects.get(evaluation=evaluation, subfactor_id=subfactor_id)
         except EvaluationNotFoundError as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        consent_error = require_ai_consent_response(evaluation)
+        if consent_error is not None:
+            return consent_error
+
+        try:
+            eval_subfactor = EvaluationSubfactor.objects.get(evaluation=evaluation, subfactor_id=subfactor_id)
         except EvaluationSubfactor.DoesNotExist:
             return Response({'error': f'Subfactor #{subfactor_id} no está registrado en la evaluación #{pk}.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -375,14 +408,19 @@ class EvaluationViewSet(viewsets.GenericViewSet):
 
         try:
             evaluation = get_evaluation_or_error(pk)
-            rows = list(
-                EvaluationSubfactor.objects.select_related('subfactor', 'subfactor__factor').filter(
-                    evaluation=evaluation,
-                    subfactor__factor_id=factor_id,
-                )
-            )
         except EvaluationNotFoundError as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        consent_error = require_ai_consent_response(evaluation)
+        if consent_error is not None:
+            return consent_error
+
+        rows = list(
+            EvaluationSubfactor.objects.select_related('subfactor', 'subfactor__factor').filter(
+                evaluation=evaluation,
+                subfactor__factor_id=factor_id,
+            )
+        )
 
         if not rows:
             return Response(

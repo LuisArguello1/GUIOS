@@ -219,7 +219,7 @@ def apply_step1_decisor_importance(
     updated_factors: list[EvaluationFactor] = []
 
     for entry in decisor_data:
-        eval_factor = EvaluationFactor.objects.get(
+        eval_factor = EvaluationFactor.objects.select_related("factor").get(
             evaluation=evaluation,
             factor_id=entry["factor_id"],
         )
@@ -233,8 +233,32 @@ def apply_step1_decisor_importance(
         eval_factor.relative_importance = relative_importance
         eval_factor.is_relevant = is_factor_relevant(relative_importance)
 
-        if entry.get("scope_used"):
-            eval_factor.scope_used = entry["scope_used"]
+        factor = eval_factor.factor
+        is_configurable_scope = bool(
+            factor.scope_configurable or factor.scope == Factor.SCOPE_BOTH
+        )
+        requested_scope = entry.get("scope_used")
+        if is_configurable_scope:
+            if requested_scope:
+                if requested_scope not in (
+                    EvaluationFactor.SCOPE_INTERNAL,
+                    EvaluationFactor.SCOPE_EXTERNAL,
+                ):
+                    raise ValidationError(
+                        f"Ámbito FODA inválido '{requested_scope}' para el factor '{factor.name}'."
+                    )
+                eval_factor.scope_used = requested_scope
+        else:
+            canonical_scope = (
+                factor.scope
+                if factor.scope in (EvaluationFactor.SCOPE_INTERNAL, EvaluationFactor.SCOPE_EXTERNAL)
+                else EvaluationFactor.SCOPE_INTERNAL
+            )
+            if requested_scope and requested_scope != canonical_scope:
+                raise ValidationError(
+                    f"El ámbito FODA del factor '{factor.name}' es fijo ({canonical_scope}) y no puede modificarse."
+                )
+            eval_factor.scope_used = canonical_scope
 
         eval_factor.save(update_fields=[
             "decisor_importance",
@@ -342,6 +366,41 @@ def determine_final_recommendation(results) -> tuple[str, str]:
         raise ValidationError(str(exc)) from exc
 
 
+def ensure_all_relevant_factors_have_results(evaluation: Evaluation) -> list[EvaluationResult]:
+    """
+    Verifica que todos los factores relevantes (IR > 1) cuenten con su PM calculada
+    antes de emitir el dictamen final (D-16).
+    """
+    relevant_factors = list(
+        EvaluationFactor.objects.filter(
+            evaluation=evaluation,
+            is_relevant=True,
+        ).select_related("factor")
+    )
+    if not relevant_factors:
+        raise ValidationError("No existen factores relevantes calificados para emitir un dictamen.")
+
+    relevant_factor_ids = [ef.factor_id for ef in relevant_factors]
+    results = list(
+        EvaluationResult.objects.filter(
+            evaluation=evaluation,
+            factor_id__in=relevant_factor_ids,
+        ).select_related("factor")
+    )
+    rated_factor_ids = {row.factor_id for row in results}
+    missing_factors = [
+        ef.factor.name
+        for ef in relevant_factors
+        if ef.factor_id not in rated_factor_ids
+    ]
+    if missing_factors:
+        raise ValidationError(
+            "Faltan factores relevantes por calificar antes de emitir el dictamen: "
+            f"{', '.join(missing_factors)}."
+        )
+    return results
+
+
 @transaction.atomic
 def compute_final_verdict(
     evaluation: Evaluation,
@@ -351,7 +410,7 @@ def compute_final_verdict(
     """
     Paso 5-6: persiste la recomendación A, B o C y cierra la evaluación.
     """
-    results = EvaluationResult.objects.filter(evaluation=evaluation).select_related("factor")
+    results = ensure_all_relevant_factors_have_results(evaluation)
     recommendation, explanation = determine_final_recommendation(results)
 
     from django.utils import timezone

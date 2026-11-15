@@ -139,6 +139,17 @@ const publicEvaluationService = {
     },
 
     /**
+     * Desactiva la asistencia de IA para esta evaluación y permite continuar con el catálogo base.
+     */
+    async disableAi(uuid: string): Promise<EvaluationDetail> {
+        const response = await api.post<EvaluationDetail>(
+            ENDPOINTS.GUIOS.PUBLIC_EVALUATION_DISABLE_AI(uuid),
+            {}
+        );
+        return response.data;
+    },
+
+    /**
      * Emite el dictamen final institucional y genera el resumen con IA (Pasos 5 y 6).
      */
     async computeVerdict(
