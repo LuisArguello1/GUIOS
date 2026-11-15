@@ -261,7 +261,11 @@ const SuccessStep = ({ onClose, codes }: { onClose: () => void, codes: string[] 
 };
 
 // ─── Componente Principal ──────────────────────────────────────────────────────
-const TwoFactorSettings = () => {
+interface TwoFactorSettingsProps {
+    onStatusChange?: (isActive: boolean) => void;
+}
+
+const TwoFactorSettings = ({ onStatusChange }: TwoFactorSettingsProps) => {
     const [isActive, setIsActive] = useState(false);
     const [config, setConfig] = useState<TOTPConfig | null>(null);
 
@@ -281,10 +285,11 @@ const TwoFactorSettings = () => {
             const data = await authService.getTOTPConfig();
             setConfig(data);
             setIsActive(data.is_active);
+            onStatusChange?.(data.is_active);
         } catch {
             // Silencioso
         }
-    }, []);
+    }, [onStatusChange]);
 
     useEffect(() => {
         const t = setTimeout(() => fetchConfig(), 0);
@@ -325,6 +330,7 @@ const TwoFactorSettings = () => {
         try {
             const response = await authService.activateTOTP(code);
             setIsActive(true);
+            onStatusChange?.(true);
             setConfig(prev => prev ? { ...prev, uri: null } : null);
             
             if (response.recovery_codes) {
@@ -343,7 +349,7 @@ const TwoFactorSettings = () => {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [onStatusChange]);
 
     const handleDeactivate = useCallback(async () => {
         if (!deactivatePassword.trim()) {
@@ -355,6 +361,7 @@ const TwoFactorSettings = () => {
         try {
             await authService.deactivateTOTP(deactivatePassword);
             setIsActive(false);
+            onStatusChange?.(false);
             const data = await authService.getTOTPConfig();
             setConfig(data);
             closeModal();
@@ -364,7 +371,7 @@ const TwoFactorSettings = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [deactivatePassword, closeModal]);
+    }, [deactivatePassword, closeModal, onStatusChange]);
 
     const handleRegenerate = useCallback(async () => {
         if (!deactivatePassword.trim()) {

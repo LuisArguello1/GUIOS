@@ -7,6 +7,7 @@ y delega el cálculo matemático riguroso a methodology.py.
 """
 
 from typing import Optional, Any
+from django.core.cache import cache
 from django.utils import timezone
 from django.db import transaction
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -365,6 +366,60 @@ def calculate_evaluation_literature(
         raise EvaluationValidationError(str(e))
 
 
+_PHASES_LOCKED_CACHE_TTL = 86400 * 30
+
+
+def _phases_locked_cache_key(evaluation_id: int | str) -> str:
+    return f"guios_eval_phases_locked:{evaluation_id}"
+
+
+def is_evaluation_phases_locked(evaluation: Evaluation) -> bool:
+    """
+    Determina si las Fases 1 y 2 están bloqueadas porque la evaluación ya avanzó a Fase 3
+    o ya fue finalizada.
+    """
+    if evaluation.status == Evaluation.STATUS_COMPLETED:
+        return True
+    if EvaluationVerdict.objects.filter(evaluation_id=evaluation.id).exists():
+        return True
+    if str(evaluation.privacy_policy_version or '').endswith('-locked'):
+        return True
+    return bool(cache.get(_phases_locked_cache_key(evaluation.id)))
+
+
+@transaction.atomic
+def lock_evaluation_phases(evaluation_id: int | str) -> Evaluation:
+    """
+    Persiste el bloqueo de las Fases 1 y 2 cuando el usuario confirma su avance a la Fase 3.
+    Requiere que exista al menos un resultado calculado para factores relevantes.
+    """
+    evaluation = get_evaluation_or_error(evaluation_id)
+
+    relevant_factor_ids = EvaluationFactor.objects.filter(
+        evaluation_id=evaluation.id,
+        is_relevant=True,
+    ).values_list('factor_id', flat=True)
+    has_results = EvaluationResult.objects.filter(
+        evaluation_id=evaluation.id,
+        factor_id__in=relevant_factor_ids,
+    ).exists()
+    if not has_results:
+        raise EvaluationValidationError(
+            "Debes calificar y guardar al menos un factor relevante antes de avanzar y bloquear las fases 1 y 2."
+        )
+
+    cache.set(_phases_locked_cache_key(evaluation.id), True, timeout=_PHASES_LOCKED_CACHE_TTL)
+
+    current_version = str(evaluation.privacy_policy_version or '1.0')
+    if not current_version.endswith('-locked'):
+        suffix = '-locked'
+        max_base_len = 20 - len(suffix)
+        evaluation.privacy_policy_version = f"{current_version[:max_base_len]}{suffix}"
+        evaluation.save(update_fields=['privacy_policy_version'])
+
+    return evaluation
+
+
 @transaction.atomic
 def save_decisor_importance(
     evaluation_id: int | str,
@@ -377,9 +432,9 @@ def save_decisor_importance(
     """
     evaluation = get_evaluation_or_error(evaluation_id)
 
-    if evaluation.status == Evaluation.STATUS_COMPLETED:
+    if is_evaluation_phases_locked(evaluation):
         raise EvaluationAlreadyCompletedError(
-            f"La evaluación #{evaluation.id} ya se encuentra completada."
+            "Las fases 1 y 2 están bloqueadas porque la evaluación ya avanzó a la Fase 3."
         )
 
     if evaluation.ai_enabled and evaluation.ai_status == Evaluation.AI_STATUS_SEARCHING:
@@ -420,9 +475,9 @@ def save_subfactor_ratings(
     """
     evaluation = get_evaluation_or_error(evaluation_id)
 
-    if evaluation.status == Evaluation.STATUS_COMPLETED:
+    if is_evaluation_phases_locked(evaluation):
         raise EvaluationAlreadyCompletedError(
-            f"La evaluación #{evaluation.id} ya se encuentra completada."
+            "Las fases 1 y 2 están bloqueadas porque la evaluación ya avanzó a la Fase 3."
         )
 
     if not ratings_by_subfactor:

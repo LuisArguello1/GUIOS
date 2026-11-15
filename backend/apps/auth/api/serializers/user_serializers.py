@@ -201,6 +201,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
     groups_details = serializers.SerializerMethodField()
     permissions_details = serializers.SerializerMethodField()
     modules_details = serializers.SerializerMethodField()
+    has_2fa = serializers.SerializerMethodField()
+    operator_stats = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -222,6 +224,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'permissions',
             'permissions_details',
             'modules_details',
+            'has_2fa',
+            'operator_stats',
             'created_at',
             'updated_at',
             'last_login',
@@ -296,6 +300,63 @@ class UserDetailSerializer(serializers.ModelSerializer):
                 seen.add(m["id"])
                 unique_modules.append(m)
         return unique_modules
+
+    def get_has_2fa(self, obj) -> bool:
+        from ...models import TOTPDevice
+        return TOTPDevice.objects.filter(user=obj, is_active=True).exists()
+
+    def get_operator_stats(self, obj) -> dict:
+        from django.db.models import Avg
+        from apps.guios.models import Evaluation, EvaluationResult, EvaluationVerdict
+        from ...models import AuditLog
+
+        own_evals = Evaluation.objects.filter(created_by=obj)
+        if own_evals.exists():
+            target_evals = own_evals
+        elif obj.is_superuser or obj.groups.filter(module_permissions__codename='guios.evaluation_view').exists():
+            target_evals = Evaluation.objects.all()
+        else:
+            target_evals = Evaluation.objects.none()
+
+        eval_ids = list(target_evals.values_list('id', flat=True))
+        evaluations_total = len(eval_ids)
+        evaluations_completed = target_evals.filter(status=Evaluation.STATUS_COMPLETED).count()
+
+        results_qs = EvaluationResult.objects.filter(evaluation_id__in=eval_ids)
+        audited_factors = results_qs.count()
+        critical_observations = results_qs.filter(meets_threshold=False).count()
+        avg_pm_raw = results_qs.aggregate(avg_pm=Avg('weighted_average')).get('avg_pm')
+        avg_weighted_score = round(float(avg_pm_raw), 2) if avg_pm_raw is not None else None
+
+        verdicts_a = EvaluationVerdict.objects.filter(
+            evaluation_id__in=eval_ids,
+            recommendation=EvaluationVerdict.RECOMMENDATION_A,
+        ).count()
+
+        durations_min = [
+            max(1, round((completed_at - started_at).total_seconds() / 60))
+            for started_at, completed_at in target_evals.filter(
+                status=Evaluation.STATUS_COMPLETED,
+                completed_at__isnull=False,
+                started_at__isnull=False,
+            ).values_list('started_at', 'completed_at')
+        ]
+        avg_duration_minutes = (
+            round(sum(durations_min) / len(durations_min)) if durations_min else None
+        )
+
+        audit_events_count = AuditLog.objects.filter(user=obj).count()
+
+        return {
+            'evaluations_total': evaluations_total,
+            'evaluations_completed': evaluations_completed,
+            'audited_factors': audited_factors,
+            'verdicts_a': verdicts_a,
+            'critical_observations': critical_observations,
+            'avg_weighted_score': avg_weighted_score,
+            'avg_duration_minutes': avg_duration_minutes,
+            'audit_events_count': audit_events_count,
+        }
 
 
 class ChangePasswordSerializer(serializers.Serializer):

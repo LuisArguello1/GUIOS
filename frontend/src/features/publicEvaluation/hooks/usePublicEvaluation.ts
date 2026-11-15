@@ -152,6 +152,7 @@ export const usePublicEvaluation = () => {
         const alreadyInStep3 =
             data.status === 'completed' ||
             Boolean(data.verdict) ||
+            Boolean(data.phases_locked) ||
             savedHistoryItem?.step === 3 ||
             savedStepStr === '3' ||
             savedLockedUuid === data.uuid;
@@ -304,10 +305,38 @@ export const usePublicEvaluation = () => {
         if (!evaluation?.uuid || evaluation.ai_status !== 'searching') return;
 
         let cancelled = false;
+        const MAX_LITERATURE_WAIT_MS = 20000;
+        const startedAtMs = Date.now();
+
+        const handleTimeout = () => {
+            if (cancelled) return;
+            cancelled = true;
+            setEvaluation((prev) =>
+                prev && prev.ai_status === 'searching'
+                    ? { ...prev, ai_status: 'failed' }
+                    : prev
+            );
+            addToast({
+                type: 'warning',
+                message:
+                    'La asistencia de IA no respondió a tiempo. Se mantienen las citas base del catálogo para que puedas continuar sin IA.',
+            });
+        };
+
         const pollLiterature = async () => {
+            if (Date.now() - startedAtMs >= MAX_LITERATURE_WAIT_MS) {
+                handleTimeout();
+                return;
+            }
             try {
                 const refreshed = await publicEvaluationService.getEvaluation(evaluation.uuid);
-                if (cancelled || refreshed.ai_status === 'searching') return;
+                if (cancelled) return;
+                if (refreshed.ai_status === 'searching') {
+                    if (Date.now() - startedAtMs >= MAX_LITERATURE_WAIT_MS) {
+                        handleTimeout();
+                    }
+                    return;
+                }
                 setEvaluation(refreshed);
                 if (refreshed.ai_status === 'completed') {
                     addToast({
@@ -326,9 +355,11 @@ export const usePublicEvaluation = () => {
         };
 
         const timer = window.setInterval(pollLiterature, 3000);
+        const timeoutTimer = window.setTimeout(handleTimeout, MAX_LITERATURE_WAIT_MS);
         return () => {
             cancelled = true;
             window.clearInterval(timer);
+            window.clearTimeout(timeoutTimer);
         };
     }, [evaluation?.uuid, evaluation?.ai_status, addToast]);
 
@@ -570,12 +601,20 @@ export const usePublicEvaluation = () => {
                 });
                 setSavedEvaluations(getSavedEvaluations());
 
-                addToast({
-                    type: 'success',
-                    message: created.ai_enabled
-                        ? `Evaluación iniciada para "${created.software_name}". Mostramos las citas base mientras la IA busca literatura.`
-                        : `Evaluación iniciada para "${created.software_name}". Factores del catálogo precargados.`,
-                });
+                if (created.ai_enabled && created.ai_status === 'failed') {
+                    addToast({
+                        type: 'warning',
+                        message:
+                            'El servicio de IA no está disponible en este momento. Se cargaron los valores base del catálogo para que puedas continuar sin IA.',
+                    });
+                } else {
+                    addToast({
+                        type: 'success',
+                        message: created.ai_enabled
+                            ? `Evaluación iniciada para "${created.software_name}". Mostramos las citas base mientras la IA busca literatura.`
+                            : `Evaluación iniciada para "${created.software_name}". Factores del catálogo precargados.`,
+                    });
+                }
                 return true;
             } catch (err: unknown) {
                 const message = getErrorDetail(err, 'No fue posible iniciar la evaluación.');
@@ -1303,7 +1342,7 @@ export const usePublicEvaluation = () => {
     /**
      * Confirma el paso definitivo a la Fase 3, bloqueando la edición de los Pasos 1 y 2.
      */
-    const handleConfirmAdvanceToStep3 = useCallback(() => {
+    const handleConfirmAdvanceToStep3 = useCallback(async () => {
         if (!evaluation) return;
 
         setIsConfirmStep3ModalOpen(false);
@@ -1312,21 +1351,30 @@ export const usePublicEvaluation = () => {
         localStorage.setItem(STORAGE_KEY_STEP, '3');
         localStorage.setItem(STORAGE_KEY_LOCKED, evaluation.uuid);
 
+        let syncedEvaluation = evaluation;
+        try {
+            const lockedEvaluation = await publicEvaluationService.lockPhases(evaluation.uuid);
+            syncedEvaluation = lockedEvaluation;
+            setEvaluation(lockedEvaluation);
+        } catch (err: unknown) {
+            console.warn('No se pudo persistir el bloqueo de fases en el servidor.', err);
+        }
+
         saveEvaluationToHistory({
-            uuid: evaluation.uuid,
-            software_name: evaluation.software_name,
-            software_version: evaluation.software_version || undefined,
-            software_category: evaluation.software_category || undefined,
-            org_name: evaluation.org_name,
-            org_sector: evaluation.org_sector || undefined,
-            created_at: evaluation.started_at || new Date().toISOString(),
+            uuid: syncedEvaluation.uuid,
+            software_name: syncedEvaluation.software_name,
+            software_version: syncedEvaluation.software_version || undefined,
+            software_category: syncedEvaluation.software_category || undefined,
+            org_name: syncedEvaluation.org_name,
+            org_sector: syncedEvaluation.org_sector || undefined,
+            created_at: syncedEvaluation.started_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
             step: 3,
-            status: evaluation.status === 'completed' ? 'completed' : 'in_progress',
-            recommendation: evaluation.verdict?.recommendation || undefined,
-            recommendation_display: evaluation.verdict?.recommendation_display || undefined,
-            factors_count: evaluation.factors?.length || 0,
-            ai_enabled: evaluation.ai_enabled,
+            status: syncedEvaluation.status === 'completed' ? 'completed' : 'in_progress',
+            recommendation: syncedEvaluation.verdict?.recommendation || undefined,
+            recommendation_display: syncedEvaluation.verdict?.recommendation_display || undefined,
+            factors_count: syncedEvaluation.factors?.length || 0,
+            ai_enabled: syncedEvaluation.ai_enabled,
         });
         setSavedEvaluations(getSavedEvaluations());
 
@@ -1381,6 +1429,21 @@ export const usePublicEvaluation = () => {
         setHelpStep(stepNumber);
         setIsHelpModalOpen(true);
     }, []);
+
+    const handleSkipAiThinking = useCallback(() => {
+        setEvaluation((prev) =>
+            prev && prev.ai_status === 'searching'
+                ? { ...prev, ai_status: 'failed' }
+                : prev
+        );
+        setAiSuggesting(null);
+        setAiLoadingFactors({});
+        setAiLoadingSubfactors({});
+        addToast({
+            type: 'info',
+            message: 'Se omitió la espera de IA. Puedes continuar evaluando sin asistencia de IA.',
+        });
+    }, [addToast]);
 
     return {
         // Estado de evaluación y catálogo
@@ -1449,6 +1512,7 @@ export const usePublicEvaluation = () => {
         handleDownloadExcel,
         handleResetEvaluation,
         handleShareEvaluation,
+        handleSkipAiThinking,
     };
 };
 

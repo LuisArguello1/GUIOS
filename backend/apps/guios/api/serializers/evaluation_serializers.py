@@ -15,6 +15,7 @@ from apps.guios.models import (
     EvaluationVerdict,
     AIAssistanceLog,
 )
+from apps.guios.services.evaluation import is_evaluation_phases_locked
 
 
 
@@ -312,6 +313,7 @@ class EvaluationDetailOutputSerializer(serializers.ModelSerializer):
     subfactors = EvaluationSubfactorOutputSerializer(source='evaluation_subfactors', many=True, read_only=True)
     results = EvaluationResultOutputSerializer(source='evaluation_results', many=True, read_only=True)
     verdict = EvaluationVerdictOutputSerializer(read_only=True)
+    phases_locked = serializers.SerializerMethodField()
     recommendation = serializers.SerializerMethodField()
     recommendation_display = serializers.SerializerMethodField()
 
@@ -349,6 +351,7 @@ class EvaluationDetailOutputSerializer(serializers.ModelSerializer):
             'ai_processing_consent',
             'consent_timestamp',
             'privacy_policy_version',
+            'phases_locked',
             'recommendation',
             'recommendation_display',
             'factors',
@@ -357,6 +360,9 @@ class EvaluationDetailOutputSerializer(serializers.ModelSerializer):
             'verdict',
         ]
         read_only_fields = fields
+
+    def get_phases_locked(self, obj) -> bool:
+        return is_evaluation_phases_locked(obj)
 
     def get_recommendation(self, obj) -> str | None:
         try:

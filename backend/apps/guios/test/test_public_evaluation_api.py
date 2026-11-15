@@ -15,12 +15,15 @@ Verifica:
 8. Descarga de Dossier en PDF y Excel.
 """
 
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.guios.models import Dimension, Factor, Subfactor, Evaluation
+from apps.guios.models import Dimension, Factor, Subfactor, Evaluation, EvaluationResult
+from apps.guios.services.ai.verdict_narrative import build_predetermined_narrative
 
 
 class PublicEvaluationAPITests(APITestCase):
@@ -270,3 +273,164 @@ class PublicEvaluationAPITests(APITestCase):
         eval_obj = Evaluation.objects.get(uuid=response.data["uuid"])
         self.assertTrue(len(eval_obj.consent_ip_hash) > 0)
         self.assertEqual(len(eval_obj.consent_ip_hash), 64)  # SHA-256 hex length
+
+    def test_d30_lock_phases_blocks_subfactor_and_decisor_mutations(self):
+        """D-30: POST /lock-phases/ bloquea mutaciones posteriores en apply-decisor y rate-subfactors."""
+        res_create = self.client.post(
+            "/api/v1/guios/public/evaluations/",
+            {
+                "software_name": "Keycloak",
+                "org_name": "UNEMI",
+                "ai_enabled": False,
+                "data_storage_consent": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        uuid_str = res_create.data["uuid"]
+
+        res_decisor = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": self.factor_func.id, "decisor_importance": 4, "scope_used": "internal"},
+                    {"factor_id": self.factor_soporte.id, "decisor_importance": 3, "scope_used": "external"},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(res_decisor.status_code, status.HTTP_200_OK)
+
+        res_rate = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/rate-subfactors/",
+            {
+                "ratings": {
+                    str(self.sub_func_1.id): 2,
+                    str(self.sub_func_2.id): 2,
+                    str(self.sub_sop_1.id): 3,
+                }
+            },
+            format="json",
+        )
+        self.assertEqual(res_rate.status_code, status.HTTP_200_OK)
+
+        res_lock = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/lock-phases/",
+            {},
+            format="json",
+        )
+        self.assertEqual(res_lock.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_lock.data["phases_locked"])
+
+        res_rate_after = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/rate-subfactors/",
+            {"ratings": {str(self.sub_func_1.id): 4, str(self.sub_func_2.id): 4}},
+            format="json",
+        )
+        self.assertEqual(res_rate_after.status_code, status.HTTP_400_BAD_REQUEST)
+
+        res_decisor_after = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {"factors": [{"factor_id": self.factor_func.id, "decisor_importance": 1, "scope_used": "internal"}]},
+            format="json",
+        )
+        self.assertEqual(res_decisor_after.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("apps.guios.tasks._has_active_celery_worker", return_value=False)
+    @patch("apps.guios.tasks._has_ai_credentials_configured", return_value=True)
+    def test_d31_ai_degrades_gracefully_without_celery_worker_and_on_timeout(self, _cred, _worker):
+        """D-31: sin worker Celery o al expirar 25s, ai_status pasa a 'failed' y deja continuar."""
+        res_create = self.client.post(
+            "/api/v1/guios/public/evaluations/",
+            {
+                "software_name": "Redmine",
+                "org_name": "UNEMI",
+                "ai_enabled": True,
+                "data_storage_consent": True,
+                "ai_processing_consent": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res_create.data["ai_status"], Evaluation.AI_STATUS_FAILED)
+        self.assertGreaterEqual(len(res_create.data["factors"]), 2)
+
+        # Timeout automático en retrieve si una búsqueda quedó atascada > 25s
+        eval_obj = Evaluation.objects.get(uuid=res_create.data["uuid"])
+        Evaluation.objects.filter(pk=eval_obj.pk).update(
+            ai_status=Evaluation.AI_STATUS_SEARCHING,
+            started_at=timezone.now() - timedelta(seconds=30),
+        )
+        res_get = self.client.get(f"/api/v1/guios/public/evaluations/{eval_obj.uuid}/")
+        self.assertEqual(res_get.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_get.data["ai_status"], Evaluation.AI_STATUS_FAILED)
+
+    def test_d32_discarded_ir1_factor_excluded_from_mitigation_and_verdict(self):
+        """D-32: un factor descartado (IR=1, is_relevant=False) no aparece en resultados ni mitigación."""
+        res_create = self.client.post(
+            "/api/v1/guios/public/evaluations/",
+            {
+                "software_name": "Gitea",
+                "org_name": "UNEMI",
+                "ai_enabled": False,
+                "data_storage_consent": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        uuid_str = res_create.data["uuid"]
+        eval_obj = Evaluation.objects.get(uuid=uuid_str)
+
+        # Crear un resultado residual previo para simular cambio de decisor a IR=1
+        EvaluationResult.objects.create(
+            evaluation=eval_obj,
+            factor=self.factor_soporte,
+            weighted_average=1.0,
+            meets_threshold=False,
+            foda_classification=EvaluationResult.FODA_THREAT,
+        )
+
+        # Descartar factor_soporte (IS=2, ID=1 -> IR=1 Irrelevante)
+        res_decisor = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": self.factor_func.id, "decisor_importance": 4, "scope_used": "internal"},
+                    {"factor_id": self.factor_soporte.id, "decisor_importance": 1, "scope_used": "external"},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(res_decisor.status_code, status.HTTP_200_OK)
+        self.assertFalse(
+            EvaluationResult.objects.filter(evaluation=eval_obj, factor=self.factor_soporte).exists()
+        )
+
+        res_rate = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/rate-subfactors/",
+            {"ratings": {str(self.sub_func_1.id): 4, str(self.sub_func_2.id): 4}},
+            format="json",
+        )
+        self.assertEqual(res_rate.status_code, status.HTTP_200_OK)
+
+        res_verdict = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/compute-verdict/",
+            {},
+            format="json",
+        )
+        self.assertEqual(res_verdict.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_verdict.data["verdict"]["recommendation"], "A")
+        self.assertNotIn("Soporte", res_verdict.data["verdict"]["ai_mitigation_plan"])
+
+        narrative = build_predetermined_narrative(
+            software_name="Gitea",
+            org_name="UNEMI",
+            org_sector="TI",
+            recommendation="A",
+            explanation_text="Todos aprobados",
+            factors=[
+                {"factor": "Funcionalidad", "pm": 4.0, "foda": "Fortaleza", "ir": 3, "supera_umbral": True},
+                {"factor": "Soporte", "pm": 0.0, "foda": "Amenaza", "ir": 1, "es_relevante": False, "supera_umbral": False},
+            ],
+        )
+        self.assertNotIn("Soporte", narrative["mitigation_plan"])

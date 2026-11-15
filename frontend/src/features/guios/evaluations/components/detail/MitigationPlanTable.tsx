@@ -236,7 +236,13 @@ export const MitigationPlanTable: React.FC<MitigationPlanTableProps> = ({
 }) => {
     const [viewMode, setViewMode] = useState<'table' | 'narrative'>('table');
 
-    const factors = useMemo(() => evaluation.factors || [], [evaluation.factors]);
+    const factors = useMemo(
+        () =>
+            (evaluation.factors || []).filter(
+                (f) => f.is_relevant !== false && (f.relative_importance ?? 3) > 1
+            ),
+        [evaluation.factors]
+    );
     const results = useMemo(() => evaluation.results || [], [evaluation.results]);
     const subfactors = useMemo(() => evaluation.subfactors || [], [evaluation.subfactors]);
 

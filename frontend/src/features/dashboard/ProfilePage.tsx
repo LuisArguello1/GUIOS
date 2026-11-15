@@ -68,6 +68,17 @@ interface ModuleDetailItem {
     group_name?: string;
 }
 
+interface OperatorStats {
+    evaluations_total: number;
+    evaluations_completed: number;
+    audited_factors: number;
+    verdicts_a: number;
+    critical_observations: number;
+    avg_weighted_score: number | null;
+    avg_duration_minutes: number | null;
+    audit_events_count: number;
+}
+
 interface FullUserDetail {
     id: number | string;
     username: string;
@@ -86,6 +97,8 @@ interface FullUserDetail {
     permissions?: string[];
     permissions_details?: PermissionDetailItem[];
     modules_details?: ModuleDetailItem[];
+    has_2fa?: boolean;
+    operator_stats?: OperatorStats;
     created_at?: string;
     updated_at?: string;
     last_login?: string;
@@ -189,9 +202,11 @@ export const ProfilePage: React.FC = () => {
                 setEvaluations(items);
             }
 
-            if (totpData.status === 'fulfilled') {
-                setHas2FA(totpData.value.is_active);
-            }
+            const totpActive =
+                totpData.status === 'fulfilled' ? totpData.value?.is_active : undefined;
+            const userHas2FA =
+                userData.status === 'fulfilled' ? userData.value?.has_2fa : undefined;
+            setHas2FA(Boolean(totpActive ?? userHas2FA ?? false));
         } catch (err) {
             console.error('Error al cargar datos del perfil:', err);
         }
@@ -267,7 +282,55 @@ export const ProfilePage: React.FC = () => {
     const totalPermissions = currentUser.is_superuser
         ? 'Todos (*)'
         : String(currentUser.permissions_details?.length || currentUser.permissions?.length || 0);
-    const totalModules = String(currentUser.modules_details?.length || 8);
+    const totalModules = String(currentUser.modules_details?.length ?? 0);
+
+    const opStats = currentUser.operator_stats;
+    const totalEvaluationsCount = opStats?.evaluations_total ?? evaluations.length;
+    const completedEvaluationsCount =
+        opStats?.evaluations_completed ??
+        evaluations.filter((ev) => ev.status === 'completed').length;
+    const auditedFactorsCount = opStats?.audited_factors ?? 0;
+    const verdictsACount =
+        opStats?.verdicts_a ??
+        evaluations.filter((ev) => ev.recommendation === 'A').length;
+    const criticalObservationsCount = opStats?.critical_observations ?? 0;
+    const avgWeightedScore = opStats?.avg_weighted_score ?? null;
+    const avgDurationMinutes = opStats?.avg_duration_minutes ?? null;
+    const scoreDisplay =
+        avgWeightedScore !== null && avgWeightedScore !== undefined
+            ? avgWeightedScore.toFixed(1)
+            : '—';
+    const filledStars =
+        avgWeightedScore !== null && avgWeightedScore !== undefined
+            ? Math.max(1, Math.min(5, Math.round((avgWeightedScore / 4) * 5)))
+            : 0;
+    const evalsBarPct = totalEvaluationsCount > 0 ? 100 : 0;
+    const auditedBarPct =
+        auditedFactorsCount > 0
+            ? Math.min(
+                  100,
+                  Math.max(
+                      12,
+                      Math.round(
+                          (auditedFactorsCount /
+                              Math.max(totalEvaluationsCount * 10, auditedFactorsCount)) *
+                              100
+                      )
+                  )
+              )
+            : 0;
+    const verdictsABarPct =
+        completedEvaluationsCount > 0
+            ? Math.round((verdictsACount / completedEvaluationsCount) * 100)
+            : verdictsACount > 0
+            ? 100
+            : 0;
+    const criticalBarPct =
+        auditedFactorsCount > 0
+            ? Math.round((criticalObservationsCount / auditedFactorsCount) * 100)
+            : criticalObservationsCount > 0
+            ? 100
+            : 0;
 
     return (
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 select-none">
@@ -728,7 +791,7 @@ export const ProfilePage: React.FC = () => {
                     {activeTab === 'security' && (
                         <div className="space-y-4">
                             <div className="rounded-3xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-primary)] p-5 shadow-xs">
-                                <TwoFactorSettings />
+                                <TwoFactorSettings onStatusChange={setHas2FA} />
                             </div>
 
                             {/* Tarjeta de Cambio de Contraseña */}
@@ -771,25 +834,41 @@ export const ProfilePage: React.FC = () => {
                             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-primary)]">
                                 Índice de Confianza GUIOS
                             </h3>
-                            <span className="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                Verificado
+                            <span
+                                className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${
+                                    totalEvaluationsCount > 0
+                                        ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+                                        : 'text-[var(--color-text-tertiary)] bg-[var(--color-bg-secondary)]'
+                                }`}
+                            >
+                                {totalEvaluationsCount > 0 ? 'Verificado' : 'Sin auditorías'}
                             </span>
                         </div>
 
                         <div className="mt-4 flex items-center justify-between">
                             <div className="flex items-baseline gap-1.5">
                                 <span className="font-mono text-4xl font-black text-[var(--color-text-primary)] tracking-tight">
-                                    4.9
+                                    {scoreDisplay}
                                 </span>
                                 <span className="text-xs font-mono text-[var(--color-text-tertiary)]">
-                                    (24 auditorías)
+                                    ({completedEvaluationsCount}{' '}
+                                    {completedEvaluationsCount === 1 ? 'auditoría' : 'auditorías'})
                                 </span>
                             </div>
 
-                            {/* 5 Estrellas */}
-                            <div className="flex items-center gap-0.5 text-amber-400">
+                            {/* 5 Estrellas proporcionales al PM real */}
+                            <div className="flex items-center gap-0.5">
                                 {[...Array(5)].map((_, i) => (
-                                    <Star key={i} size={15} fill="currentColor" stroke="none" />
+                                    <Star
+                                        key={i}
+                                        size={15}
+                                        fill={i < filledStars ? 'currentColor' : 'none'}
+                                        className={
+                                            i < filledStars
+                                                ? 'text-amber-400'
+                                                : 'text-[var(--color-border-strong)]'
+                                        }
+                                    />
                                 ))}
                             </div>
                         </div>
@@ -817,11 +896,14 @@ export const ProfilePage: React.FC = () => {
                                         Evaluaciones Creadas <Info size={11} className="text-[var(--color-text-tertiary)]" />
                                     </span>
                                     <span className="font-mono font-bold text-[var(--color-text-primary)]">
-                                        {evaluations.length || 18}
+                                        {totalEvaluationsCount}
                                     </span>
                                 </div>
                                 <div className="h-2 w-full rounded-full bg-[var(--color-bg-secondary)] overflow-hidden">
-                                    <div className="h-full rounded-full bg-purple-500 transition-all duration-700" style={{ width: '85%' }} />
+                                    <div
+                                        className="h-full rounded-full bg-purple-500 transition-all duration-700"
+                                        style={{ width: `${evalsBarPct}%` }}
+                                    />
                                 </div>
                             </div>
 
@@ -832,11 +914,14 @@ export const ProfilePage: React.FC = () => {
                                         Factores Auditados <Info size={11} className="text-[var(--color-text-tertiary)]" />
                                     </span>
                                     <span className="font-mono font-bold text-[var(--color-text-primary)]">
-                                        68
+                                        {auditedFactorsCount}
                                     </span>
                                 </div>
                                 <div className="h-2 w-full rounded-full bg-[var(--color-bg-secondary)] overflow-hidden">
-                                    <div className="h-full rounded-full bg-cyan-400 transition-all duration-700" style={{ width: '65%' }} />
+                                    <div
+                                        className="h-full rounded-full bg-cyan-400 transition-all duration-700"
+                                        style={{ width: `${auditedBarPct}%` }}
+                                    />
                                 </div>
                             </div>
 
@@ -847,11 +932,14 @@ export const ProfilePage: React.FC = () => {
                                         Dictámenes Aptos (A) <Info size={11} className="text-[var(--color-text-tertiary)]" />
                                     </span>
                                     <span className="font-mono font-bold text-[var(--color-text-primary)]">
-                                        12
+                                        {verdictsACount}
                                     </span>
                                 </div>
                                 <div className="h-2 w-full rounded-full bg-[var(--color-bg-secondary)] overflow-hidden">
-                                    <div className="h-full rounded-full bg-blue-600 transition-all duration-700" style={{ width: '45%' }} />
+                                    <div
+                                        className="h-full rounded-full bg-blue-600 transition-all duration-700"
+                                        style={{ width: `${verdictsABarPct}%` }}
+                                    />
                                 </div>
                             </div>
 
@@ -862,11 +950,14 @@ export const ProfilePage: React.FC = () => {
                                         Observaciones Críticas <Info size={11} className="text-[var(--color-text-tertiary)]" />
                                     </span>
                                     <span className="font-mono font-bold text-[var(--color-text-primary)]">
-                                        4
+                                        {criticalObservationsCount}
                                     </span>
                                 </div>
                                 <div className="h-2 w-full rounded-full bg-[var(--color-bg-secondary)] overflow-hidden">
-                                    <div className="h-full rounded-full bg-rose-500 transition-all duration-700" style={{ width: '20%' }} />
+                                    <div
+                                        className="h-full rounded-full bg-rose-500 transition-all duration-700"
+                                        style={{ width: `${criticalBarPct}%` }}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -889,7 +980,7 @@ export const ProfilePage: React.FC = () => {
                                 Tiempo prom. auditoría <Info size={11} className="text-[var(--color-text-tertiary)]" />
                             </span>
                             <span className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
-                                ~18 minutos
+                                {avgDurationMinutes !== null ? `~${avgDurationMinutes} min` : 'Sin datos'}
                             </span>
                         </div>
 

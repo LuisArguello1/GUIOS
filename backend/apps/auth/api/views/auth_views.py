@@ -22,6 +22,7 @@ from ..serializers.auth_serializers import (
 from ..serializers.user_serializers import UserDetailSerializer
 from ...services.auth import clear_auth_cookies, get_auth_tokens, set_auth_cookies
 from ...services.otp import (
+    EmailDeliveryError,
     complete_password_reset,
     initiate_password_reset,
     verify_reset_code,
@@ -47,9 +48,6 @@ class RefreshThrottle(AnonRateThrottle):
 
 def _build_auth_payload(*, request, user, detail: str, selected_group: dict | None = None) -> dict:
     groups = list(user.groups.values('id', 'name'))
-    if user.is_superuser and not groups:
-        from django.contrib.auth.models import Group
-        groups = list(Group.objects.values('id', 'name'))
 
     payload = {
         'detail': detail,
@@ -85,9 +83,10 @@ class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [LoginThrottle]
 
-    # Configuración de bloqueo progresivo
-    _MAX_ATTEMPTS   = 10
-    _LOCKOUT_TIMES  = [60, 900, 3600, 86400]  # 1min, 15min, 1h, 24h
+    # Configuración de bloqueo progresivo (QA-04: 5 intentos fallidos -> bloqueo de 5 min)
+    _MAX_ATTEMPTS   = 5
+    _ATTEMPT_WINDOW = 300
+    _LOCKOUT_TIMES  = [300, 900, 3600, 86400]  # 5min, 15min, 1h, 24h
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -114,7 +113,18 @@ class LoginView(APIView):
         user = authenticate(request, email=email, password=password)
 
         if not user:
-            self._register_failed_attempt(email, request)
+            attempts = self._register_failed_attempt(email, request)
+            if attempts >= self._MAX_ATTEMPTS:
+                return Response(
+                    {
+                        'detail': _(
+                            'Demasiados intentos fallidos. Tu cuenta ha sido bloqueada '
+                            'temporalmente por seguridad. Inténtalo de nuevo en unos minutos.'
+                        ),
+                        'code': 'account_locked',
+                    },
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
             return Response(
                 {'detail': _('Credenciales inválidas o cuenta inactiva.')},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -154,13 +164,17 @@ class LoginView(APIView):
     def _is_email_locked(self, email: str) -> bool:
         return cache.get(self._attempts_key(email), 0) >= self._MAX_ATTEMPTS
 
-    def _register_failed_attempt(self, email: str, request):
+    def _register_failed_attempt(self, email: str, request) -> int:
         key = self._attempts_key(email)
         attempts = cache.get(key, 0) + 1
 
-        # Escalar el tiempo de bloqueo según el número de fallos
-        index = min(attempts // self._MAX_ATTEMPTS, len(self._LOCKOUT_TIMES) - 1)
-        timeout = self._LOCKOUT_TIMES[index]
+        if attempts < self._MAX_ATTEMPTS:
+            timeout = self._ATTEMPT_WINDOW
+        else:
+            # Escalar el tiempo de bloqueo según el número de fallos
+            stage = max(0, (attempts // self._MAX_ATTEMPTS) - 1)
+            index = min(stage, len(self._LOCKOUT_TIMES) - 1)
+            timeout = self._LOCKOUT_TIMES[index]
 
         cache.set(key, attempts, timeout=timeout)
 
@@ -168,6 +182,7 @@ class LoginView(APIView):
             "LOGIN FALLIDO | IP: %s | Email: %s | Intento: %d | Lockout: %d s",
             request.META.get('REMOTE_ADDR'), email, attempts, timeout,
         )
+        return attempts
 
     def _clear_attempts(self, email: str):
         cache.delete(self._attempts_key(email))
@@ -257,9 +272,18 @@ class PasswordResetWizardViewSet(viewsets.ViewSet):
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data['email']
-        initiate_password_reset(email)
+        try:
+            initiate_password_reset(email)
+        except EmailDeliveryError as exc:
+            return Response(
+                {
+                    'detail': str(exc),
+                    'code': 'email_delivery_failed',
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
-        # Siempre retornar 200 para no revelar si el email existe
+        # Siempre retornar 200 para no revelar si el email existe cuando el servicio opera normalmente
         return Response(
             {'detail': _('Si el correo existe, recibirás un código de 6 dígitos en breve.')},
             status=status.HTTP_200_OK,

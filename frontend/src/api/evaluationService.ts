@@ -175,6 +175,7 @@ export interface EvaluationDetail extends EvaluationItem {
     ai_processing_consent?: boolean;
     consent_timestamp?: string | null;
     privacy_policy_version?: string;
+    phases_locked?: boolean;
 }
 
 export interface EvaluationCreateInput {

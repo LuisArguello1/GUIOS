@@ -249,7 +249,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '60/minute',
         'user': '600/minute',
-        'login': '5/minute',            # Por IP
+        'login': '15/minute',            # Por IP (permite validar bloqueo de cuenta de 5 intentos)
         'password_reset': '5/minute',   # Por IP
         'refresh': '20/minute',         # Por IP
     },
@@ -311,6 +311,7 @@ EMAIL_PORT = int(os.getenv('EMAIL_PORT', default=587))
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', default=True)
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', default=10))
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 
 # Cuota diaria de correos (tracking en Redis vía apps.core.services.email_tracker).

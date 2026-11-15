@@ -88,6 +88,7 @@ export const PublicEvaluationPage: React.FC = () => {
         handleDownloadExcel,
         handleResetEvaluation,
         handleShareEvaluation,
+        handleSkipAiThinking,
     } = usePublicEvaluation();
 
     const [isTourOpen, setIsTourOpen] = useState(false);
@@ -309,6 +310,11 @@ export const PublicEvaluationPage: React.FC = () => {
                             : aiSuggesting === 'ratings'
                             ? 'ratings'
                             : 'verdict'
+                    }
+                    onSkip={
+                        evaluation?.ai_status === 'searching' || Boolean(aiSuggesting)
+                            ? handleSkipAiThinking
+                            : undefined
                     }
                 />
             )}
