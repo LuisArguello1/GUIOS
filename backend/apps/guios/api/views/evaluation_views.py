@@ -9,6 +9,7 @@ Sigue el patrón arquitectónico Selector -> Service -> ViewSet:
 """
 
 from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -31,6 +32,7 @@ from apps.guios.services.evaluation import (
     delete_evaluation,
     store_factor_rating_suggestions,
     restore_ai_suggestions_from_logs,
+    lock_evaluation_phases,
 )
 from apps.guios.exceptions import (
     EvaluationNotFoundError,
@@ -39,7 +41,7 @@ from apps.guios.exceptions import (
 )
 from apps.guios.services.ai import ai_service
 from apps.guios.services.repository_health import sync_evaluation_repo_health
-from apps.guios.models import EvaluationFactor, EvaluationSubfactor
+from apps.guios.models import Evaluation, EvaluationFactor, EvaluationSubfactor
 from apps.guios.tasks import execute_evaluation_literature_ai_task
 from ..serializers.evaluation_serializers import (
     EvaluationListOutputSerializer,
@@ -74,6 +76,7 @@ class EvaluationViewSet(viewsets.GenericViewSet):
         'calculate_literature': 'guios.evaluation_edit',
         'apply_decisor': 'guios.evaluation_edit',
         'rate_subfactors': 'guios.evaluation_edit',
+        'lock_phases': 'guios.evaluation_edit',
         'compute_verdict': 'guios.evaluation_edit',
         'ai_suggest_importance': 'guios.evaluation_edit',
         'ai_suggest_rating': 'guios.evaluation_edit',
@@ -109,6 +112,14 @@ class EvaluationViewSet(viewsets.GenericViewSet):
             evaluation = get_evaluation_detail_or_error(pk)
         except EvaluationNotFoundError as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        if (
+            evaluation.ai_status == Evaluation.AI_STATUS_SEARCHING
+            and evaluation.started_at
+            and (timezone.now() - evaluation.started_at).total_seconds() > 25
+        ):
+            evaluation.ai_status = Evaluation.AI_STATUS_FAILED
+            evaluation.save(update_fields=['ai_status'])
 
         restore_ai_suggestions_from_logs(evaluation)
         serializer = EvaluationDetailOutputSerializer(evaluation)
@@ -247,6 +258,22 @@ class EvaluationViewSet(viewsets.GenericViewSet):
                 evaluation_id=pk,
                 ratings_by_subfactor=serializer.validated_data['ratings'],
             )
+        except EvaluationNotFoundError as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except (EvaluationAlreadyCompletedError, EvaluationValidationError) as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        detailed = get_evaluation_detail_or_error(pk)
+        return Response(EvaluationDetailOutputSerializer(detailed).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='lock-phases')
+    def lock_phases(self, request, pk=None):
+        """
+        POST /api/v1/guios/evaluations/{id}/lock-phases/
+        Persiste el bloqueo de las Fases 1 y 2 al confirmar el avance a la Fase 3 (D-30).
+        """
+        try:
+            lock_evaluation_phases(pk)
         except EvaluationNotFoundError as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
         except (EvaluationAlreadyCompletedError, EvaluationValidationError) as e:

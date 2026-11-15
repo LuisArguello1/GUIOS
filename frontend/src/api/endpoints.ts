@@ -81,6 +81,7 @@ export const ENDPOINTS = {
         PUBLIC_EVALUATION_DETAIL: (uuid: string) => `/guios/public/evaluations/${uuid}/`,
         PUBLIC_EVALUATION_APPLY_DECISOR: (uuid: string) => `/guios/public/evaluations/${uuid}/apply-decisor/`,
         PUBLIC_EVALUATION_RATE_SUBFACTORS: (uuid: string) => `/guios/public/evaluations/${uuid}/rate-subfactors/`,
+        PUBLIC_EVALUATION_LOCK_PHASES: (uuid: string) => `/guios/public/evaluations/${uuid}/lock-phases/`,
         PUBLIC_EVALUATION_COMPUTE_VERDICT: (uuid: string) => `/guios/public/evaluations/${uuid}/compute-verdict/`,
         PUBLIC_EVALUATION_AI_SUGGEST_IMPORTANCE: (uuid: string) => `/guios/public/evaluations/${uuid}/ai-suggest-importance/`,
         PUBLIC_EVALUATION_AI_SUGGEST_RATING: (uuid: string) => `/guios/public/evaluations/${uuid}/ai-suggest-rating/`,

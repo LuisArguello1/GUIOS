@@ -242,6 +242,11 @@ def apply_step1_decisor_importance(
             "is_relevant",
             "scope_used",
         ])
+        if not eval_factor.is_relevant:
+            EvaluationResult.objects.filter(
+                evaluation=evaluation,
+                factor=eval_factor.factor,
+            ).delete()
         updated_factors.append(eval_factor)
 
     return updated_factors

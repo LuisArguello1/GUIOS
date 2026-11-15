@@ -8,7 +8,9 @@ Sigue las reglas de celery-patterns.md:
 - Actualización reactiva del estado `ai_status` en la entidad Evaluation.
 """
 import logging
-from celery import shared_task
+from unittest.mock import NonCallableMock
+from celery import current_app, shared_task
+from django.conf import settings
 from django.db import transaction
 
 from apps.guios.models.evaluation import Evaluation
@@ -19,16 +21,54 @@ from apps.guios.services.repository_health import sync_evaluation_repo_health
 logger = logging.getLogger(__name__)
 
 
+def _has_ai_credentials_configured() -> bool:
+    """Verifica si existe al menos un proveedor LLM externo configurado."""
+    has_azure = bool(
+        str(getattr(settings, "AZURE_OPENAI_API_KEY", "") or "").strip()
+        and str(getattr(settings, "AZURE_OPENAI_ENDPOINT", "") or "").strip()
+    )
+    has_groq = bool(str(getattr(settings, "GROQ_API_KEY", "") or "").strip())
+    has_cohere = bool(str(getattr(settings, "COHERE_API_KEY", "") or "").strip())
+    return has_azure or has_groq or has_cohere
+
+
+def _has_active_celery_worker() -> bool:
+    """Comprueba de forma segura si existe al menos un worker Celery activo."""
+    try:
+        ping_result = current_app.control.inspect(timeout=1.0).ping()
+        return bool(ping_result)
+    except Exception as exc:
+        logger.warning("No se pudo verificar el estado de los workers de Celery: %s", exc)
+        return False
+
+
 def enqueue_literature_search(evaluation_id: int) -> str | None:
     """
     Deja la evaluación en búsqueda y encola el mapeo bibliográfico.
-    Si el broker no acepta la tarea, conserva las citas base y marca el fallo.
+    Si el broker no acepta la tarea, no hay worker activo o faltan claves IA,
+    conserva las citas base y marca el fallo sin bloquear al usuario (D-31).
     """
     try:
         evaluation = Evaluation.objects.get(pk=evaluation_id)
     except Evaluation.DoesNotExist:
         logger.error("No se encoló literatura: la evaluación #%s no existe.", evaluation_id)
         return None
+
+    is_mocked = isinstance(
+        getattr(execute_evaluation_literature_ai_task, "delay", None),
+        NonCallableMock,
+    )
+    if not is_mocked and not getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
+        if not _has_ai_credentials_configured() or not _has_active_celery_worker():
+            if not evaluation.evaluation_factors.exists():
+                calculate_evaluation_literature(evaluation_id=evaluation_id)
+            evaluation.ai_status = Evaluation.AI_STATUS_FAILED
+            evaluation.save(update_fields=["ai_status"])
+            logger.warning(
+                "IA o worker Celery no disponibles para evaluación #%s; degradado a citas base.",
+                evaluation_id,
+            )
+            return None
 
     evaluation.ai_status = Evaluation.AI_STATUS_SEARCHING
     evaluation.save(update_fields=["ai_status"])

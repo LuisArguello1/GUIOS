@@ -25,9 +25,7 @@ class TOTPService:
 
     @staticmethod
     def get_or_create_device(user) -> TOTPDevice:
-        device = get_totp_device_by_user(user)
-        if not device:
-            device = TOTPDevice.objects.create(user=user)
+        device, _created = TOTPDevice.objects.get_or_create(user=user)
         return device
 
     @staticmethod

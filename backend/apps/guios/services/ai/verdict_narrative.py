@@ -376,8 +376,13 @@ def build_predetermined_narrative(
 ) -> dict[str, str]:
     """Texto del motor, usado cuando la IA no responde o la evaluación va sin asistencia."""
     title = RECOMMENDATION_TITLES.get(recommendation, f"Recomendación {recommendation}")
-    positive = [item for item in factors if item.get("supera_umbral")]
-    negative = [item for item in factors if not item.get("supera_umbral")]
+    relevant_factors = [
+        item for item in factors
+        if item.get("es_relevante") is not False
+        and (item.get("ir") is None or int(item.get("ir") or 0) > 1)
+    ]
+    positive = [item for item in relevant_factors if item.get("supera_umbral")]
+    negative = [item for item in relevant_factors if not item.get("supera_umbral")]
 
     def _factor_line(item: dict[str, Any]) -> str:
         name = item.get("factor") or item.get("factor_name") or "Factor"

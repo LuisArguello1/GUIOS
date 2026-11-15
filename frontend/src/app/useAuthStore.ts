@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import useCoreStore from './useCoreStore';
 
 interface User {
     id: number | string;
@@ -81,7 +82,14 @@ const useAuthStore = create<AuthState>()(
                 const { user, groups, session_jti } = authData;
                 const normalizedUser = normalizePermissionFields(user);
 
-                const defaultRole = groups.length === 1 ? groups[0] : null;
+                const defaultRole =
+                    normalizedUser?.is_superuser && groups.length === 0
+                        ? null
+                        : groups.length === 1
+                        ? groups[0]
+                        : null;
+
+                useCoreStore.getState().resetMenu();
 
                 set({
                     user: normalizedUser,
@@ -94,7 +102,10 @@ const useAuthStore = create<AuthState>()(
                 return { requires_selection: groups.length > 1 };
             },
 
-            setRole: (group: Group) => set({ selectedGroup: group }),
+            setRole: (group: Group) => {
+                useCoreStore.getState().resetMenu();
+                set({ selectedGroup: group });
+            },
 
             setGroups: (groups: Group[]) => set({ groups }),
 
@@ -109,6 +120,8 @@ const useAuthStore = create<AuthState>()(
                     localStorage.removeItem('access_token');
                     localStorage.removeItem('refresh_token');
                 }
+
+                useCoreStore.getState().resetMenu();
 
                 set({
                     user: null,

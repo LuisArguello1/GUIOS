@@ -31,6 +31,7 @@ const PHASE_MESSAGES: Record<AiThinkingPhase, string[]> = {
 
 interface AiThinkingOverlayProps {
     phase: AiThinkingPhase;
+    onSkip?: () => void;
 }
 
 /**
@@ -38,7 +39,7 @@ interface AiThinkingOverlayProps {
  * Totalmente sobrio: orbe de cristal + "Thinking..." + tarea en curso debajo.
  * Dimensiones estrictamente fijas: CERO saltos o movimientos al cambiar de texto.
  */
-const AiThinkingOverlay = ({ phase }: AiThinkingOverlayProps) => {
+const AiThinkingOverlay = ({ phase, onSkip }: AiThinkingOverlayProps) => {
     const messages = PHASE_MESSAGES[phase];
     const [index, setIndex] = useState(0);
 
@@ -90,8 +91,9 @@ const AiThinkingOverlay = ({ phase }: AiThinkingOverlayProps) => {
                 `}
             </style>
 
-            {/* Cápsula / Pill idéntica a la referencia de Apple Intelligence: dimensiones rígidas para CERO movimiento */}
-            <div className="w-[460px] max-w-[92vw] h-[84px] flex items-center gap-4 rounded-full bg-[#161618] py-3 pl-3 pr-6 shadow-[0_24px_70px_rgba(0,0,0,0.7)] border border-white/10 select-none shrink-0">
+            <div className="flex flex-col items-center gap-4">
+                {/* Cápsula / Pill idéntica a la referencia de Apple Intelligence: dimensiones rígidas para CERO movimiento */}
+                <div className="w-[460px] max-w-[92vw] h-[84px] flex items-center gap-4 rounded-full bg-[#161618] py-3 pl-3 pr-6 shadow-[0_24px_70px_rgba(0,0,0,0.7)] border border-white/10 select-none shrink-0">
                 {/* Orbe de Cristal (Apple Intelligence / Siri style) */}
                 <div
                     className="relative h-[58px] w-[58px] shrink-0 overflow-hidden rounded-full shadow-[0_0_24px_rgba(168,130,255,0.25)]"
@@ -145,6 +147,17 @@ const AiThinkingOverlay = ({ phase }: AiThinkingOverlayProps) => {
                         </span>
                     </div>
                 </div>
+                </div>
+
+                {onSkip && (
+                    <button
+                        type="button"
+                        onClick={onSkip}
+                        className="rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-medium text-white/85 transition hover:bg-white/20 hover:text-white cursor-pointer"
+                    >
+                        Continuar sin IA
+                    </button>
+                )}
             </div>
         </div>
     );

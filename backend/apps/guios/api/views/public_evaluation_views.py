@@ -15,6 +15,7 @@ cumpliendo con la especificación del Módulo Público (RF-PUB-01 a RF-PUB-07, U
 
 import logging
 from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -39,6 +40,7 @@ from apps.guios.services.evaluation import (
     generate_evaluation_verdict,
     store_factor_rating_suggestions,
     restore_ai_suggestions_from_logs,
+    lock_evaluation_phases,
 )
 from apps.guios.tasks import enqueue_literature_search
 from apps.guios.services.ai import ai_service
@@ -150,6 +152,14 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
         except EvaluationNotFoundError as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
+        if (
+            evaluation.ai_status == Evaluation.AI_STATUS_SEARCHING
+            and evaluation.started_at
+            and (timezone.now() - evaluation.started_at).total_seconds() > 25
+        ):
+            evaluation.ai_status = Evaluation.AI_STATUS_FAILED
+            evaluation.save(update_fields=['ai_status'])
+
         restore_ai_suggestions_from_logs(evaluation)
         serializer = EvaluationDetailOutputSerializer(evaluation)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -236,6 +246,23 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
         detailed = get_evaluation_detail_by_uuid_or_error(uuid)
         return Response(EvaluationDetailOutputSerializer(detailed).data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='lock-phases')
+    def lock_phases(self, request, uuid=None):
+        """
+        POST /api/v1/guios/public/evaluations/{uuid}/lock-phases/
+        Persiste el bloqueo de las Fases 1 y 2 al confirmar el avance definitivo a la Fase 3 (D-30).
+        """
+        try:
+            eval_obj = get_evaluation_by_uuid_or_error(uuid)
+            lock_evaluation_phases(eval_obj.id)
+        except EvaluationNotFoundError as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except (EvaluationAlreadyCompletedError, EvaluationValidationError) as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        detailed = get_evaluation_detail_by_uuid_or_error(uuid)
+        return Response(EvaluationDetailOutputSerializer(detailed).data, status=status.HTTP_200_OK)
+
     # ─────────────────────────────────────────────────────────────────────────
     # 5. PASOS 5 Y 6: DICTAMEN FINAL, ASISTENCIA IA Y CIERRE DE EVALUACIÓN
     # ─────────────────────────────────────────────────────────────────────────
@@ -278,8 +305,15 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
                 lowest_sub_by_factor[fid] = (rating_val, desc)
 
         factors_payload = []
+        relevant_results = []
         for result in results_qs:
             factor_row = factor_rows.get(result.factor_id)
+            if factor_row is not None and (
+                not factor_row.is_relevant
+                or (factor_row.relative_importance is not None and factor_row.relative_importance <= 1)
+            ):
+                continue
+            relevant_results.append(result)
             sub_crit = lowest_sub_by_factor.get(result.factor_id)
             factors_payload.append({
                 'factor': result.factor.name,
@@ -304,7 +338,7 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
 
         from apps.guios.services.methodology import determine_final_recommendation
         try:
-            tentative_rec, tentative_explanation = determine_final_recommendation(results_qs)
+            tentative_rec, tentative_explanation = determine_final_recommendation(relevant_results)
         except Exception:
             tentative_rec, tentative_explanation = '', ''
 

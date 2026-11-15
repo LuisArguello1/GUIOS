@@ -99,4 +99,64 @@ describe('MitigationPlanTable', () => {
     fireEvent.click(screen.getByRole('button', { name: /Texto/i }));
     expect(screen.getAllByText(/Exposición sin cifrado/).length).toBeGreaterThan(0);
   });
+
+  it('excluye factores descartados (IR = 1 / is_relevant = false) del plan de mitigación', () => {
+    const evaluationWithDiscarded: EvaluationDetail = {
+      ...baseEvaluation,
+      recommendation: 'A',
+      factors: [
+        {
+          ...baseEvaluation.factors[0],
+          decisor_importance: 4,
+          relative_importance: 3,
+          is_relevant: true,
+        },
+        {
+          id: 2,
+          factor_id: 22,
+          factor_name: 'Compatibilidad',
+          dimension_id: 1,
+          dimension_name: 'Tecnológica',
+          dimension_order: 1,
+          order: 2,
+          systemic_importance_snapshot: 2,
+          subfactors_count_snapshot: 1,
+          citations_count: 1,
+          citation_ratio: '1.00',
+          literature_importance_calculated: 2,
+          expert_importance_snapshot: 2,
+          decisor_importance: 1,
+          relative_importance: 1,
+          is_relevant: false,
+          scope_used: 'external',
+          ai_literature_sources: [],
+        },
+      ],
+      results: [
+        {
+          ...baseEvaluation.results[0],
+          weighted_average: '4.0',
+          meets_threshold: true,
+          foda_classification: 'strength',
+          foda_display: 'Fortaleza',
+        },
+      ],
+    };
+
+    const staleMarkdown = [
+      '| Factor / Brecha | Riesgo Metodológico | Acción Correctiva | Responsable | Meta de Aprobación |',
+      '| :--- | :--- | :--- | :--- | :--- |',
+      '| Compatibilidad | Riesgo obsoleto PM 0.0 | No debería aparecer | TI | PM >= 3.0 |',
+    ].join('\n');
+
+    render(
+      <MitigationPlanTable
+        evaluation={evaluationWithDiscarded}
+        mitigationPlanText={staleMarkdown}
+      />,
+    );
+
+    expect(screen.queryByText('Compatibilidad')).toBeNull();
+    expect(screen.getAllByText('Seguridad').length).toBeGreaterThan(0);
+  });
 });

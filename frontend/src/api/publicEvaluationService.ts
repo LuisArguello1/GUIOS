@@ -128,6 +128,17 @@ const publicEvaluationService = {
     },
 
     /**
+     * Persiste en el backend el bloqueo de las Fases 1 y 2 al avanzar a la Fase 3 (D-30).
+     */
+    async lockPhases(uuid: string): Promise<EvaluationDetail> {
+        const response = await api.post<EvaluationDetail>(
+            ENDPOINTS.GUIOS.PUBLIC_EVALUATION_LOCK_PHASES(uuid),
+            {}
+        );
+        return response.data;
+    },
+
+    /**
      * Emite el dictamen final institucional y genera el resumen con IA (Pasos 5 y 6).
      */
     async computeVerdict(

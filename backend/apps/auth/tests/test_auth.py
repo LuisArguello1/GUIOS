@@ -15,6 +15,7 @@ from apps.auth.authentication import CookieJWTAuthentication
 from apps.auth.middleware.audit import clear_audit_context, get_audit_context
 from apps.auth.services.auth import set_auth_cookies
 from apps.auth.models.totp import TOTPDevice
+from django.contrib.auth.models import Group
 
 User = CustomUser
 
@@ -248,3 +249,104 @@ class PasswordChangeTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password(self.new_password))
+
+
+class QASprint3AuthFixesTests(APITestCase):
+    """Pruebas unitarias e integración para hallazgos QA-04, D-33, D-34 y D-35."""
+
+    def setUp(self):
+        cache.clear()
+        self.password = "StrongPass!123"
+        self.user = User.objects.create_user(
+            email="qa-user@example.com",
+            username="qa_user",
+            password=self.password,
+            is_active=True,
+        )
+        self.qa_group, _ = Group.objects.get_or_create(name="Evaluador QA")
+        self.superuser = User.objects.create_superuser(
+            email="superadmin@example.com",
+            username="superadmin",
+            password=self.password,
+        )
+        self.login_url = reverse('authentication:login')
+        self.me_url = reverse('authentication:user-me')
+        self.reset_request_url = reverse('authentication:password-reset-request-reset')
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_qa04_account_locked_after_five_failed_attempts_and_blocks_correct_password(self):
+        """QA-04: tras 5 intentos fallidos, bloquea la cuenta e impide login con clave correcta."""
+        for _ in range(4):
+            res = self.client.post(self.login_url, {
+                'email': self.user.email,
+                'password': 'WrongPassword!',
+            })
+            self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        res_5 = self.client.post(self.login_url, {
+            'email': self.user.email,
+            'password': 'WrongPassword!',
+        })
+        self.assertEqual(res_5.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertEqual(res_5.data.get('code'), 'account_locked')
+
+        # Con la contraseña correcta dentro de la ventana de bloqueo sigue rechazado
+        res_valid = self.client.post(self.login_url, {
+            'email': self.user.email,
+            'password': self.password,
+        })
+        self.assertEqual(res_valid.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertEqual(res_valid.data.get('code'), 'account_locked')
+
+    def test_d33_superuser_without_groups_does_not_inherit_other_groups(self):
+        """D-33: un superusuario sin grupos propios no hereda el grupo Evaluador QA."""
+        self.assertEqual(self.superuser.groups.count(), 0)
+        res = self.client.post(self.login_url, {
+            'email': self.superuser.email,
+            'password': self.password,
+        })
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data.get('groups'), [])
+
+    def test_d34_users_me_exposes_has_2fa_and_real_operator_stats(self):
+        """D-34: /users/me/ expone has_2fa real y operator_stats calculadas desde BD."""
+        TOTPDevice.objects.create(user=self.user, is_active=True)
+        self.client.force_authenticate(user=self.user)
+
+        res = self.client.get(self.me_url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(res.data.get('has_2fa'))
+        stats = res.data.get('operator_stats')
+        self.assertIsInstance(stats, dict)
+        self.assertEqual(stats['evaluations_total'], 0)
+        self.assertEqual(stats['audited_factors'], 0)
+        self.assertEqual(stats['verdicts_a'], 0)
+        self.assertEqual(stats['critical_observations'], 0)
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        EMAIL_HOST='',
+        DEFAULT_FROM_EMAIL='',
+    )
+    def test_d35_password_reset_returns_503_when_smtp_config_missing(self):
+        """D-35: retorna HTTP 503 cuando falta configuración SMTP para usuario activo."""
+        res = self.client.post(self.reset_request_url, {
+            'email': self.user.email,
+        })
+        self.assertEqual(res.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(res.data.get('code'), 'email_delivery_failed')
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@guios.test',
+    )
+    @patch('apps.auth.services.otp.EmailMultiAlternatives.send', side_effect=OSError('SMTP down'))
+    def test_d35_password_reset_returns_503_when_smtp_send_fails(self, _mock_send):
+        """D-35: retorna HTTP 503 cuando msg.send() falla al entregar OTP."""
+        res = self.client.post(self.reset_request_url, {
+            'email': self.user.email,
+        })
+        self.assertEqual(res.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(res.data.get('code'), 'email_delivery_failed')

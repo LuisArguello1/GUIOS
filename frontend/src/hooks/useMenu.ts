@@ -10,19 +10,21 @@ export const useMenu = () => {
     // Selector estable: Zustand garantiza identidad de referencia en acciones
     const fetchMenu = useCoreStore((s) => s.fetchMenu);
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+    const userId = useAuthStore((s) => s.user?.id);
+    const selectedGroupId = useAuthStore((s) => s.selectedGroup?.id);
 
     useEffect(() => {
         if (isAuthenticated && !menuLoaded) {
-            void fetchMenu();
+            void fetchMenu({ roleId: selectedGroupId });
         }
-    }, [isAuthenticated, menuLoaded, fetchMenu]);
+    }, [isAuthenticated, menuLoaded, userId, selectedGroupId, fetchMenu]);
 
     return {
         menu,
         isLoadingMenu: loadingMenu,
         menuError,
         hasModules: menu.length > 0,
-        refreshMenu: () => fetchMenu({ force: true }),
+        refreshMenu: () => fetchMenu({ force: true, roleId: selectedGroupId }),
     };
 };
 

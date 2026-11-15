@@ -21,6 +21,7 @@ interface CoreState {
     isMobileOpen: boolean;
 
     fetchMenu: (options?: { force?: boolean; roleId?: number | string }) => Promise<void>;
+    resetMenu: () => void;
     fetchOrganization: () => Promise<void>;
     updateOrganization: (data: Partial<Organization>) => Promise<void>;
     setOrganization: (data: Organization | null) => void;
@@ -61,6 +62,14 @@ const useCoreStore = create<CoreState>()(
                     set({ loadingMenu: false });
                 }
             },
+
+            resetMenu: () =>
+                set({
+                    menu: [],
+                    menuLoaded: false,
+                    loadingMenu: false,
+                    menuError: null,
+                }),
 
             fetchOrganization: async () => {
                 set({ loadingOrg: true, orgError: null });
