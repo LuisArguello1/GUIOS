@@ -386,11 +386,17 @@ export const Step3VerdictSWOT: React.FC<Step3VerdictSWOTProps> = ({
                         )}
 
                         {activeTab === 'mitigation' && (
-                            <MitigationPlanTable
-                                evaluation={evaluation}
-                                mitigationPlanText={verdict?.ai_mitigation_plan}
-                                onViewFactorDetails={onInspectFactor}
-                            />
+                            hasVerdict ? (
+                                <MitigationPlanTable
+                                    evaluation={evaluation}
+                                    mitigationPlanText={verdict?.ai_mitigation_plan}
+                                    onViewFactorDetails={onInspectFactor}
+                                />
+                            ) : (
+                                <div className="p-6 text-center text-xs text-[var(--color-text-tertiary)] bg-[var(--color-bg-page)] rounded-[6px] border border-[var(--color-border-subtle)]">
+                                    El plan de mitigación se generará y estructurará automáticamente al emitir el dictamen final.
+                                </div>
+                            )
                         )}
                     </div>
                 </div>

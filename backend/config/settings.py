@@ -223,6 +223,9 @@ CACHES = {
 # Usar Redis para el almacenamiento de sesiones
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
+# Tiempo máximo de inactividad de sesión en segundos (por defecto 30 minutos).
+SESSION_IDLE_TIMEOUT_SECONDS = int(os.getenv('SESSION_IDLE_TIMEOUT_SECONDS', 30 * 60))
+SESSION_COOKIE_AGE = SESSION_IDLE_TIMEOUT_SECONDS if SESSION_IDLE_TIMEOUT_SECONDS > 0 else 1800
 
 
 # Throttling (ProtecciÃ³n DoS bÃ¡sica via DRF)

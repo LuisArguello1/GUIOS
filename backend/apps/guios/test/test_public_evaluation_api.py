@@ -714,3 +714,154 @@ class PublicEvaluationAPITests(APITestCase):
         )
         self.assertEqual(res_complete.status_code, status.HTTP_200_OK)
         self.assertEqual(res_complete.data["verdict"]["recommendation"], "A")
+
+    def test_ai_suggest_importance_batch_and_factor_ratings_batch(self):
+        """Las acciones batch de Paso 1 y Paso 2 exigen consentimiento y sugieren múltiples factores en una llamada."""
+        from apps.guios.models import EvaluationFactor, EvaluationSubfactor
+        from apps.guios.services.ai.manager import AIService
+        from apps.guios.services.ai.heuristic_provider import HeuristicAIProvider
+
+        # 1. Sin consentimiento debe rechazar con HTTP 403
+        eval_no_consent = Evaluation.objects.create(
+            software_name="GitLab",
+            org_name="UNEMI",
+            ai_enabled=True,
+            ai_processing_consent=False,
+            data_storage_consent=True,
+        )
+        res_403_imp = self.client.post(
+            f"/api/v1/guios/public/evaluations/{eval_no_consent.uuid}/ai-suggest-importance-batch/",
+            {"factor_ids": [self.factor_func.id, self.factor_soporte.id]},
+            format="json",
+        )
+        res_403_rat = self.client.post(
+            f"/api/v1/guios/public/evaluations/{eval_no_consent.uuid}/ai-suggest-factor-ratings-batch/",
+            {"factor_ids": [self.factor_func.id, self.factor_soporte.id]},
+            format="json",
+        )
+        self.assertEqual(res_403_imp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(res_403_rat.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 2. Con consentimiento e IA heurística genera y persiste sugerencias en lote
+        eval_ai = Evaluation.objects.create(
+            software_name="GitLab",
+            org_name="UNEMI",
+            ai_enabled=True,
+            ai_processing_consent=True,
+            data_storage_consent=True,
+        )
+        for fac in (self.factor_func, self.factor_soporte):
+            EvaluationFactor.objects.create(
+                evaluation=eval_ai,
+                factor=fac,
+                systemic_importance_snapshot=fac.systemic_importance,
+                expert_importance_snapshot=fac.expert_importance,
+            )
+        for sf in (self.sub_func_1, self.sub_func_2, self.sub_sop_1):
+            EvaluationSubfactor.objects.create(
+                evaluation=eval_ai,
+                subfactor=sf,
+            )
+
+        offline_ai = AIService(
+            primary_provider=HeuristicAIProvider(),
+            safety_provider=HeuristicAIProvider(),
+        )
+        with patch("apps.guios.api.views.public_evaluation_views.ai_service", offline_ai):
+            res_imp = self.client.post(
+                f"/api/v1/guios/public/evaluations/{eval_ai.uuid}/ai-suggest-importance-batch/",
+                {"factor_ids": [self.factor_func.id, self.factor_soporte.id]},
+                format="json",
+            )
+            self.assertEqual(res_imp.status_code, status.HTTP_200_OK)
+            self.assertEqual(len(res_imp.data["suggestions"]), 2)
+            ef_func = EvaluationFactor.objects.get(evaluation=eval_ai, factor=self.factor_func)
+            ef_sop = EvaluationFactor.objects.get(evaluation=eval_ai, factor=self.factor_soporte)
+            self.assertIsNotNone(ef_func.ai_suggested_id)
+            self.assertTrue(bool(ef_sop.ai_id_justification))
+
+            res_rat = self.client.post(
+                f"/api/v1/guios/public/evaluations/{eval_ai.uuid}/ai-suggest-factor-ratings-batch/",
+                {"factor_ids": [self.factor_func.id, self.factor_soporte.id]},
+                format="json",
+            )
+            self.assertEqual(res_rat.status_code, status.HTTP_200_OK)
+            self.assertEqual(len(res_rat.data["results"]), 2)
+            sf_func = EvaluationSubfactor.objects.get(evaluation=eval_ai, subfactor=self.sub_func_1)
+            sf_sop = EvaluationSubfactor.objects.get(evaluation=eval_ai, subfactor=self.sub_sop_1)
+            self.assertIsNotNone(sf_func.ai_suggested_rating)
+            self.assertTrue(bool(sf_sop.ai_rating_justification))
+
+    def test_ai_batch_never_regenerates_already_suggested_factor_or_subfactor(self):
+        """Si un factor o subfactor ya fue sugerido individualmente, el análisis en lote no lo repite ni sobrescribe."""
+        from apps.guios.models import EvaluationFactor, EvaluationSubfactor
+        from apps.guios.services.ai.manager import AIService
+        from apps.guios.services.ai.heuristic_provider import HeuristicAIProvider
+
+        eval_ai = Evaluation.objects.create(
+            software_name="GitLab",
+            org_name="UNEMI",
+            ai_enabled=True,
+            ai_processing_consent=True,
+            data_storage_consent=True,
+        )
+        ef_func = EvaluationFactor.objects.create(
+            evaluation=eval_ai,
+            factor=self.factor_func,
+            systemic_importance_snapshot=3,
+            expert_importance_snapshot=3,
+            ai_suggested_id=4,
+            ai_id_justification="Sugerencia individual previa conservada.",
+        )
+        ef_sop = EvaluationFactor.objects.create(
+            evaluation=eval_ai,
+            factor=self.factor_soporte,
+            systemic_importance_snapshot=2,
+            expert_importance_snapshot=2,
+        )
+        sf_1 = EvaluationSubfactor.objects.create(
+            evaluation=eval_ai,
+            subfactor=self.sub_func_1,
+            ai_suggested_rating=4,
+            ai_rating_justification="Nota individual previa conservada.",
+        )
+        sf_2 = EvaluationSubfactor.objects.create(
+            evaluation=eval_ai,
+            subfactor=self.sub_func_2,
+        )
+
+        offline_ai = AIService(
+            primary_provider=HeuristicAIProvider(),
+            safety_provider=HeuristicAIProvider(),
+        )
+        with (
+            patch("apps.guios.api.views.public_evaluation_views.ai_service", offline_ai),
+            patch.object(offline_ai, "suggest_factor_importance", wraps=offline_ai.suggest_factor_importance) as spy_imp,
+            patch.object(offline_ai, "suggest_factor_ratings", wraps=offline_ai.suggest_factor_ratings) as spy_rat,
+        ):
+            res_imp = self.client.post(
+                f"/api/v1/guios/public/evaluations/{eval_ai.uuid}/ai-suggest-importance-batch/",
+                {"factor_ids": [self.factor_func.id, self.factor_soporte.id]},
+                format="json",
+            )
+            self.assertEqual(res_imp.status_code, status.HTTP_200_OK)
+            self.assertEqual(spy_imp.call_count, 1)
+            self.assertEqual(spy_imp.call_args.kwargs["factor"].id, self.factor_soporte.id)
+            ef_func.refresh_from_db()
+            ef_sop.refresh_from_db()
+            self.assertEqual(ef_func.ai_id_justification, "Sugerencia individual previa conservada.")
+            self.assertTrue(bool(ef_sop.ai_id_justification))
+
+            res_rat = self.client.post(
+                f"/api/v1/guios/public/evaluations/{eval_ai.uuid}/ai-suggest-factor-ratings-batch/",
+                {"factor_ids": [self.factor_func.id]},
+                format="json",
+            )
+            self.assertEqual(res_rat.status_code, status.HTTP_200_OK)
+            self.assertEqual(spy_rat.call_count, 1)
+            sent_subfactors = spy_rat.call_args.kwargs["subfactors"]
+            self.assertEqual([s.id for s in sent_subfactors], [self.sub_func_2.id])
+            sf_1.refresh_from_db()
+            sf_2.refresh_from_db()
+            self.assertEqual(sf_1.ai_rating_justification, "Nota individual previa conservada.")
+            self.assertTrue(bool(sf_2.ai_rating_justification))

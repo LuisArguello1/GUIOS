@@ -350,3 +350,94 @@ class QASprint3AuthFixesTests(APITestCase):
         })
         self.assertEqual(res.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
         self.assertEqual(res.data.get('code'), 'email_delivery_failed')
+
+
+@override_settings(
+    REST_FRAMEWORK={
+        'DEFAULT_THROTTLE_CLASSES': [],
+        'DEFAULT_THROTTLE_RATES': {},
+    }
+)
+class SessionIdleTimeoutAndRefreshTests(APITestCase):
+    """Pruebas para refresco de cookies con SID persistente y expiración por inactividad."""
+
+    def setUp(self):
+        cache.clear()
+        self.password = "StrongPass!123"
+        self.user = User.objects.create_user(
+            email="idle-session@example.com",
+            username="idle_session",
+            password=self.password,
+            is_active=True,
+        )
+        self.login_url = reverse('authentication:login')
+        self.logout_url = reverse('authentication:logout')
+        self.refresh_url = reverse('authentication:token_refresh')
+        self.me_url = reverse('authentication:user-me')
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_cookie_token_refresh_succeeds_and_returns_idle_timeout(self):
+        """Login expone session_idle_timeout_seconds y token/refresh renueva cookies usando el SID."""
+        res_login = self.client.post(self.login_url, {
+            'email': self.user.email,
+            'password': self.password,
+        })
+        self.assertEqual(res_login.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_login.data.get('session_idle_timeout_seconds'), 1800)
+        self.assertIn('access_token', res_login.cookies)
+        self.assertIn('refresh_token', res_login.cookies)
+
+        res_refresh = self.client.post(self.refresh_url, {})
+        self.assertEqual(res_refresh.status_code, status.HTTP_200_OK)
+        self.assertIn('access_token', res_refresh.cookies)
+        self.assertIn('refresh_token', res_refresh.cookies)
+
+    def test_idle_session_is_rejected_and_background_poll_does_not_refresh_ttl(self):
+        """Una sesión cuya ventana de inactividad venció es rechazada en API y refresh, y ?background=1 no la renueva."""
+        from rest_framework_simplejwt.tokens import AccessToken
+        from apps.auth.services.auth import _session_activity_key
+
+        res_login = self.client.post(self.login_url, {
+            'email': self.user.email,
+            'password': self.password,
+        })
+        self.assertEqual(res_login.status_code, status.HTTP_200_OK)
+
+        sid = AccessToken(res_login.cookies['access_token'].value).get('sid')
+        self.assertTrue(bool(sid))
+        cache_key = _session_activity_key(sid)
+        self.assertIsNotNone(cache.get(cache_key))
+
+        # Borrar/expirar la marca y verificar que ?background=1 no logra autenticación ni la revive
+        cache.delete(cache_key)
+        res_bg = self.client.get(f"{self.me_url}?background=1")
+        self.assertEqual(res_bg.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIsNone(cache.get(cache_key))
+
+        res_refresh = self.client.post(self.refresh_url, {})
+        self.assertEqual(res_refresh.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_revokes_session_activity_even_if_cookies_reused(self):
+        """Cerrar sesión revoca el SID en caché e invalida cookies reutilizadas."""
+        res_login = self.client.post(self.login_url, {
+            'email': self.user.email,
+            'password': self.password,
+        })
+        self.assertEqual(res_login.status_code, status.HTTP_200_OK)
+        access_val = res_login.cookies['access_token'].value
+        refresh_val = res_login.cookies['refresh_token'].value
+
+        res_logout = self.client.post(self.logout_url, {})
+        self.assertEqual(res_logout.status_code, status.HTTP_200_OK)
+
+        # Reinyectar cookies previas del cliente para comprobar revocación server-side
+        self.client.cookies['access_token'] = access_val
+        self.client.cookies['refresh_token'] = refresh_val
+
+        res_me = self.client.get(self.me_url)
+        self.assertEqual(res_me.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        res_refresh = self.client.post(self.refresh_url, {})
+        self.assertEqual(res_refresh.status_code, status.HTTP_401_UNAUTHORIZED)

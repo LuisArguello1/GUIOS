@@ -3,9 +3,46 @@ import uuid
 from typing import Dict, Optional
 
 from django.conf import settings
+from django.core.cache import cache
 from rest_framework_simplejwt.tokens import RefreshToken
 
 logger = logging.getLogger(__name__)
+
+
+def get_session_idle_timeout_seconds() -> int:
+    """Retorna el tiempo máximo de inactividad configurado para sesiones (en segundos)."""
+    return int(getattr(settings, 'SESSION_IDLE_TIMEOUT_SECONDS', 30 * 60))
+
+
+def _session_activity_key(sid: str) -> str:
+    return f"auth_session_active:{sid}"
+
+
+def touch_session_activity(sid: Optional[str]) -> None:
+    """Registra o renueva la marca de actividad de una sesión lógica (`sid`) en caché."""
+    if not sid:
+        return
+    timeout = get_session_idle_timeout_seconds()
+    if timeout <= 0:
+        return
+    cache.set(_session_activity_key(sid), 1, timeout=timeout)
+
+
+def is_session_active(sid: Optional[str]) -> bool:
+    """Verifica si el `sid` sigue activo dentro de la ventana de inactividad."""
+    if not sid:
+        return True
+    timeout = get_session_idle_timeout_seconds()
+    if timeout <= 0:
+        return True
+    return bool(cache.get(_session_activity_key(sid)))
+
+
+def revoke_session_activity(sid: Optional[str]) -> None:
+    """Invalida inmediatamente la sesión lógica (`sid`) en caché."""
+    if not sid:
+        return
+    cache.delete(_session_activity_key(sid))
 
 
 def get_auth_tokens(user, sid: Optional[str] = None) -> Dict[str, str]:
@@ -20,6 +57,8 @@ def get_auth_tokens(user, sid: Optional[str] = None) -> Dict[str, str]:
     refresh['email'] = user.email
     refresh['username'] = user.username
     refresh['sid'] = sid  # Identificador de sesión persistente
+
+    touch_session_activity(sid)
 
     return {
         'sid': sid,

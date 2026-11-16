@@ -20,7 +20,15 @@ from ..serializers.auth_serializers import (
     TOTPSetupSerializer,
 )
 from ..serializers.user_serializers import UserDetailSerializer
-from ...services.auth import clear_auth_cookies, get_auth_tokens, set_auth_cookies
+from ...services.auth import (
+    clear_auth_cookies,
+    get_auth_tokens,
+    get_session_idle_timeout_seconds,
+    is_session_active,
+    revoke_session_activity,
+    set_auth_cookies,
+    touch_session_activity,
+)
 from ...services.otp import (
     EmailDeliveryError,
     complete_password_reset,
@@ -53,6 +61,7 @@ def _build_auth_payload(*, request, user, detail: str, selected_group: dict | No
         'detail': detail,
         'user': UserDetailSerializer(user, context={'request': request}).data,
         'groups': groups,
+        'session_idle_timeout_seconds': get_session_idle_timeout_seconds(),
     }
     if selected_group:
         payload['selected_group'] = selected_group
@@ -193,6 +202,16 @@ class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        sid = request.auth.get('sid') if hasattr(request.auth, 'get') else None
+        if not sid:
+            refresh_cookie = request.COOKIES.get('refresh_token')
+            if refresh_cookie:
+                try:
+                    sid = RefreshToken(str(refresh_cookie)).get('sid')
+                except Exception:
+                    sid = None
+        revoke_session_activity(sid)
+
         response = Response(
             {'detail': _('Sesión cerrada correctamente.')},
             status=status.HTTP_200_OK,
@@ -223,6 +242,18 @@ class CookieTokenRefreshView(APIView):
             )
             
         try:
+            # Validar primero el refresh token firmado y extraer su SID persistente
+            validated_refresh = RefreshToken(str(refresh_cookie))
+            sid = validated_refresh.get('sid')
+
+            if sid and not is_session_active(sid):
+                response = Response(
+                    {"detail": _("La sesión ha expirado por inactividad, inicie sesión nuevamente.")},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+                clear_auth_cookies(response)
+                return response
+
             # Usar el serializer oficial de SimpleJWT para el flujo de refresco
             serializer = TokenRefreshSerializer(data={'refresh': str(refresh_cookie)})
             serializer.is_valid(raise_exception=True)
@@ -230,17 +261,20 @@ class CookieTokenRefreshView(APIView):
             access_token = serializer.validated_data.get('access')
             # SimpleJWT puede o no rotar el refresh token según la configuración
             refresh_token = serializer.validated_data.get('refresh') or str(refresh_cookie)
+
+            if sid:
+                touch_session_activity(sid)
             
             response = Response(
                 {"detail": _("Token refrescado correctamente.")},
                 status=status.HTTP_200_OK
             )
             
-            # Renovamos las cookies transparentemente manteniendo el MISMO SID o el del nuevo token
+            # Renovamos las cookies transparentemente manteniendo el MISMO SID
             set_auth_cookies(response, {
                 'access': access_token, 
                 'refresh': refresh_token,
-                'sid': sid
+                'sid': sid,
             })
             
             return response

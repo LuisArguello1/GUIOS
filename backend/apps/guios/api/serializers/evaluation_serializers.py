@@ -96,6 +96,15 @@ class AISuggestImportanceInputSerializer(serializers.Serializer):
     factor_id = serializers.IntegerField(required=True)
 
 
+class AISuggestFactorBatchInputSerializer(serializers.Serializer):
+    """Valida solicitud en lote de sugerencias de IA por lista de factores."""
+    factor_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False,
+        max_length=50,
+    )
+
+
 class AISuggestRatingInputSerializer(serializers.Serializer):
     """Valida solicitud de sugerencia de calificación de un subfactor."""
     subfactor_id = serializers.IntegerField(required=True)

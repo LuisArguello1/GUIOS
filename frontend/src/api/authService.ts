@@ -20,6 +20,7 @@ interface LoginResponse {
     pre_auth_token?: string;
     // Soporte para aceptación de términos
     requires_terms_acceptance?: boolean;
+    session_idle_timeout_seconds?: number;
 }
 
 interface TOTPConfigResponse {
@@ -90,8 +91,10 @@ const authService = {
         return response.data;
     },
 
-    getCurrentUser: async (): Promise<LoginResponse['user']> => {
-        const response = await api.get<LoginResponse['user']>(ENDPOINTS.USERS.ME);
+    getCurrentUser: async (options?: { background?: boolean }): Promise<LoginResponse['user']> => {
+        const response = await api.get<LoginResponse['user']>(ENDPOINTS.USERS.ME, {
+            params: options?.background ? { background: 1 } : undefined,
+        });
         return response.data;
     },
 

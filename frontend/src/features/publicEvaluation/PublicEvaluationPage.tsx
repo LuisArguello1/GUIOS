@@ -74,9 +74,13 @@ export const PublicEvaluationPage: React.FC = () => {
         aiLoadingFactors,
         aiLoadingSubfactors,
         aiSuggesting,
+        aiBatchProgress,
         syncingRepoHealth,
         handleAISuggestImportance,
+        handleAISuggestBatchImportance,
         handleAISuggestFactorRatings,
+        handleAISuggestBatchFactorRatings,
+        handleAISuggestRating,
         handleSyncRepoHealth,
 
         // Operaciones de negocio
@@ -171,6 +175,7 @@ export const PublicEvaluationPage: React.FC = () => {
                                 onDecisorChange={handleDecisorChange}
                                 onScopeChange={handleScopeChange}
                                 onAISuggestImportance={handleAISuggestImportance}
+                                onAISuggestBatchImportance={handleAISuggestBatchImportance}
                                 aiLoadingFactors={aiLoadingFactors}
                                 onSaveDecisor={handleSaveDecisor}
                                 isComputing={isComputing}
@@ -193,6 +198,8 @@ export const PublicEvaluationPage: React.FC = () => {
                                 onRatingChange={handleSubfactorRatingChange}
                                 getFactorLocalPM={getFactorLocalPM}
                                 onAISuggestFactorRatings={handleAISuggestFactorRatings}
+                                onAISuggestAllFactorRatings={handleAISuggestBatchFactorRatings}
+                                onAISuggestSingleRating={handleAISuggestRating}
                                 aiLoadingSubfactors={aiLoadingSubfactors}
                                 onSaveRatings={() => handleSaveSubfactorRatings()}
                                 isComputing={isComputing}
@@ -311,6 +318,7 @@ export const PublicEvaluationPage: React.FC = () => {
                             ? 'ratings'
                             : 'verdict'
                     }
+                    progressText={aiBatchProgress}
                     onSkip={
                         evaluation?.ai_status === 'searching' || Boolean(aiSuggesting)
                             ? handleSkipAiThinking

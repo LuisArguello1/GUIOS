@@ -1,5 +1,5 @@
 import React, { useState, useCallback, memo, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import {
@@ -26,6 +26,7 @@ const formVariants: Variants = {
 // ─── Componente Principal LoginPage (TikTok UI Style) ─────────────────────────
 const LoginPage = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const loginSuccess = useAuthStore((state) => state.loginSuccess);
     const { fetchOrganization, loadingOrg, organizationLoaded } = useCoreStore();
     const { theme, toggleTheme } = useThemeStore();
@@ -45,6 +46,16 @@ const LoginPage = () => {
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [sessionNotice, setSessionNotice] = useState<string | null>(() => {
+        const sessionReason = searchParams.get('session');
+        if (sessionReason === 'idle') {
+            return 'Tu sesión se cerró automáticamente por inactividad.';
+        }
+        if (sessionReason === 'expired') {
+            return 'Tu sesión ha expirado. Inicia sesión nuevamente.';
+        }
+        return null;
+    });
 
     useEffect(() => {
         if (!organizationLoaded && !loadingOrg) {
@@ -224,6 +235,15 @@ const LoginPage = () => {
                                     ¿Olvidaste tu contraseña?
                                 </Link>
                             </div>
+
+                            {/* Aviso de expiración o inactividad */}
+                            {sessionNotice && !error && (
+                                <Alert
+                                    type="warning"
+                                    message={sessionNotice}
+                                    onClose={() => setSessionNotice(null)}
+                                />
+                            )}
 
                             {/* Alerta de Error */}
                             {error && (

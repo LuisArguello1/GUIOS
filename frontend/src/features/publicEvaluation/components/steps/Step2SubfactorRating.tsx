@@ -29,6 +29,7 @@ import { clsx } from 'clsx';
 import Button from '../../../../components/ui/Button';
 import ConfirmModal from '../../../../components/ui/ConfirmModal';
 import RepoHealthCard from '../../../guios/evaluations/components/detail/RepoHealthCard';
+import AISuggestSelector from '../ui/AISuggestSelector';
 import useToastStore from '../../../../app/useToastStore';
 import type {
     EvaluationDetail,
@@ -47,6 +48,8 @@ interface Step2SubfactorRatingProps {
     onRatingChange: (subfactorId: number, rating: number) => void;
     getFactorLocalPM: (factorId: number) => { average: number; isComplete: boolean; foda: string };
     onAISuggestFactorRatings?: (factorId: number) => void;
+    onAISuggestAllFactorRatings?: (factorIds: number[]) => void;
+    onAISuggestSingleRating?: (subfactorId: number) => void;
     aiLoadingSubfactors?: Record<number, boolean>;
     onSaveRatings: () => Promise<boolean>;
     isComputing: boolean;
@@ -109,6 +112,8 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
     onRatingChange,
     getFactorLocalPM,
     onAISuggestFactorRatings,
+    onAISuggestAllFactorRatings,
+    onAISuggestSingleRating,
     aiLoadingSubfactors,
     onSaveRatings,
     isComputing,
@@ -126,6 +131,7 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
     // ── Vista activa en Móvil / Tablet (< lg): 'criteria' (calificar factor activo) o 'factors' (lista de factores relevantes) ──
     const [mobileView, setMobileView] = useState<'criteria' | 'factors'>('criteria');
     const [isLeaveConfirmModalOpen, setIsLeaveConfirmModalOpen] = useState<boolean>(false);
+    const [aiSuggestScope, setAiSuggestScope] = useState<'factor' | 'all'>('factor');
 
     // Factor activo actual
     const currentActiveFactor = useMemo(() => {
@@ -156,6 +162,64 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
     const factorSuggestionsReady = activeSubfactors.length > 0 && activeSubfactors.every((sf) => (
         Boolean(subfactorRatingsMap[sf.subfactor_id]?.ai_justification || sf.ai_rating_justification)
     ));
+
+    const activePendingSubfactorsCount = useMemo(
+        () =>
+            activeSubfactors.filter(
+                (sf) => !(subfactorRatingsMap[sf.subfactor_id]?.ai_justification || sf.ai_rating_justification)
+            ).length,
+        [activeSubfactors, subfactorRatingsMap]
+    );
+
+    const pendingRelevantFactorIds = useMemo(
+        () =>
+            relevantFactors
+                .filter((factor) => {
+                    const subs = (evaluation.subfactors || []).filter((sf) => sf.factor_id === factor.factor_id);
+                    return subs.some(
+                        (sf) => !(subfactorRatingsMap[sf.subfactor_id]?.ai_justification || sf.ai_rating_justification)
+                    );
+                })
+                .map((factor) => factor.factor_id),
+        [relevantFactors, evaluation.subfactors, subfactorRatingsMap]
+    );
+
+    const aiScopeOptions = useMemo(
+        () => [
+            {
+                value: 'factor',
+                label: 'Subfactores del factor',
+                pendingCount: activePendingSubfactorsCount,
+            },
+            {
+                value: 'all',
+                label: 'Todos los factores',
+                pendingCount: pendingRelevantFactorIds.length,
+            },
+        ],
+        [activePendingSubfactorsCount, pendingRelevantFactorIds.length]
+    );
+
+    const isAnySubfactorLoading = useMemo(
+        () => Object.values(aiLoadingSubfactors || {}).some(Boolean),
+        [aiLoadingSubfactors]
+    );
+
+    const handleRunStep2AISuggest = useCallback(() => {
+        if (aiSuggestScope === 'factor') {
+            if (currentActiveFactor && onAISuggestFactorRatings) {
+                onAISuggestFactorRatings(currentActiveFactor.factor_id);
+            }
+            return;
+        }
+        onAISuggestAllFactorRatings?.(pendingRelevantFactorIds);
+    }, [
+        aiSuggestScope,
+        currentActiveFactor,
+        onAISuggestFactorRatings,
+        onAISuggestAllFactorRatings,
+        pendingRelevantFactorIds,
+    ]);
 
     const hasUnsavedChangesInCurrentFactor = useMemo(() => {
         return activeSubfactors.some((sf) => subfactorRatingsMap[sf.subfactor_id]?.is_modified);
@@ -513,19 +577,21 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
 
                                 {/* Diagnóstico PM en Vivo y Estado de Cambios */}
                                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                                    {!isReadOnly && evaluation.ai_enabled && onAISuggestFactorRatings && (
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() => onAISuggestFactorRatings(currentActiveFactor.factor_id)}
-                                            disabled={isComputing || factorSuggestionsReady || activeSubfactors.some((sf) => aiLoadingSubfactors?.[sf.subfactor_id])}
-                                            className="h-7 px-2.5 text-[10px] font-bold ai-gold-btn"
-                                            title={factorSuggestionsReady ? 'Este factor ya tiene sugerencias de IA' : 'Pide la calificación de todos los subfactores de este factor'}
-                                        >
-                                            <Sparkles size={12} className={clsx('text-amber-400 shrink-0', activeSubfactors.some((sf) => aiLoadingSubfactors?.[sf.subfactor_id]) ? 'animate-spin' : '')} />
-                                            <span>{factorSuggestionsReady ? 'Sugerencia lista' : 'Sugerir con IA'}</span>
-                                        </Button>
+                                    {!isReadOnly && evaluation.ai_enabled && (onAISuggestFactorRatings || onAISuggestAllFactorRatings) && (
+                                        <AISuggestSelector
+                                            options={aiScopeOptions}
+                                            selectedScope={aiSuggestScope}
+                                            onScopeChange={(scope) => setAiSuggestScope(scope as 'factor' | 'all')}
+                                            onRun={handleRunStep2AISuggest}
+                                            isLoading={isAnySubfactorLoading}
+                                            disabled={isComputing}
+                                            allReadyForScope={
+                                                aiSuggestScope === 'factor'
+                                                    ? factorSuggestionsReady
+                                                    : pendingRelevantFactorIds.length === 0
+                                            }
+                                            ariaLabel="Modo de sugerencia IA en Fase 2"
+                                        />
                                     )}
                                     {activePM && activePM.isComplete ? (
                                         <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1 rounded-[5px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] shadow-xs">
@@ -608,15 +674,43 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
                                                             </p>
                                                         )}
                                                     </div>
-                                                    {local.is_modified && (
-                                                        <span
-                                                            className="text-[9px] font-mono font-medium text-[var(--color-text-secondary)] bg-[var(--color-bg-elevated)] px-1.5 py-0.5 rounded border border-[var(--color-border-subtle)] shrink-0 flex items-center gap-1"
-                                                            title="Calificación modificada pendiente de guardar"
-                                                        >
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                                                            <span>Pendiente</span>
-                                                        </span>
-                                                    )}
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        {!isReadOnly && evaluation.ai_enabled && onAISuggestSingleRating && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => onAISuggestSingleRating(subfactor.subfactor_id)}
+                                                                disabled={
+                                                                    isComputing
+                                                                    || Boolean(aiLoadingSubfactors?.[subfactor.subfactor_id])
+                                                                    || showsSuggestion
+                                                                }
+                                                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] text-[9px] font-bold text-[var(--color-text-secondary)] hover:border-amber-400/60 hover:text-[var(--color-text-primary)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                                                                title={
+                                                                    showsSuggestion
+                                                                        ? 'Este subfactor ya tiene sugerencia de IA'
+                                                                        : 'Sugerir calificación con IA solo para este subfactor'
+                                                                }
+                                                            >
+                                                                <Sparkles
+                                                                    size={10}
+                                                                    className={clsx(
+                                                                        'text-amber-400 shrink-0',
+                                                                        aiLoadingSubfactors?.[subfactor.subfactor_id] ? 'animate-spin' : ''
+                                                                    )}
+                                                                />
+                                                                <span>{showsSuggestion ? 'IA ✓' : 'IA'}</span>
+                                                            </button>
+                                                        )}
+                                                        {local.is_modified && (
+                                                            <span
+                                                                className="text-[9px] font-mono font-medium text-[var(--color-text-secondary)] bg-[var(--color-bg-elevated)] px-1.5 py-0.5 rounded border border-[var(--color-border-subtle)] shrink-0 flex items-center gap-1"
+                                                                title="Calificación modificada pendiente de guardar"
+                                                            >
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                                                                <span>Pendiente</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 {/* Selector Directo de Calificación (1 a 4) */}

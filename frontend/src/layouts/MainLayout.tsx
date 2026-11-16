@@ -1,5 +1,5 @@
 import { Suspense, useCallback, useEffect, useRef, memo } from 'react';
-import { Outlet, useLocation, Navigate } from 'react-router-dom';
+import { Outlet, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import Sidebar from '../components/layouts/Sidebar';
@@ -8,6 +8,7 @@ import Breadcrumbs from '../components/navigation/breadcrumbs';
 import Loading from '../components/ui/Loading';
 
 import { useMenu } from '../hooks/useMenu';
+import { useSessionIdleTimeout } from '../hooks/useSessionIdleTimeout';
 import useCoreStore from '../app/useCoreStore';
 import useAuthStore from '../app/useAuthStore';
 import authService from '../api/authService';
@@ -19,13 +20,33 @@ import authService from '../api/authService';
  */
 const MainLayout = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const { isLoadingMenu } = useMenu();
     const { fetchOrganization, loadingOrg, organizationLoaded } = useCoreStore();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const groups = useAuthStore((state) => state.groups);
     const user = useAuthStore((state) => state.user);
     const setAuthUser = useAuthStore((state) => state.setUser);
+    const logoutStore = useAuthStore((state) => state.logout);
+    const sessionIdleTimeoutSeconds = useAuthStore((state) => state.sessionIdleTimeoutSeconds);
     const lastPermissionSyncRef = useRef(0);
+
+    const handleIdleLogout = useCallback(async () => {
+        try {
+            await authService.logout();
+        } catch {
+            // Si la sesión ya venció en backend, continuamos limpiando estado local.
+        } finally {
+            logoutStore();
+            navigate('/login?session=idle', { replace: true });
+        }
+    }, [logoutStore, navigate]);
+
+    useSessionIdleTimeout({
+        enabled: isAuthenticated,
+        timeoutSeconds: sessionIdleTimeoutSeconds,
+        onIdleLogout: handleIdleLogout,
+    });
 
     // Carga inicial de datos de la organización al montar el layout principal
     useEffect(() => {
@@ -36,7 +57,7 @@ const MainLayout = () => {
     }, [isAuthenticated, organizationLoaded, loadingOrg, fetchOrganization]);
 
     // Mantiene permisos/perfil sincronizados con backend sin exigir re-login.
-    const syncAuthenticatedUser = useCallback(async (force = false) => {
+    const syncAuthenticatedUser = useCallback(async (force = false, background = false) => {
         if (!isAuthenticated) return;
 
         const now = Date.now();
@@ -44,7 +65,7 @@ const MainLayout = () => {
         lastPermissionSyncRef.current = now;
 
         try {
-            const backendUser = await authService.getCurrentUser();
+            const backendUser = await authService.getCurrentUser({ background });
             setAuthUser(backendUser);
         } catch {
             // El interceptor global de axios ya maneja 401 y expiracion.
@@ -73,7 +94,7 @@ const MainLayout = () => {
     useEffect(() => {
         if (!isAuthenticated) return undefined;
         const intervalId = window.setInterval(() => {
-            void syncAuthenticatedUser(false);
+            void syncAuthenticatedUser(false, true);
         }, 45000);
         return () => window.clearInterval(intervalId);
     }, [isAuthenticated, syncAuthenticatedUser]);

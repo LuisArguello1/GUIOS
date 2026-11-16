@@ -58,6 +58,7 @@ from ..serializers.evaluation_serializers import (
     ApplyDecisorInputSerializer,
     RateSubfactorsInputSerializer,
     AISuggestImportanceInputSerializer,
+    AISuggestFactorBatchInputSerializer,
     AISuggestRatingInputSerializer,
     RepoHealthSyncInputSerializer,
 )
@@ -426,6 +427,54 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
     # 6. ASISTENCIA COGNITIVA DE IA (SUGERENCIAS ORIENTATIVAS RN-05)
     # ─────────────────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _suggest_or_reuse_factor_importance(eval_obj: Evaluation, eval_factor: EvaluationFactor) -> dict:
+        """Reutiliza sugerencia previa o solicita a IA la Importancia del Decisor para un factor."""
+        if eval_factor.ai_suggested_id and eval_factor.ai_id_justification:
+            return {
+                'factor_id': eval_factor.factor_id,
+                'suggested_id': eval_factor.ai_suggested_id,
+                'justification': eval_factor.ai_id_justification,
+            }
+        suggestion = ai_service.suggest_factor_importance(
+            evaluation=eval_obj,
+            factor=eval_factor.factor,
+            is_suggested=eval_factor.systemic_importance_snapshot,
+        )
+        eval_factor.ai_suggested_id = suggestion.get('suggested_id')
+        eval_factor.ai_id_justification = suggestion.get('justification', '')
+        eval_factor.save(update_fields=['ai_suggested_id', 'ai_id_justification'])
+        return {
+            'factor_id': eval_factor.factor_id,
+            **suggestion,
+        }
+
+    @staticmethod
+    def _suggest_or_reuse_factor_ratings(eval_obj: Evaluation, factor_id: int, rows: list[EvaluationSubfactor]) -> list[dict]:
+        """Reutiliza sugerencias previas y solicita a IA únicamente los subfactores pendientes de un factor."""
+        existing = []
+        pending_rows = []
+        for row in rows:
+            if row.ai_suggested_rating and row.ai_rating_justification:
+                existing.append({
+                    'subfactor_id': row.subfactor_id,
+                    'suggested_rating': row.ai_suggested_rating,
+                    'justification': row.ai_rating_justification,
+                })
+            else:
+                pending_rows.append(row)
+
+        if not pending_rows:
+            return existing
+
+        suggestion = ai_service.suggest_factor_ratings(
+            evaluation=eval_obj,
+            factor=pending_rows[0].subfactor.factor,
+            subfactors=[row.subfactor for row in pending_rows],
+        )
+        stored = store_factor_rating_suggestions(pending_rows, suggestion.get('ratings') or {})
+        return existing + stored
+
     @action(detail=True, methods=['post'], url_path='ai-suggest-importance')
     def ai_suggest_importance(self, request, uuid=None):
         """
@@ -454,14 +503,7 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
             return Response({'error': f'Factor #{factor_id} no está registrado en la evaluación.'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            suggestion = ai_service.suggest_factor_importance(
-                evaluation=eval_obj,
-                factor=eval_factor.factor,
-                is_suggested=eval_factor.systemic_importance_snapshot,
-            )
-            eval_factor.ai_suggested_id = suggestion.get('suggested_id')
-            eval_factor.ai_id_justification = suggestion.get('justification', '')
-            eval_factor.save(update_fields=['ai_suggested_id', 'ai_id_justification'])
+            suggestion = self._suggest_or_reuse_factor_importance(eval_obj, eval_factor)
             return Response(suggestion, status=status.HTTP_200_OK)
 
         except Exception as exc:
@@ -470,6 +512,63 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
                 {'error': 'El servicio de IA no se encuentra disponible temporalmente. Puede continuar manualmente.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
+
+    @action(detail=True, methods=['post'], url_path='ai-suggest-importance-batch')
+    def ai_suggest_importance_batch(self, request, uuid=None):
+        """
+        POST /api/v1/guios/public/evaluations/{uuid}/ai-suggest-importance-batch/
+        Sugerencia asistida por IA de ID en lote para varios factores (dimensión o evaluación completa).
+        """
+        serializer = AISuggestFactorBatchInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        requested_ids = list(dict.fromkeys(serializer.validated_data['factor_ids']))
+
+        try:
+            eval_obj = get_evaluation_by_uuid_or_error(uuid)
+        except EvaluationNotFoundError as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        consent_error = require_ai_consent_response(eval_obj)
+        if consent_error is not None:
+            return consent_error
+
+        factors_by_id = {
+            ef.factor_id: ef
+            for ef in EvaluationFactor.objects.select_related('factor').filter(
+                evaluation=eval_obj,
+                factor_id__in=requested_ids,
+            )
+        }
+        if not factors_by_id:
+            return Response(
+                {'error': 'Ninguno de los factores solicitados pertenece a esta evaluación.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        suggestions = []
+        errors = []
+        for factor_id in requested_ids:
+            eval_factor = factors_by_id.get(factor_id)
+            if not eval_factor:
+                continue
+            try:
+                suggestions.append(self._suggest_or_reuse_factor_importance(eval_obj, eval_factor))
+            except Exception as exc:
+                logger.exception(
+                    "Error al sugerir ID en lote para factor %s en evaluación pública %s: %s",
+                    factor_id,
+                    uuid,
+                    exc,
+                )
+                errors.append({'factor_id': factor_id, 'error': 'No se pudo generar sugerencia.'})
+
+        if not suggestions and errors:
+            return Response(
+                {'error': 'El servicio de IA no se encuentra disponible temporalmente. Puede continuar manualmente.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response({'suggestions': suggestions, 'errors': errors}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='ai-suggest-rating')
     def ai_suggest_rating(self, request, uuid=None):
@@ -497,6 +596,15 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
             )
         except EvaluationSubfactor.DoesNotExist:
             return Response({'error': f'Subfactor #{subfactor_id} no está registrado en la evaluación.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if eval_subfactor.ai_suggested_rating and eval_subfactor.ai_rating_justification:
+            return Response(
+                {
+                    'suggested_rating': eval_subfactor.ai_suggested_rating,
+                    'justification': eval_subfactor.ai_rating_justification,
+                },
+                status=status.HTTP_200_OK,
+            )
 
         try:
             suggestion = ai_service.suggest_subfactor_rating(
@@ -548,12 +656,7 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
             )
 
         try:
-            suggestion = ai_service.suggest_factor_ratings(
-                evaluation=eval_obj,
-                factor=rows[0].subfactor.factor,
-                subfactors=[row.subfactor for row in rows],
-            )
-            stored = store_factor_rating_suggestions(rows, suggestion.get('ratings') or {})
+            stored = self._suggest_or_reuse_factor_ratings(eval_obj, factor_id, rows)
             return Response({'factor_id': factor_id, 'ratings': stored}, status=status.HTTP_200_OK)
         except Exception as exc:
             logger.exception(
@@ -566,6 +669,67 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
                 {'error': 'El servicio de IA no se encuentra disponible temporalmente. Puede continuar manualmente.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
+
+    @action(detail=True, methods=['post'], url_path='ai-suggest-factor-ratings-batch')
+    def ai_suggest_factor_ratings_batch(self, request, uuid=None):
+        """
+        POST /api/v1/guios/public/evaluations/{uuid}/ai-suggest-factor-ratings-batch/
+        Califica con IA en lote los subfactores de múltiples factores relevantes.
+        """
+        serializer = AISuggestFactorBatchInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        requested_ids = list(dict.fromkeys(serializer.validated_data['factor_ids']))
+
+        try:
+            eval_obj = get_evaluation_by_uuid_or_error(uuid)
+        except EvaluationNotFoundError as e:
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        consent_error = require_ai_consent_response(eval_obj)
+        if consent_error is not None:
+            return consent_error
+
+        all_rows = list(
+            EvaluationSubfactor.objects.select_related('subfactor', 'subfactor__factor').filter(
+                evaluation=eval_obj,
+                subfactor__factor_id__in=requested_ids,
+            )
+        )
+        rows_by_factor: dict[int, list[EvaluationSubfactor]] = {}
+        for row in all_rows:
+            rows_by_factor.setdefault(row.subfactor.factor_id, []).append(row)
+
+        if not rows_by_factor:
+            return Response(
+                {'error': 'Ninguno de los factores solicitados tiene subfactores en esta evaluación.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        results = []
+        errors = []
+        for factor_id in requested_ids:
+            factor_rows = rows_by_factor.get(factor_id)
+            if not factor_rows:
+                continue
+            try:
+                stored = self._suggest_or_reuse_factor_ratings(eval_obj, factor_id, factor_rows)
+                results.append({'factor_id': factor_id, 'ratings': stored})
+            except Exception as exc:
+                logger.exception(
+                    "Error al sugerir calificaciones en lote para factor %s en evaluación pública %s: %s",
+                    factor_id,
+                    uuid,
+                    exc,
+                )
+                errors.append({'factor_id': factor_id, 'error': 'No se pudo calificar este factor.'})
+
+        if not results and errors:
+            return Response(
+                {'error': 'El servicio de IA no se encuentra disponible temporalmente. Puede continuar manualmente.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response({'results': results, 'errors': errors}, status=status.HTTP_200_OK)
 
     # ─────────────────────────────────────────────────────────────────────────
     # 7. EXPORTACIÓN PÚBLICA DE REPORTES (PDF Y EXCEL)

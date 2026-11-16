@@ -79,6 +79,9 @@ describe('EvaluationVerdictSWOTTab', () => {
     expect(
       screen.getByText('Dictamen Institucional en Proceso'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/El plan de mitigación se estructurará cuando se emita el dictamen institucional\./i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/FORTALEZAS \(F\)/)).toBeInTheDocument();
   });
 

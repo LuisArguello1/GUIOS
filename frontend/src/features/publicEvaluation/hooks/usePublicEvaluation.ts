@@ -113,6 +113,7 @@ export const usePublicEvaluation = () => {
     const [aiLoadingFactors, setAiLoadingFactors] = useState<Record<number, boolean>>({});
     const [aiLoadingSubfactors, setAiLoadingSubfactors] = useState<Record<number, boolean>>({});
     const [aiSuggesting, setAiSuggesting] = useState<'importance' | 'ratings' | null>(null);
+    const [aiBatchProgress, setAiBatchProgress] = useState<string | null>(null);
     const [syncingRepoHealth, setSyncingRepoHealth] = useState<boolean>(false);
     const autoSyncedRepoRef = useRef<string | null>(null);
     const aiRequestEpochRef = useRef<number>(0);
@@ -910,6 +911,139 @@ export const usePublicEvaluation = () => {
         [evaluation, evaluationUuid, decisorMap, addToast]
     );
 
+    const handleAISuggestBatchImportance = useCallback(
+        async (factorIds: number[]) => {
+            if (!evaluationUuid || !evaluation) return;
+            const uniqueIds = Array.from(new Set(factorIds));
+            const pendingIds = uniqueIds.filter((factorId) => {
+                const storedFactor = evaluation.factors?.find((f) => f.factor_id === factorId);
+                const hasLocal = Boolean(decisorMap[factorId]?.ai_justification && decisorMap[factorId]?.ai_suggested);
+                const hasStored = Boolean(storedFactor?.ai_id_justification && storedFactor?.ai_suggested_id);
+                return !hasLocal && !hasStored;
+            });
+
+            if (pendingIds.length === 0) {
+                addToast({
+                    type: 'info',
+                    message: 'Los factores seleccionados ya tienen sugerencias de IA listas.',
+                });
+                return;
+            }
+
+            const requestEpoch = aiRequestEpochRef.current;
+            const CHUNK_SIZE = 3;
+            const total = pendingIds.length;
+            let processed = 0;
+            let generatedCount = 0;
+            let hadErrors = false;
+
+            setAiSuggesting('importance');
+            setAiBatchProgress(`Analizando ${total} factor(es) pendiente(s)...`);
+            setAiLoadingFactors((prev) => {
+                const next = { ...prev };
+                pendingIds.forEach((id) => {
+                    next[id] = true;
+                });
+                return next;
+            });
+
+            try {
+                for (let i = 0; i < total; i += CHUNK_SIZE) {
+                    if (aiRequestEpochRef.current !== requestEpoch) break;
+                    const chunk = pendingIds.slice(i, i + CHUNK_SIZE);
+                    setAiBatchProgress(
+                        `Sugiriendo factores ${processed + 1}–${Math.min(processed + chunk.length, total)} de ${total}...`
+                    );
+
+                    const res = await publicEvaluationService.aiSuggestImportanceBatch(evaluationUuid, chunk);
+                    if (aiRequestEpochRef.current !== requestEpoch) break;
+
+                    const suggestions = res.suggestions || [];
+                    generatedCount += suggestions.length;
+                    if (res.errors && res.errors.length > 0) {
+                        hadErrors = true;
+                    }
+
+                    if (suggestions.length > 0) {
+                        setDecisorMap((prev) => {
+                            const next = { ...prev };
+                            for (const item of suggestions) {
+                                const current = next[item.factor_id];
+                                const factorMeta = evaluation.factors?.find((f) => f.factor_id === item.factor_id);
+                                next[item.factor_id] = {
+                                    id_value: current?.user_adjusted ? current.id_value : item.suggested_id,
+                                    scope: current?.scope || (factorMeta?.scope_used === 'external' ? 'external' : 'internal'),
+                                    is_modified: true,
+                                    ai_suggested: item.suggested_id,
+                                    ai_justification: item.justification,
+                                    user_adjusted: current?.user_adjusted ?? false,
+                                };
+                            }
+                            return next;
+                        });
+
+                        setEvaluation((prev) =>
+                            prev
+                                ? {
+                                      ...prev,
+                                      factors: (prev.factors || []).map((factor) => {
+                                          const item = suggestions.find((s) => s.factor_id === factor.factor_id);
+                                          if (!item) return factor;
+                                          return {
+                                              ...factor,
+                                              ai_suggested_id: item.suggested_id,
+                                              ai_id_justification: item.justification,
+                                          };
+                                      }),
+                                  }
+                                : prev
+                        );
+                    }
+
+                    processed += chunk.length;
+                    setAiLoadingFactors((prev) => {
+                        const next = { ...prev };
+                        chunk.forEach((id) => {
+                            next[id] = false;
+                        });
+                        return next;
+                    });
+                }
+
+                if (aiRequestEpochRef.current === requestEpoch) {
+                    if (generatedCount > 0) {
+                        addToast({
+                            type: hadErrors ? 'warning' : 'info',
+                            message: hadErrors
+                                ? `Sugerencias generadas para ${generatedCount} factor(es). Algunos factores fallaron y puedes reintentarlos.`
+                                : `Sugerencias listas para ${generatedCount} factor(es). Revísalas antes de guardar.`,
+                        });
+                    }
+                }
+            } catch (err: unknown) {
+                if (aiRequestEpochRef.current !== requestEpoch) return;
+                const message = getErrorDetail(
+                    err,
+                    'El asistente de IA no pudo completar el lote de sugerencias en este momento.'
+                );
+                addToast({ type: 'warning', message });
+            } finally {
+                if (aiRequestEpochRef.current === requestEpoch) {
+                    setAiLoadingFactors((prev) => {
+                        const next = { ...prev };
+                        pendingIds.forEach((id) => {
+                            next[id] = false;
+                        });
+                        return next;
+                    });
+                    setAiSuggesting(null);
+                    setAiBatchProgress(null);
+                }
+            }
+        },
+        [evaluation, evaluationUuid, decisorMap, addToast]
+    );
+
     /**
      * Solicita sugerencia de calificación de cumplimiento para un subfactor.
      */
@@ -1012,9 +1146,175 @@ export const usePublicEvaluation = () => {
         [evaluation, evaluationUuid, subfactorRatingsMap, addToast]
     );
 
+    const handleAISuggestBatchFactorRatings = useCallback(
+        async (factorIds: number[]) => {
+            if (!evaluationUuid || !evaluation) return;
+            const uniqueFactorIds = Array.from(new Set(factorIds));
+            const pendingFactorIds = uniqueFactorIds.filter((factorId) => {
+                const factorSubs = (evaluation.subfactors || []).filter((sf) => sf.factor_id === factorId);
+                if (factorSubs.length === 0) return false;
+                return factorSubs.some((sf) => {
+                    const local = subfactorRatingsMap[sf.subfactor_id];
+                    return !(local?.ai_justification || sf.ai_rating_justification);
+                });
+            });
+
+            if (pendingFactorIds.length === 0) {
+                addToast({
+                    type: 'info',
+                    message: 'Todos los factores seleccionados ya cuentan con sugerencias de IA.',
+                });
+                return;
+            }
+
+            const pendingSubIds = (evaluation.subfactors || [])
+                .filter((sf) => pendingFactorIds.includes(sf.factor_id))
+                .map((sf) => sf.subfactor_id);
+
+            const requestEpoch = aiRequestEpochRef.current;
+            const CHUNK_SIZE = 2;
+            const total = pendingFactorIds.length;
+            let processed = 0;
+            let generatedFactors = 0;
+            let generatedRatingsCount = 0;
+            let hadErrors = false;
+
+            setAiSuggesting('ratings');
+            setAiBatchProgress(`Calificando ${total} factor(es) relevante(s)...`);
+            setAiLoadingSubfactors((prev) => {
+                const next = { ...prev };
+                pendingSubIds.forEach((id) => {
+                    next[id] = true;
+                });
+                return next;
+            });
+
+            try {
+                for (let i = 0; i < total; i += CHUNK_SIZE) {
+                    if (aiRequestEpochRef.current !== requestEpoch) break;
+                    const chunk = pendingFactorIds.slice(i, i + CHUNK_SIZE);
+                    setAiBatchProgress(
+                        `Calificando factores ${processed + 1}–${Math.min(processed + chunk.length, total)} de ${total}...`
+                    );
+
+                    const res = await publicEvaluationService.aiSuggestFactorRatingsBatch(evaluationUuid, chunk);
+                    if (aiRequestEpochRef.current !== requestEpoch) break;
+
+                    const results = res.results || [];
+                    if (res.errors && res.errors.length > 0) {
+                        hadErrors = true;
+                    }
+
+                    const allRatings = results.flatMap((group) => group.ratings || []);
+                    generatedFactors += results.length;
+                    generatedRatingsCount += allRatings.length;
+
+                    if (allRatings.length > 0) {
+                        setSubfactorRatingsMap((prev) => {
+                            const next = { ...prev };
+                            for (const item of allRatings) {
+                                const current = next[item.subfactor_id];
+                                if (current?.ai_justification || current?.user_adjusted) continue;
+                                next[item.subfactor_id] = {
+                                    rating: item.suggested_rating,
+                                    is_modified: true,
+                                    ai_suggested: item.suggested_rating,
+                                    ai_justification: item.justification,
+                                    user_adjusted: false,
+                                };
+                            }
+                            return next;
+                        });
+
+                        setEvaluation((prev) =>
+                            prev
+                                ? {
+                                      ...prev,
+                                      subfactors: (prev.subfactors || []).map((sf) => {
+                                          const item = allRatings.find((r) => r.subfactor_id === sf.subfactor_id);
+                                          if (!item || sf.ai_rating_justification) return sf;
+                                          return {
+                                              ...sf,
+                                              ai_suggested_rating: item.suggested_rating,
+                                              ai_rating_justification: item.justification,
+                                          };
+                                      }),
+                                  }
+                                : prev
+                        );
+                    }
+
+                    processed += chunk.length;
+                    const chunkSubIds = (evaluation.subfactors || [])
+                        .filter((sf) => chunk.includes(sf.factor_id))
+                        .map((sf) => sf.subfactor_id);
+                    setAiLoadingSubfactors((prev) => {
+                        const next = { ...prev };
+                        chunkSubIds.forEach((id) => {
+                            next[id] = false;
+                        });
+                        return next;
+                    });
+                }
+
+                if (aiRequestEpochRef.current === requestEpoch && generatedFactors > 0) {
+                    addToast({
+                        type: hadErrors ? 'warning' : 'info',
+                        message: hadErrors
+                            ? `Sugerencias generadas para ${generatedFactors} factor(es). Algunos fallaron y puedes reintentarlos.`
+                            : `Sugerencias listas para ${generatedRatingsCount} subfactores en ${generatedFactors} factor(es). Revísalas y guárdalas.`,
+                    });
+                }
+            } catch (err: unknown) {
+                if (aiRequestEpochRef.current !== requestEpoch) return;
+                const message = getErrorDetail(
+                    err,
+                    'El asistente de IA no pudo calificar todos los factores en este momento.'
+                );
+                addToast({ type: 'warning', message });
+            } finally {
+                if (aiRequestEpochRef.current === requestEpoch) {
+                    setAiLoadingSubfactors((prev) => {
+                        const next = { ...prev };
+                        pendingSubIds.forEach((id) => {
+                            next[id] = false;
+                        });
+                        return next;
+                    });
+                    setAiSuggesting(null);
+                    setAiBatchProgress(null);
+                }
+            }
+        },
+        [evaluation, evaluationUuid, subfactorRatingsMap, addToast]
+    );
+
     const handleAISuggestRating = useCallback(
         async (subfactorId: number) => {
             if (!evaluationUuid) return;
+            const existingDraft = subfactorRatingsMap[subfactorId];
+            const storedSf = evaluation?.subfactors?.find((sf) => sf.subfactor_id === subfactorId);
+            const existingJustification = existingDraft?.ai_justification || storedSf?.ai_rating_justification;
+            const existingRating = existingDraft?.ai_suggested ?? storedSf?.ai_suggested_rating;
+            if (existingJustification && existingRating) {
+                setSubfactorRatingsMap((prev) => ({
+                    ...prev,
+                    [subfactorId]: {
+                        ...(prev[subfactorId] || {
+                            rating: existingRating,
+                            is_modified: false,
+                        }),
+                        ai_suggested: existingRating,
+                        ai_justification: existingJustification,
+                    },
+                }));
+                addToast({
+                    type: 'info',
+                    message: 'Este subfactor ya cuenta con sugerencia de IA.',
+                });
+                return;
+            }
+
             const requestEpoch = aiRequestEpochRef.current;
             setAiLoadingSubfactors((prev) => ({ ...prev, [subfactorId]: true }));
 
@@ -1025,15 +1325,34 @@ export const usePublicEvaluation = () => {
                     setSubfactorRatingsMap((prev) => ({
                         ...prev,
                         [subfactorId]: {
-                            rating: res.suggested_rating!,
-                            is_modified: false,
+                            rating: prev[subfactorId]?.user_adjusted
+                                ? prev[subfactorId].rating
+                                : res.suggested_rating!,
+                            is_modified: true,
                             ai_suggested: res.suggested_rating,
                             ai_justification: res.justification,
+                            user_adjusted: prev[subfactorId]?.user_adjusted ?? false,
                         },
                     }));
+                    setEvaluation((prev) =>
+                        prev
+                            ? {
+                                  ...prev,
+                                  subfactors: (prev.subfactors || []).map((sf) =>
+                                      sf.subfactor_id === subfactorId
+                                          ? {
+                                                ...sf,
+                                                ai_suggested_rating: res.suggested_rating,
+                                                ai_rating_justification: res.justification,
+                                            }
+                                          : sf
+                                  ),
+                              }
+                            : prev
+                    );
                     addToast({
                         type: 'info',
-                        message: `Sugerencia IA aplicada: ${res.suggested_rating} de 4.`,
+                        message: `Sugerencia IA aplicada: ${res.suggested_rating} de 4. Revísala antes de guardar.`,
                     });
                 }
             } catch (err: unknown) {
@@ -1047,7 +1366,7 @@ export const usePublicEvaluation = () => {
                 setAiLoadingSubfactors((prev) => ({ ...prev, [subfactorId]: false }));
             }
         },
-        [evaluationUuid, addToast]
+        [evaluation, evaluationUuid, subfactorRatingsMap, addToast]
     );
 
     // ── 6. Descarga de Dossier en PDF y Excel ──
@@ -1443,6 +1762,7 @@ export const usePublicEvaluation = () => {
     const handleSkipAiThinking = useCallback(async () => {
         aiRequestEpochRef.current += 1;
         setAiSuggesting(null);
+        setAiBatchProgress(null);
         setAiLoadingFactors({});
         setAiLoadingSubfactors({});
 
@@ -1544,6 +1864,7 @@ export const usePublicEvaluation = () => {
         aiLoadingFactors,
         aiLoadingSubfactors,
         aiSuggesting,
+        aiBatchProgress,
         syncingRepoHealth,
 
         // Acciones asíncronas
@@ -1552,7 +1873,9 @@ export const usePublicEvaluation = () => {
         handleSaveSubfactorRatings,
         handleEmitVerdict,
         handleAISuggestImportance,
+        handleAISuggestBatchImportance,
         handleAISuggestFactorRatings,
+        handleAISuggestBatchFactorRatings,
         handleAISuggestRating,
         handleSyncRepoHealth,
         handleDownloadPdf,

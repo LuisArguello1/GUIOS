@@ -157,11 +157,17 @@ export const EvaluationVerdictSWOTTab: React.FC<EvaluationVerdictSWOTTabProps> =
                 {/* Contenido a Ancho Completo */}
                 <div className="p-4 sm:p-5">
                     {activeReportTab === 'mitigation' ? (
-                        <MitigationPlanTable
-                            evaluation={evaluation}
-                            mitigationPlanText={verdict?.ai_mitigation_plan}
-                            onViewFactorDetails={onViewFactorDetails}
-                        />
+                        verdict ? (
+                            <MitigationPlanTable
+                                evaluation={evaluation}
+                                mitigationPlanText={verdict?.ai_mitigation_plan}
+                                onViewFactorDetails={onViewFactorDetails}
+                            />
+                        ) : (
+                            <p className="text-xs text-[var(--color-text-tertiary)] italic py-4 text-center">
+                                El plan de mitigación se estructurará cuando se emita el dictamen institucional.
+                            </p>
+                        )
                     ) : (
                         <div className="space-y-2">
                             <div className="flex items-center gap-1.5 pb-2 border-b border-[var(--color-border-subtle)]">

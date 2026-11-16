@@ -44,9 +44,19 @@ export interface PublicCatalogDimension {
 }
 
 export interface AISuggestionResponse {
+    factor_id?: number;
     suggested_id?: number;
     suggested_rating?: number;
     justification: string;
+}
+
+export interface ImportanceBatchSuggestionResponse {
+    suggestions: Array<{
+        factor_id: number;
+        suggested_id: number;
+        justification: string;
+    }>;
+    errors?: Array<{ factor_id: number; error: string }>;
 }
 
 export interface FactorRatingsSuggestion {
@@ -56,6 +66,11 @@ export interface FactorRatingsSuggestion {
         suggested_rating: number;
         justification: string;
     }>;
+}
+
+export interface FactorRatingsBatchSuggestionResponse {
+    results: FactorRatingsSuggestion[];
+    errors?: Array<{ factor_id: number; error: string }>;
 }
 
 const publicEvaluationService = {
@@ -176,10 +191,28 @@ const publicEvaluationService = {
         return response.data;
     },
 
+    async aiSuggestImportanceBatch(uuid: string, factorIds: number[]): Promise<ImportanceBatchSuggestionResponse> {
+        const response = await api.post<ImportanceBatchSuggestionResponse>(
+            ENDPOINTS.GUIOS.PUBLIC_EVALUATION_AI_SUGGEST_IMPORTANCE_BATCH(uuid),
+            { factor_ids: factorIds },
+            { timeout: 120000 }
+        );
+        return response.data;
+    },
+
     async aiSuggestFactorRatings(uuid: string, factorId: number): Promise<FactorRatingsSuggestion> {
         const response = await api.post<FactorRatingsSuggestion>(
             ENDPOINTS.GUIOS.PUBLIC_EVALUATION_AI_SUGGEST_FACTOR_RATINGS(uuid),
             { factor_id: factorId },
+            { timeout: 120000 }
+        );
+        return response.data;
+    },
+
+    async aiSuggestFactorRatingsBatch(uuid: string, factorIds: number[]): Promise<FactorRatingsBatchSuggestionResponse> {
+        const response = await api.post<FactorRatingsBatchSuggestionResponse>(
+            ENDPOINTS.GUIOS.PUBLIC_EVALUATION_AI_SUGGEST_FACTOR_RATINGS_BATCH(uuid),
+            { factor_ids: factorIds },
             { timeout: 120000 }
         );
         return response.data;

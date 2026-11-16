@@ -23,9 +23,11 @@ interface Group {
     [key: string]: unknown;
 }
 
+const DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS = 1800;
+
 type PersistedAuthState = Pick<
     AuthState,
-    'user' | 'groups' | 'selectedGroup' | 'isAuthenticated' | 'sessionJti'
+    'user' | 'groups' | 'selectedGroup' | 'isAuthenticated' | 'sessionJti' | 'sessionIdleTimeoutSeconds'
 > & {
     tokens?: unknown;
 };
@@ -36,6 +38,7 @@ const EMPTY_PERSISTED_AUTH_STATE: PersistedAuthState = {
     selectedGroup: null,
     isAuthenticated: false,
     sessionJti: '',
+    sessionIdleTimeoutSeconds: DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
 };
 
 const isPersistedAuthState = (value: unknown): value is PersistedAuthState =>
@@ -48,11 +51,13 @@ interface AuthState {
     selectedGroup: Group | null;
     isAuthenticated: boolean;
     sessionJti: string;
+    sessionIdleTimeoutSeconds: number;
 
     loginSuccess: (authData: {
         user: User;
         groups: Group[];
         session_jti?: string;
+        session_idle_timeout_seconds?: number;
     }) => { requires_selection: boolean };
     setRole: (group: Group) => void;
     setGroups: (groups: Group[]) => void;
@@ -76,10 +81,11 @@ const useAuthStore = create<AuthState>()(
             selectedGroup: null,
             isAuthenticated: false,
             sessionJti: '',
+            sessionIdleTimeoutSeconds: DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
             requiresTermsAcceptance: false,
 
             loginSuccess: (authData) => {
-                const { user, groups, session_jti } = authData;
+                const { user, groups, session_jti, session_idle_timeout_seconds } = authData;
                 const normalizedUser = normalizePermissionFields(user);
 
                 const defaultRole =
@@ -97,6 +103,10 @@ const useAuthStore = create<AuthState>()(
                     isAuthenticated: true,
                     selectedGroup: defaultRole,
                     sessionJti: session_jti || '',
+                    sessionIdleTimeoutSeconds:
+                        typeof session_idle_timeout_seconds === 'number' && session_idle_timeout_seconds > 0
+                            ? session_idle_timeout_seconds
+                            : DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
                 });
 
                 return { requires_selection: groups.length > 1 };
@@ -119,6 +129,7 @@ const useAuthStore = create<AuthState>()(
                 if (typeof window !== 'undefined') {
                     localStorage.removeItem('access_token');
                     localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('guios_last_activity');
                 }
 
                 useCoreStore.getState().resetMenu();
@@ -129,6 +140,7 @@ const useAuthStore = create<AuthState>()(
                     selectedGroup: null,
                     isAuthenticated: false,
                     sessionJti: '',
+                    sessionIdleTimeoutSeconds: DEFAULT_SESSION_IDLE_TIMEOUT_SECONDS,
                 });
             },
 
@@ -163,6 +175,7 @@ const useAuthStore = create<AuthState>()(
                 selectedGroup: state.selectedGroup,
                 isAuthenticated: state.isAuthenticated,
                 sessionJti: state.sessionJti,
+                sessionIdleTimeoutSeconds: state.sessionIdleTimeoutSeconds,
             }),
         }
     )

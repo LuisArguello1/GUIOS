@@ -144,6 +144,10 @@ describe('Step3VerdictSWOT', () => {
     expect(
       screen.getByText(/Se sugiere analizar la adopción y posponerla/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/El plan de mitigación se generará y estructurará automáticamente al emitir el dictamen final\./i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Plan de Mitigación de Brechas Metodológicas/i)).not.toBeInTheDocument();
   });
 
   it('muestra el dictamen oficial persistido y permite cambiar a Resumen Ejecutivo', () => {

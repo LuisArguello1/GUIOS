@@ -31,6 +31,7 @@ const PHASE_MESSAGES: Record<AiThinkingPhase, string[]> = {
 
 interface AiThinkingOverlayProps {
     phase: AiThinkingPhase;
+    progressText?: string | null;
     onSkip?: () => void;
 }
 
@@ -39,7 +40,7 @@ interface AiThinkingOverlayProps {
  * Totalmente sobrio: orbe de cristal + "Thinking..." + tarea en curso debajo.
  * Dimensiones estrictamente fijas: CERO saltos o movimientos al cambiar de texto.
  */
-const AiThinkingOverlay = ({ phase, onSkip }: AiThinkingOverlayProps) => {
+const AiThinkingOverlay = ({ phase, progressText, onSkip }: AiThinkingOverlayProps) => {
     const messages = PHASE_MESSAGES[phase];
     const [index, setIndex] = useState(0);
 
@@ -138,13 +139,19 @@ const AiThinkingOverlay = ({ phase, onSkip }: AiThinkingOverlayProps) => {
                     </span>
                     {/* Viewport fijo de 20px: previene cualquier salto vertical o resize horizontal */}
                     <div className="h-[20px] mt-1.5 flex items-center overflow-hidden">
-                        <span
-                            key={`${phase}-${index}`}
-                            className="text-[11px] sm:text-[12px] leading-tight text-[#636366] truncate block select-none"
-                            style={{ animation: 'guios-message-fade 2.8s ease-in-out' }}
-                        >
-                            {messages[index]}
-                        </span>
+                        {progressText ? (
+                            <span className="text-[11px] sm:text-[12px] leading-tight text-white/75 truncate block select-none font-mono">
+                                {progressText}
+                            </span>
+                        ) : (
+                            <span
+                                key={`${phase}-${index}`}
+                                className="text-[11px] sm:text-[12px] leading-tight text-[#636366] truncate block select-none"
+                                style={{ animation: 'guios-message-fade 2.8s ease-in-out' }}
+                            >
+                                {messages[index]}
+                            </span>
+                        )}
                     </div>
                 </div>
                 </div>
@@ -155,7 +162,7 @@ const AiThinkingOverlay = ({ phase, onSkip }: AiThinkingOverlayProps) => {
                         onClick={onSkip}
                         className="rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-medium text-white/85 transition hover:bg-white/20 hover:text-white cursor-pointer"
                     >
-                        Continuar sin IA
+                        {phase === 'literature' ? 'Continuar sin IA' : 'Detener y revisar avances'}
                     </button>
                 )}
             </div>

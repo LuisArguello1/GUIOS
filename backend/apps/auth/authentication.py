@@ -2,6 +2,7 @@ import logging
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken
 from .middleware.audit import set_audit_context
+from .services.auth import is_session_active, touch_session_activity
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,22 @@ class CookieJWTAuthentication(JWTAuthentication):
                 bool(request.COOKIES.get('access_token')),
             )
             return None
+
+        sid = validated_token.get('sid') if hasattr(validated_token, 'get') else None
+        if sid and not is_session_active(sid):
+            logger.warning(
+                "CookieJWTAuthentication: Sesión expirada por inactividad o revocada | sid=%s",
+                sid,
+            )
+            return None
+
+        # El sondeo silencioso de permisos (?background=1) no debe extender la ventana de inactividad.
+        is_background_poll = (
+            request.path.rstrip('/').endswith('/users/me')
+            and request.GET.get('background') == '1'
+        )
+        if sid and not is_background_poll:
+            touch_session_activity(sid)
 
         user = self.get_user(validated_token)
         return self._finalize_authentication(request, user, validated_token)

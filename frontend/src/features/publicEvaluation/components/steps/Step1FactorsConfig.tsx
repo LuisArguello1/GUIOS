@@ -25,6 +25,7 @@ import { clsx } from 'clsx';
 
 import Button from '../../../../components/ui/Button';
 import FactorSourcesModal from '../../../guios/evaluations/components/detail/FactorSourcesModal';
+import AISuggestSelector from '../ui/AISuggestSelector';
 import type { EvaluationDetail, EvaluationFactorItem } from '../../../../api/evaluationService';
 import type { LocalDecisorState } from '../../hooks/usePublicEvaluation';
 
@@ -35,6 +36,7 @@ interface Step1FactorsConfigProps {
     onDecisorChange: (factorId: number, idValue: number) => void;
     onScopeChange: (factorId: number, scope: 'internal' | 'external') => void;
     onAISuggestImportance?: (factorId: number) => void;
+    onAISuggestBatchImportance?: (factorIds: number[]) => void;
     aiLoadingFactors?: Record<number, boolean>;
     onSaveDecisor: () => Promise<boolean>;
     isComputing: boolean;
@@ -91,6 +93,7 @@ export const Step1FactorsConfig: React.FC<Step1FactorsConfigProps> = ({
     onDecisorChange,
     onScopeChange,
     onAISuggestImportance,
+    onAISuggestBatchImportance,
     aiLoadingFactors,
     onSaveDecisor,
     isComputing,
@@ -119,6 +122,7 @@ export const Step1FactorsConfig: React.FC<Step1FactorsConfigProps> = ({
     const [chosenFactorId, setChosenFactorId] = useState<number | null>(null);
     const [isSourcesModalOpen, setIsSourcesModalOpen] = useState(false);
     const [mobileView, setMobileView] = useState<'detail' | 'list'>('detail');
+    const [aiSuggestScope, setAiSuggestScope] = useState<'factor' | 'dimension' | 'all'>('factor');
 
     const activeDimension =
         chosenDimension && dimensionNames.includes(chosenDimension)
@@ -280,6 +284,80 @@ export const Step1FactorsConfig: React.FC<Step1FactorsConfigProps> = ({
 
     const literatureSearchActive = evaluation.ai_status === 'searching';
     const literatureSearchFailed = evaluation.ai_enabled && evaluation.ai_status === 'failed';
+
+    const hasFactorAISuggestion = useCallback(
+        (factor: EvaluationFactorItem) => {
+            const local = decisorMap[factor.factor_id];
+            return Boolean(
+                (local?.ai_justification && local?.ai_suggested)
+                || (factor.ai_id_justification && factor.ai_suggested_id)
+            );
+        },
+        [decisorMap]
+    );
+
+    const dimensionPendingFactorIds = useMemo(
+        () =>
+            currentDimensionFactors
+                .filter((f) => !hasFactorAISuggestion(f))
+                .map((f) => f.factor_id),
+        [currentDimensionFactors, hasFactorAISuggestion]
+    );
+
+    const allPendingFactorIds = useMemo(
+        () =>
+            (evaluation.factors || [])
+                .filter((f) => !hasFactorAISuggestion(f))
+                .map((f) => f.factor_id),
+        [evaluation.factors, hasFactorAISuggestion]
+    );
+
+    const aiScopeOptions = useMemo(
+        () => [
+            {
+                value: 'factor',
+                label: 'Factor actual',
+                pendingCount: activeFactor ? (hasFactorAISuggestion(activeFactor) ? 0 : 1) : 0,
+            },
+            {
+                value: 'dimension',
+                label: `Dimensión ${activeDimension}`,
+                pendingCount: dimensionPendingFactorIds.length,
+            },
+            {
+                value: 'all',
+                label: 'Todos los factores',
+                pendingCount: allPendingFactorIds.length,
+            },
+        ],
+        [activeFactor, hasFactorAISuggestion, activeDimension, dimensionPendingFactorIds.length, allPendingFactorIds.length]
+    );
+
+    const isAnyFactorAILoading = useMemo(
+        () => Object.values(aiLoadingFactors || {}).some(Boolean),
+        [aiLoadingFactors]
+    );
+
+    const handleRunStep1AISuggest = useCallback(() => {
+        if (aiSuggestScope === 'factor') {
+            if (activeFactor && onAISuggestImportance) {
+                onAISuggestImportance(activeFactor.factor_id);
+            }
+            return;
+        }
+        if (aiSuggestScope === 'dimension') {
+            onAISuggestBatchImportance?.(dimensionPendingFactorIds);
+            return;
+        }
+        onAISuggestBatchImportance?.(allPendingFactorIds);
+    }, [
+        aiSuggestScope,
+        activeFactor,
+        onAISuggestImportance,
+        onAISuggestBatchImportance,
+        dimensionPendingFactorIds,
+        allPendingFactorIds,
+    ]);
 
     return (
         <div className="w-full flex-1 min-h-0 flex flex-col animate-fadeIn gap-2 overflow-hidden">
@@ -555,36 +633,37 @@ export const Step1FactorsConfig: React.FC<Step1FactorsConfigProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-2.5 flex-1 min-h-0 my-2 overflow-y-auto md:overflow-hidden pr-0.5">
                                 {/* Sub-Columna 1: Importancia del Decisor (ID) con Radio Buttons en FILAS Estiradas */}
                                 <div className="p-2.5 sm:p-3 bg-[var(--color-bg-page)] border border-[var(--color-border-subtle)] rounded-[6px] flex flex-col min-h-0 md:h-full overflow-hidden shrink-0" data-tour="decisor-selector">
-                                    <div className="shrink-0 pb-1">
+                                    <div className="shrink-0 pb-1 space-y-1.5">
                                         <div className="flex items-center justify-between gap-2">
                                             <label className="block text-xs font-bold text-[var(--color-text-primary)]">
                                                 {isReadOnly ? 'Imp. Decisor (Solo lectura • Bloqueado):' : 'Imp. Decisor (Interactiva):'}
                                             </label>
-                                            <div className="flex items-center gap-1.5">
-                                                {!isReadOnly && evaluation.ai_enabled && onAISuggestImportance && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="secondary"
-                                                        size="sm"
-                                                        onClick={() => onAISuggestImportance(activeFactor.factor_id)}
-                                                        disabled={
-                                                            isComputing
-                                                            || literatureSearchActive
-                                                            || Boolean(aiLoadingFactors?.[activeFactor.factor_id])
-                                                            || Boolean(activeLocalState.ai_justification)
-                                                        }
-                                                        className="h-6 px-2 text-[10px] font-bold ai-gold-btn"
-                                                        title={activeLocalState.ai_justification ? 'Este factor ya tiene una sugerencia de IA' : 'Pide la importancia solo de este factor'}
-                                                    >
-                                                        <Sparkles size={11} className={clsx('text-amber-400 shrink-0', aiLoadingFactors?.[activeFactor.factor_id] ? 'animate-spin' : '')} />
-                                                        <span>{activeLocalState.ai_justification ? 'Sugerencia lista' : 'Sugerir con IA'}</span>
-                                                    </Button>
-                                                )}
-                                                <span className="text-[10px] font-mono text-[var(--color-text-secondary)] font-medium px-2 py-0.5 rounded bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)]">
-                                                    ID: {activeLocalState.id_value} ({QUALITATIVE_LEVELS[activeLocalState.id_value]})
-                                                </span>
-                                            </div>
+                                            <span className="text-[10px] font-mono text-[var(--color-text-secondary)] font-medium px-2 py-0.5 rounded bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)]">
+                                                ID: {activeLocalState.id_value} ({QUALITATIVE_LEVELS[activeLocalState.id_value]})
+                                            </span>
                                         </div>
+                                        {!isReadOnly && evaluation.ai_enabled && (onAISuggestImportance || onAISuggestBatchImportance) && (
+                                            <div className="flex items-center justify-between gap-2 pt-0.5">
+                                                <AISuggestSelector
+                                                    options={aiScopeOptions}
+                                                    selectedScope={aiSuggestScope}
+                                                    onScopeChange={(scope) =>
+                                                        setAiSuggestScope(scope as 'factor' | 'dimension' | 'all')
+                                                    }
+                                                    onRun={handleRunStep1AISuggest}
+                                                    isLoading={isAnyFactorAILoading}
+                                                    disabled={isComputing || literatureSearchActive}
+                                                    allReadyForScope={
+                                                        aiSuggestScope === 'factor'
+                                                            ? Boolean(activeLocalState.ai_justification)
+                                                            : aiSuggestScope === 'dimension'
+                                                            ? dimensionPendingFactorIds.length === 0
+                                                            : allPendingFactorIds.length === 0
+                                                    }
+                                                    ariaLabel="Modo de sugerencia IA en Fase 1"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Radio buttons colocados en FILAS verticales con descripción explicativa y estirados */}
