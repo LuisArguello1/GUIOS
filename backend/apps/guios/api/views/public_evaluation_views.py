@@ -19,8 +19,9 @@ from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
-from apps.guios.models import Evaluation, EvaluationFactor, EvaluationSubfactor
+from apps.guios.models import Evaluation, EvaluationFactor, EvaluationSubfactor, EvaluationVerdict
 from apps.guios.exceptions import (
     EvaluationNotFoundError,
     EvaluationAlreadyCompletedError,
@@ -73,6 +74,23 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
     """
     permission_classes = [permissions.AllowAny]
     lookup_field = 'uuid'
+    ACTION_THROTTLE_SCOPES = {
+        'ai_suggest_importance': 'public_ai',
+        'ai_suggest_importance_batch': 'public_ai',
+        'ai_suggest_rating': 'public_ai',
+        'ai_suggest_factor_ratings': 'public_ai',
+        'ai_suggest_factor_ratings_batch': 'public_ai',
+        'export_pdf': 'public_export',
+        'export_excel': 'public_export',
+        'repo_health': 'public_repo_health',
+    }
+
+    def get_throttles(self):
+        self.throttle_scope = self.ACTION_THROTTLE_SCOPES.get(self.action)
+        throttles = super().get_throttles()
+        if self.throttle_scope:
+            throttles.append(ScopedRateThrottle())
+        return throttles
 
     def get_queryset(self):
         return Evaluation.objects.none()
@@ -130,15 +148,10 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
             return Response(EvaluationDetailOutputSerializer(detailed).data, status=status.HTTP_201_CREATED)
         except EvaluationValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            logger.exception("Error al crear evaluación pública: %s", e)
+        except Exception:
+            logger.exception("Error al crear evaluación pública")
             return Response(
-                {
-                    'error': f"Error al inicializar la sesión de evaluación: {str(e)}",
-                    'detail': str(e),
-                },
+                {'error': "Error interno al inicializar la sesión de evaluación."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -298,6 +311,15 @@ class PublicEvaluationViewSet(viewsets.GenericViewSet):
             eval_obj = get_evaluation_by_uuid_or_error(uuid)
         except EvaluationNotFoundError as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        if (
+            eval_obj.status == Evaluation.STATUS_COMPLETED
+            or EvaluationVerdict.objects.filter(evaluation_id=eval_obj.id).exists()
+        ):
+            return Response(
+                {'error': f"La evaluación #{eval_obj.id} ya cuenta con un dictamen emitido y se encuentra cerrada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         from apps.guios.services.methodology import (
             determine_final_recommendation,

@@ -135,12 +135,9 @@ class UserViewSet(viewsets.ModelViewSet):
             )
 
         result = user_delete_logic(user=user)
-        response_status = (
-            status.HTTP_204_NO_CONTENT
-            if result['action'] == 'HARD_DELETE'
-            else status.HTTP_200_OK
-        )
-        return Response(result, status=response_status)
+        if result['action'] == 'HARD_DELETE':
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(result, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='toggle-active')
     def toggle_active(self, request, pk=None):

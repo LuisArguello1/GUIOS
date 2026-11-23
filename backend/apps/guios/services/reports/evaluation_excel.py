@@ -12,6 +12,7 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from .excel_security import sanitize_excel_value
 from apps.guios.models import Evaluation, EvaluationResult
 from apps.guios.services.ai.verdict_narrative import (
     _fold_label,
@@ -59,10 +60,14 @@ class EvaluationExcelReport:
         buffer.seek(0)
         return buffer
 
+    @staticmethod
+    def _set_cell(ws, row: int, column: int, value):
+        return ws.cell(row=row, column=column, value=sanitize_excel_value(value))
+
     @classmethod
-    def _apply_header_style(cls, cell, text: str, secondary: bool = False):
+    def _apply_header_style(cls, cell, text: str, dark: bool = False, secondary: bool = False):
         bg = cls.COLOR_INK_SEC if secondary else cls.COLOR_INK
-        cell.value = text
+        cell.value = sanitize_excel_value(text)
         cell.font = Font(name="Calibri", size=10, bold=True, color=cls.COLOR_WHITE)
         cell.fill = PatternFill(start_color=bg, end_color=bg, fill_type="solid")
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -75,9 +80,9 @@ class EvaluationExcelReport:
     @classmethod
     def _style_sheet_title(cls, ws, title: str, subtitle: str):
         ws.views.sheetView[0].showGridLines = True
-        ws["A1"] = title
+        ws["A1"] = sanitize_excel_value(title)
         ws["A1"].font = Font(name="Calibri", size=13, bold=True, color=cls.COLOR_INK)
-        ws["A2"] = subtitle
+        ws["A2"] = sanitize_excel_value(subtitle)
         ws["A2"].font = Font(name="Calibri", size=9, italic=True, color=cls.COLOR_INK_MUTED)
         ws.freeze_panes = "A4"
 
@@ -141,8 +146,8 @@ class EvaluationExcelReport:
 
         zebra_fill = PatternFill(start_color=cls.COLOR_ZEBRA, end_color=cls.COLOR_ZEBRA, fill_type="solid")
         for r_idx, (k, v) in enumerate(rows, start=4):
-            c1 = ws.cell(row=r_idx, column=1, value=k)
-            c2 = ws.cell(row=r_idx, column=2, value=v)
+            c1 = cls._set_cell(ws, row=r_idx, column=1, value=k)
+            c2 = cls._set_cell(ws, row=r_idx, column=2, value=v)
             c1.font = Font(name="Calibri", size=9.5, bold=True, color=cls.COLOR_INK)
             c2.font = Font(name="Calibri", size=9.5, color=cls.COLOR_INK_SEC)
             c1.alignment = Alignment(vertical="center")
@@ -181,8 +186,8 @@ class EvaluationExcelReport:
         ]
         curr_row = 4
         for label, text_val in summary_rows:
-            c1 = ws.cell(row=curr_row, column=1, value=label)
-            c2 = ws.cell(row=curr_row, column=2, value=text_val or "No disponible")
+            c1 = cls._set_cell(ws, row=curr_row, column=1, value=label)
+            c2 = cls._set_cell(ws, row=curr_row, column=2, value=text_val or "No disponible")
             c1.font = Font(name="Calibri", size=9.5, bold=True, color=cls.COLOR_INK)
             c2.font = Font(name="Calibri", size=9.5, color=cls.COLOR_INK_SEC)
             c1.alignment = Alignment(vertical="top")
@@ -230,7 +235,7 @@ class EvaluationExcelReport:
                 matched.get("meta_aprobacion") or f"Alcanzar PM >= 3.00 en {ef.factor.name}.",
             ]
             for c_idx, val in enumerate(vals, start=1):
-                cell = ws.cell(row=curr_row, column=c_idx, value=val)
+                cell = cls._set_cell(ws, row=curr_row, column=c_idx, value=val)
                 cell.font = Font(name="Calibri", size=9, color=cls.COLOR_INK_SEC, bold=(c_idx in (1, 4)))
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
                 cls._apply_border(cell)
@@ -247,7 +252,7 @@ class EvaluationExcelReport:
                     srow.get("meta_aprobacion") or "Mantener PM >= 3.00.",
                 ]
                 for c_idx, val in enumerate(vals, start=1):
-                    cell = ws.cell(row=curr_row, column=c_idx, value=val)
+                    cell = cls._set_cell(ws, row=curr_row, column=c_idx, value=val)
                     cell.font = Font(name="Calibri", size=9, color=cls.COLOR_INK_SEC, bold=(c_idx in (1, 4)))
                     cell.alignment = Alignment(vertical="top", wrap_text=True)
                     cls._apply_border(cell)
@@ -255,7 +260,12 @@ class EvaluationExcelReport:
                 written += 1
 
         if written == 0:
-            note = ws.cell(row=curr_row, column=1, value="Sin factores bajo el umbral 3.00; no se requieren acciones correctivas.")
+            note = cls._set_cell(
+                ws,
+                row=curr_row,
+                column=1,
+                value="Sin factores bajo el umbral 3.00; no se requieren acciones correctivas.",
+            )
             note.font = Font(name="Calibri", size=9, italic=True, color=cls.COLOR_INK_MUTED)
 
         cls._autofit_columns(ws, max_width=48)
@@ -300,7 +310,7 @@ class EvaluationExcelReport:
                 foda_val,
             ]
             for c, val in enumerate(row_vals, start=1):
-                cell = ws.cell(row=r_idx, column=c, value=val)
+                cell = cls._set_cell(ws, row=r_idx, column=c, value=val)
                 cls._apply_border(cell)
                 cell.font = Font(name="Calibri", size=9.5, color=cls.COLOR_INK_SEC)
                 if c in (3, 5, 6, 7, 8):
@@ -344,7 +354,7 @@ class EvaluationExcelReport:
                 esf.rating,
             ]
             for c, val in enumerate(vals, start=1):
-                cell = ws.cell(row=r_idx, column=c, value=val)
+                cell = cls._set_cell(ws, row=r_idx, column=c, value=val)
                 cls._apply_border(cell)
                 cell.font = Font(name="Calibri", size=9.5, color=cls.COLOR_INK_SEC)
                 if c in (4, 5):
@@ -382,7 +392,7 @@ class EvaluationExcelReport:
                     s.get("snippet") or "",
                 ]
                 for c, val in enumerate(vals, start=1):
-                    cell = ws.cell(row=r_idx, column=c, value=val)
+                    cell = cls._set_cell(ws, row=r_idx, column=c, value=val)
                     cls._apply_border(cell)
                     cell.font = Font(name="Calibri", size=9, color=cls.COLOR_INK_SEC)
                     cell.alignment = Alignment(vertical="top", wrap_text=True)

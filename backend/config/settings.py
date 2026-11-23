@@ -12,6 +12,8 @@ sys.path.append(str(BASE_DIR / 'apps'))
 
 # Load environment variables
 load_dotenv(BASE_DIR.parent / '.env', override=True)
+if (BASE_DIR / '.env').exists():
+    load_dotenv(BASE_DIR / '.env', override=True)
 
 
 def _env_list(name: str, default: str = '') -> list[str]:
@@ -255,6 +257,9 @@ REST_FRAMEWORK = {
         'login': '15/minute',            # Por IP (permite validar bloqueo de cuenta de 5 intentos)
         'password_reset': '5/minute',   # Por IP
         'refresh': '20/minute',         # Por IP
+        'public_ai': '20/minute',       # Endpoints de sugerencias IA públicos
+        'public_export': '10/minute',   # Descarga pública de reportes PDF/Excel
+        'public_repo_health': '10/minute',  # Sincronización pública de repositorio
     },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
@@ -308,14 +313,18 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # Email Configuration
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST')
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = (os.getenv('EMAIL_HOST') or '').strip() or None
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', default=587))
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_USER = (os.getenv('EMAIL_HOST_USER') or '').strip() or None
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', default=True)
-EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', default=10))
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+EMAIL_USE_TLS = str(os.getenv('EMAIL_USE_TLS', 'True')).strip().lower() in ('true', '1', 't', 'yes')
+EMAIL_USE_SSL = str(os.getenv('EMAIL_USE_SSL', 'False')).strip().lower() in ('true', '1', 't', 'yes')
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', default=20))
+_raw_default_from = (os.getenv('DEFAULT_FROM_EMAIL') or '').strip()
+if not _raw_default_from or _raw_default_from == 'tucorreo@gmail.com':
+    _raw_default_from = EMAIL_HOST_USER or ''
+DEFAULT_FROM_EMAIL = _raw_default_from or None
 
 # Cuota diaria de correos (tracking en Redis vía apps.core.services.email_tracker).
 DAILY_EMAIL_LIMIT = int(os.getenv('DAILY_EMAIL_LIMIT', 500))
@@ -377,7 +386,7 @@ LOGGING = {
             'propagate': False,
         },
         'apps.auth': {
-            'handlers': ['auth_file'],
+            'handlers': ['console', 'auth_file', 'error_file'],
             'level': 'INFO',
             'propagate': False,
         },

@@ -109,7 +109,7 @@ def user_delete_logic(*, user: CustomUser) -> Dict[str, Any]:
     # Modelos internos que no representan "datos de negocio" del usuario
     _IGNORED_RELATED = frozenset({
         'password_reset_otps',  # OTPs propios del flujo de reset
-        'audit_logs',           # Logs de auditoría (se mantienen por trazabilidad)
+        'totp_device',          # Configuración TOTP propia del usuario
         'logentry_set',         # Log interno de Django admin
     })
 
@@ -130,13 +130,14 @@ def user_delete_logic(*, user: CustomUser) -> Dict[str, Any]:
         try:
             # Caso 1: Relación inversa (OneToManyRel, ManyToManyRel, OneToOneRel)
             if hasattr(field, 'related_model'):
+                model_label = str(field.related_model._meta.verbose_name_plural or field.related_model.__name__)
                 if hasattr(field, 'one_to_one') and field.one_to_one:
                     if hasattr(user, accessor) and getattr(user, accessor) is not None:
-                        linked_models.append(field.related_model._meta.verbose_name_plural or field.related_model.__name__)
+                        linked_models.append(model_label)
                 else:
                     manager = getattr(user, accessor, None)
                     if manager and hasattr(manager, 'exists') and manager.exists():
-                        linked_models.append(field.related_model._meta.verbose_name_plural or field.related_model.__name__)
+                        linked_models.append(model_label)
             
             # Caso 2: Campo directo (ForeignKey o OneToOneField en el propio modelo CustomUser)
             # Nota: Esto es menos común para "bloquear" borrado de usuarios, pero lo cubrimos.
@@ -149,12 +150,13 @@ def user_delete_logic(*, user: CustomUser) -> Dict[str, Any]:
     try:
         with transaction.atomic():
             if linked_models:
+                unique_models = sorted(set(linked_models))
                 user.is_active = False
                 user.save(update_fields=['is_active'])
                 return {
                     'action': 'SOFT_DELETE',
-                    'message': f'Usuario desactivado por tener datos vinculados en: {", ".join(set(linked_models))}',
-                    'detail': list(set(linked_models)),
+                    'message': f'Usuario desactivado por tener datos vinculados en: {", ".join(unique_models)}',
+                    'detail': unique_models,
                 }
             else:
                 email = user.email

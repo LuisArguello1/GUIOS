@@ -449,6 +449,12 @@ class MethodologyPipelineEndToEndTests(TestCase):
         self.assertIn("posponerla", verdict_c.explanation_text)
 
         # ── ESCENARIO 2: Recomendación B (Fallo sólo en factor opcional IR=2) ──
+        # Reiniciar cierre del escenario anterior sobre la instancia compartida
+        self.eval.status = Evaluation.STATUS_IN_PROGRESS
+        self.eval.completed_at = None
+        self.eval.save(update_fields=["status", "completed_at"])
+        EvaluationVerdict.objects.filter(evaluation=self.eval).delete()
+
         # Fiabilidad: IS=2, Decisor asigna ID=2 -> combine(2, 2) = 2 (Opcional)
         # Compatibilidad: aprueba (PM=4.0)
         decisor_inputs_b = [
@@ -467,6 +473,12 @@ class MethodologyPipelineEndToEndTests(TestCase):
         self.assertIn("con matices", verdict_b.explanation_text)
 
         # ── ESCENARIO 3: Recomendación A (Adopción sin observaciones, todos PM >= 3.0) ──
+        # Reiniciar cierre del escenario anterior sobre la instancia compartida
+        self.eval.status = Evaluation.STATUS_IN_PROGRESS
+        self.eval.completed_at = None
+        self.eval.save(update_fields=["status", "completed_at"])
+        EvaluationVerdict.objects.filter(evaluation=self.eval).delete()
+
         ratings_scenario_a = {
             self.sf_comp_1.id: 4,
             self.sf_comp_2.id: 4,

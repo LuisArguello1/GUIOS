@@ -79,7 +79,10 @@ const userService = {
     delete: async (id: string | number): Promise<{ action: string; message: string; detail: string[] }> => {
         const response = await api.delete(ENDPOINTS.USERS.DETAIL(id));
         // 204 No Content no tiene body — retornar un objeto consistente
-        return response.data ?? { action: 'HARD_DELETE', message: 'Eliminado.', detail: [] };
+        if (response.status === 204 || !response.data || typeof response.data !== 'object') {
+            return { action: 'HARD_DELETE', message: 'Usuario eliminado permanentemente.', detail: [] };
+        }
+        return response.data;
     },
 
     toggleActive: async (id: string | number): Promise<{ is_active: boolean; detail: string }> => {

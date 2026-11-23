@@ -268,6 +268,20 @@ class RepositoryHealthClient:
                 "error_message": "Tiempo de espera agotado al consultar la API del repositorio.",
                 "fetched_at": now_iso,
             }
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "Respuesta HTTP inesperada consultando pulso de repositorio (%s): status=%s",
+                full_name,
+                exc.response.status_code if exc.response is not None else "unknown",
+            )
+            return {
+                "status": "error",
+                "provider": provider,
+                "repo_full_name": full_name,
+                "repo_url": str(repo_url).strip(),
+                "error_message": f"La API de {provider.title()} devolvió un error temporal. Intente nuevamente más tarde.",
+                "fetched_at": now_iso,
+            }
         except Exception as exc:
             logger.warning("Error consultando pulso de repositorio (%s): %s", full_name, exc)
             return {
@@ -275,7 +289,7 @@ class RepositoryHealthClient:
                 "provider": provider,
                 "repo_full_name": full_name,
                 "repo_url": str(repo_url).strip(),
-                "error_message": f"No se pudo conectar con la API de {provider.title()}: {exc}",
+                "error_message": f"No se pudo conectar con la API de {provider.title()} en este momento.",
                 "fetched_at": now_iso,
             }
 

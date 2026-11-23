@@ -30,6 +30,13 @@ export const calculateRelativeImportance = (
     decisorImportance: number,
 ): number => combineImportance(decisorImportance, suggestedImportance);
 
+/** PM exacta sin redondear, usada para evaluar el umbral PM >= 3.0. */
+export const calculateRawWeightedAverage = (ratings: number[]): number => {
+    if (ratings.length === 0) return 0;
+    const sum = ratings.reduce((total, rating) => total + rating, 0);
+    return sum / ratings.length;
+};
+
 /** PM redondeada a 1 decimal, igual que el motor del backend (ROUND_HALF_UP). */
 export const roundWeightedAverage = (ratings: number[]): number => {
     if (ratings.length === 0) return 0;

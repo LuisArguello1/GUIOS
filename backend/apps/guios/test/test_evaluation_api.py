@@ -446,3 +446,67 @@ class EvaluationAPITests(APITestCase):
         eval_obj = Evaluation.objects.get(id=response.data["id"])
         self.assertTrue(len(eval_obj.consent_ip_hash) > 0)
         self.assertEqual(len(eval_obj.consent_ip_hash), 64)
+
+    def test_d17_admin_compute_verdict_cannot_be_repeated_after_completion(self):
+        """D-17: POST /evaluations/{id}/compute-verdict/ rechaza re-emisión sobre evaluación cerrada."""
+        create_res = self.client.post(
+            self.list_url,
+            {
+                "software_name": "Apache Superset",
+                "org_name": "UNEMI",
+                "data_storage_consent": True,
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, status.HTTP_201_CREATED)
+        eval_id = create_res.data["id"]
+
+        self.client.post(
+            f"{self.list_url}{eval_id}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": self.factor_comp.id, "decisor_importance": 4, "scope_used": "external"},
+                    {"factor_id": self.factor_sop.id, "decisor_importance": 3, "scope_used": "internal"},
+                    {"factor_id": self.factor_mad.id, "decisor_importance": 1, "scope_used": "external"},
+                ]
+            },
+            format="json",
+        )
+        self.client.post(
+            f"{self.list_url}{eval_id}/rate-subfactors/",
+            {
+                "ratings": {
+                    str(self.sf_comp_1.id): 4,
+                    str(self.sf_comp_2.id): 4,
+                    str(self.sf_sop_1.id): 4,
+                }
+            },
+            format="json",
+        )
+
+        first = self.client.post(
+            f"{self.list_url}{eval_id}/compute-verdict/",
+            {
+                "ai_executive_summary": "Resumen original admin.",
+                "ai_mitigation_plan": "Plan original admin.",
+            },
+            format="json",
+        )
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        completed_at_orig = Evaluation.objects.get(id=eval_id).completed_at
+
+        second = self.client.post(
+            f"{self.list_url}{eval_id}/compute-verdict/",
+            {
+                "ai_executive_summary": "Resumen sobrescrito.",
+                "ai_mitigation_plan": "Plan sobrescrito.",
+            },
+            format="json",
+        )
+        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+
+        eval_obj = Evaluation.objects.get(id=eval_id)
+        verdict = EvaluationVerdict.objects.get(evaluation=eval_obj)
+        self.assertEqual(eval_obj.completed_at, completed_at_orig)
+        self.assertEqual(verdict.ai_executive_summary, "Resumen original admin.")
+        self.assertEqual(verdict.ai_mitigation_plan, "Plan original admin.")

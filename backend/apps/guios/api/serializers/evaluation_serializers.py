@@ -145,6 +145,21 @@ class RateSubfactorsInputSerializer(serializers.Serializer):
         allow_empty=False,
     )
 
+    def validate_ratings(self, value: dict) -> dict[int, int]:
+        normalized: dict[int, int] = {}
+        for raw_key, rating in value.items():
+            if isinstance(raw_key, bool):
+                raise serializers.ValidationError(
+                    f"El identificador de subfactor '{raw_key}' debe ser un entero positivo."
+                )
+            key_str = str(raw_key).strip()
+            if not key_str.isdigit() or int(key_str) < 1:
+                raise serializers.ValidationError(
+                    f"El identificador de subfactor '{raw_key}' no es un entero positivo válido."
+                )
+            normalized[int(key_str)] = rating
+        return normalized
+
 
 class ComputeVerdictInputSerializer(serializers.Serializer):
     """Valida payload opcional para la emisión del dictamen final."""

@@ -510,14 +510,14 @@ const UsersPage = () => {
                 onClose={() => setConfirmModal({ isOpen: false, type: null, user: null })}
                 onConfirm={executeAction}
                 isLoading={isActioning}
-                title={confirmModal.type === 'delete' ? 'Eliminar usuario' : 'Cambiar estado'}
+                title={confirmModal.type === 'delete' ? 'Eliminar o desactivar usuario' : 'Cambiar estado'}
                 message={
                     confirmModal.type === 'delete'
-                        ? `¿Eliminar permanentemente a ${confirmModal.user?.full_name || confirmModal.user?.email}?`
+                        ? `¿Deseas dar de baja a ${confirmModal.user?.full_name || confirmModal.user?.email}? Si tiene evaluaciones o actividad registrada en auditoría, su cuenta se desactivará para conservar la trazabilidad histórica; solo si no registra actividad vinculada se eliminará permanentemente.`
                         : `¿Deseas ${confirmModal.user?.is_active ? 'suspender' : 'activar'} el acceso para ${confirmModal.user?.full_name || confirmModal.user?.email}?`
                 }
                 variant={confirmModal.type === 'delete' ? 'danger' : 'warning'}
-                confirmText={confirmModal.type === 'delete' ? 'Eliminar definitivamente' : 'Confirmar cambio'}
+                confirmText={confirmModal.type === 'delete' ? 'Confirmar baja' : 'Confirmar cambio'}
             />
 
             <GenericHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} title="Gestión de personal">

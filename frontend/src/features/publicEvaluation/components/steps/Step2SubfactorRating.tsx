@@ -237,8 +237,8 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
         return hasAISuggestions && factorSubfactors.some((sf) => {
             const local = subfactorRatingsMap[sf.subfactor_id];
             const aiSug = local?.ai_suggested ?? sf.ai_suggested_rating;
-            const rating = local?.rating ?? sf.rating;
-            return Boolean(aiSug && rating === aiSug);
+            const rating = local ? local.rating : sf.rating;
+            return Boolean(aiSug && rating !== null && rating !== undefined && rating === aiSug);
         });
     }, [currentActiveFactor, evaluation.subfactors, subfactorRatingsMap]);
 
@@ -467,8 +467,8 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
                                 factorSubfactors.some((sf) => {
                                     const local = subfactorRatingsMap[sf.subfactor_id];
                                     const aiSug = local?.ai_suggested ?? sf.ai_suggested_rating;
-                                    const rating = local?.rating ?? sf.rating;
-                                    return Boolean(aiSug && rating === aiSug);
+                                    const rating = local ? local.rating : sf.rating;
+                                    return Boolean(aiSug && rating !== null && rating !== undefined && rating === aiSug);
                                 });
 
                             return (
@@ -642,7 +642,7 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2.5 content-start">
                                     {activeSubfactors.map((subfactor, index) => {
                                         const local = subfactorRatingsMap[subfactor.subfactor_id] || {
-                                            rating: subfactor.rating ?? subfactor.ai_suggested_rating ?? 3,
+                                            rating: subfactor.rating ?? null,
                                             is_modified: false,
                                             ai_suggested: subfactor.ai_suggested_rating || undefined,
                                             ai_justification: subfactor.ai_rating_justification || undefined,
@@ -669,9 +669,20 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
                                                             {subfactor.description_snapshot}
                                                         </p>
                                                         {showsSuggestion && (
-                                                            <p className="mt-1.5 text-[11px] leading-relaxed break-words">
-                                                                <span className="ai-platinum-text">Sugerencia IA: {local.ai_justification}</span>
-                                                            </p>
+                                                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] leading-relaxed break-words">
+                                                                <span className="ai-platinum-text">
+                                                                    Sugerencia IA{local.ai_suggested ? ` (opción ${local.ai_suggested})` : ''}: {local.ai_justification}
+                                                                </span>
+                                                                {!isReadOnly && local.ai_suggested && local.rating !== local.ai_suggested && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => onRatingChange(subfactor.subfactor_id, local.ai_suggested!)}
+                                                                        className="inline-flex items-center px-1.5 py-0.5 rounded-[4px] border border-amber-400/50 bg-amber-500/10 text-[10px] font-semibold text-amber-500 hover:bg-amber-500/20 cursor-pointer transition-colors"
+                                                                    >
+                                                                        Confirmar {local.ai_suggested}
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-1 shrink-0">
@@ -720,6 +731,7 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
                                                 >
                                                     {SUBFACTOR_RATING_OPTIONS.map((opt) => {
                                                         const isOptionActive = local.rating === opt.value;
+                                                        const isAiSuggestedOption = !isOptionActive && local.ai_suggested === opt.value;
 
                                                         return (
                                                             <button
@@ -732,6 +744,8 @@ export const Step2SubfactorRating: React.FC<Step2SubfactorRatingProps> = ({
                                                                     isReadOnly ? 'cursor-default' : 'cursor-pointer',
                                                                     isOptionActive
                                                                         ? opt.activeClass
+                                                                        : isAiSuggestedOption
+                                                                        ? 'bg-[var(--color-bg-elevated)] border-amber-400/70 border-dashed text-[var(--color-text-primary)] hover:border-amber-400'
                                                                         : isReadOnly
                                                                         ? 'bg-[var(--color-bg-elevated)]/60 border-[var(--color-border-subtle)] text-[var(--color-text-tertiary)] opacity-75'
                                                                         : 'bg-[var(--color-bg-elevated)] border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)]'

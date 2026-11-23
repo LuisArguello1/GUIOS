@@ -309,6 +309,7 @@ class PasswordResetWizardViewSet(viewsets.ViewSet):
         try:
             initiate_password_reset(email)
         except EmailDeliveryError as exc:
+            logger.error("Solicitud de recuperación fallida (503) para %s: %s", email, exc)
             return Response(
                 {
                     'detail': str(exc),

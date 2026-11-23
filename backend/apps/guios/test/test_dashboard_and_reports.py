@@ -468,3 +468,77 @@ class DashboardAndReportsAPITests(APITestCase):
 
         self.assertEqual(self.client.get(url_pdf).status_code, status.HTTP_200_OK)
         self.assertEqual(self.client.get(url_excel).status_code, status.HTTP_200_OK)
+
+    def test_d23_excel_reports_neutralize_formula_injection(self):
+        """D-23: Cadenas que inician con =, +, -, @, \\t o \\r se escapan con apóstrofo en Excel."""
+        import io
+        import openpyxl
+        from apps.guios.services.reports import EvaluationExcelReport, DashboardExcelReport
+
+        self.evaluation.software_name = "=CMD|' /C calc'!A0"
+        self.evaluation.org_name = "+SUM(A1:A2)"
+        self.evaluation.software_version = "-2+3"
+        self.evaluation.save()
+
+        self.es.description_snapshot = '@HYPERLINK("http://evil.example")'
+        self.es.ai_rating_justification = "\t=1+1"
+        self.es.save()
+
+        self.er.weighted_average = Decimal("4.0")
+        self.er.meets_threshold = True
+        self.er.foda_classification = EvaluationResult.FODA_STRENGTH
+        self.er.save()
+
+        eval_buf = EvaluationExcelReport.generate(self.evaluation)
+        wb_eval = openpyxl.load_workbook(io.BytesIO(eval_buf.getvalue()), data_only=False)
+        info_ws = wb_eval["Ficha Técnica"]
+        sub_ws = wb_eval["Subfactores y Criterios"]
+        factors_ws = wb_eval["Factores y Métricas"]
+
+        info_values = [info_ws.cell(row=r, column=2).value for r in range(4, info_ws.max_row + 1)]
+        self.assertIn("'=CMD|' /C calc'!A0", info_values)
+        self.assertIn("'+SUM(A1:A2)", info_values)
+        self.assertIn("'-2+3", info_values)
+        self.assertEqual(sub_ws.cell(row=4, column=3).value, '\'@HYPERLINK("http://evil.example")')
+        self.assertEqual(factors_ws.cell(row=4, column=9).value, 4.0)
+
+        dash_stats = {
+            "kpis": {
+                "total_evaluations": 1,
+                "completed_evaluations": 1,
+                "adoption_viability_rate": 100.0,
+                "total_with_verdict": 1,
+                "foda_ratio": 1.0,
+                "foda_strengths": 1,
+                "foda_weaknesses": 0,
+                "ai_total_calls": 0,
+                "ai_avg_latency_ms": 0,
+                "ai_success_rate": 100,
+            },
+            "verdict_distribution": [],
+            "dimension_averages": [
+                {"dimension_id": 1, "name": "=1+1", "avg_score": 3.5, "sample_count": 1}
+            ],
+            "recent_evaluations": [
+                {
+                    "id": 1,
+                    "software_name": "=CMD|' /C calc'!A0",
+                    "software_version": "\r=1+1",
+                    "software_category": "General",
+                    "org_name": "+EVIL()",
+                    "status_display": "Completada",
+                    "recommendation": "A",
+                    "started_at": "2026-11-22",
+                }
+            ],
+        }
+        dash_buf = DashboardExcelReport.generate(dash_stats)
+        wb_dash = openpyxl.load_workbook(io.BytesIO(dash_buf.getvalue()), data_only=False)
+        recent_ws = wb_dash["Historial de Evaluaciones"]
+        dims_ws = wb_dash["Rendimiento por Dimensión"]
+
+        self.assertEqual(dims_ws.cell(row=4, column=2).value, "'=1+1")
+        self.assertEqual(dims_ws.cell(row=4, column=3).value, 3.5)
+        self.assertEqual(recent_ws.cell(row=4, column=2).value, "'=CMD|' /C calc'!A0")
+        self.assertEqual(recent_ws.cell(row=4, column=3).value, "'\r=1+1")
+        self.assertEqual(recent_ws.cell(row=4, column=5).value, "'+EVIL()")

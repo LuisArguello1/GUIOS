@@ -1,14 +1,15 @@
+import io
 import logging
 from email.mime.image import MIMEImage
+from pathlib import Path
 from django.conf import settings
 from django.db import transaction
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives, send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.utils.translation import gettext_lazy as _
 
 from ..models.otp import PasswordResetOTP
-from ..models.user import CustomUser
 from ..selectors.otp import get_active_otp_by_email, get_verified_otp_by_email
 from ..selectors.user import get_user_by_email
 
@@ -25,6 +26,35 @@ _EMAIL_DELIVERY_ERROR_MSG = (
 )
 
 
+def _resolve_from_email() -> str:
+    """Resuelve el remitente evitando valores vacíos o el placeholder del .env.example."""
+    raw_from = str(getattr(settings, 'DEFAULT_FROM_EMAIL', '') or '').strip()
+    if not raw_from or raw_from == 'tucorreo@gmail.com':
+        raw_from = str(getattr(settings, 'EMAIL_HOST_USER', '') or '').strip()
+    return raw_from
+
+
+def _build_inline_logo_mime(logo_path: Path) -> MIMEImage | None:
+    """Genera un MIMEImage liviano (máx. 96x96 PNG) sin bloquear el envío ante errores."""
+    try:
+        from PIL import Image
+
+        with Image.open(logo_path) as img:
+            if img.mode not in ('RGB', 'RGBA'):
+                img = img.convert('RGBA')
+            img.thumbnail((96, 96))
+            buf = io.BytesIO()
+            img.save(buf, format='PNG', optimize=True)
+            logo_bytes = buf.getvalue()
+        mime_image = MIMEImage(logo_bytes, _subtype='png')
+        mime_image.add_header('Content-ID', '<logo_dvi>')
+        mime_image.add_header('Content-Disposition', 'inline', filename='logo.png')
+        return mime_image
+    except Exception as exc:
+        logger.warning("No se pudo adjuntar el logotipo inline al correo de recuperación: %s", exc)
+        return None
+
+
 def initiate_password_reset(email: str) -> bool:
     """
     Inicia el proceso de recuperación de contraseña enviando un código OTP.
@@ -36,21 +66,23 @@ def initiate_password_reset(email: str) -> bool:
         # No revelamos si el email existe por seguridad
         return False
 
+    from_email = _resolve_from_email()
     email_backend = str(getattr(settings, 'EMAIL_BACKEND', '') or '').lower()
     if 'smtp' in email_backend:
         email_host = str(getattr(settings, 'EMAIL_HOST', '') or '').strip()
-        from_email = str(getattr(settings, 'DEFAULT_FROM_EMAIL', '') or '').strip()
         if not email_host or not from_email:
             logger.error(
-                "Configuración SMTP incompleta (EMAIL_HOST/DEFAULT_FROM_EMAIL). No se puede enviar OTP a %s",
-                email,
+                "Configuración SMTP incompleta (EMAIL_HOST=%r, FROM=%r). No se puede enviar OTP a %s",
+                email_host,
+                from_email,
+                user.email,
             )
             raise EmailDeliveryError(_(_EMAIL_DELIVERY_ERROR_MSG))
 
     # Validar límite de correos diario antes de renderizar/enviar
     from apps.core.services.email_tracker import check_daily_email_limit, increment_daily_email_count
     if not check_daily_email_limit():
-        logger.error(f"Límite diario de correos excedido. No se puede enviar OTP a {email}")
+        logger.error("Límite diario de correos excedido. No se puede enviar OTP a %s", user.email)
         raise EmailDeliveryError(_(_EMAIL_DELIVERY_ERROR_MSG))
 
     code = PasswordResetOTP.generate_code()
@@ -65,54 +97,64 @@ def initiate_password_reset(email: str) -> bool:
     # Renderizar templates (HTML y texto plano)
     html_content = render_to_string('auth/password_reset_email.html', context)
     text_content = strip_tags(html_content)
+    subject = str(_('Código de recuperación - GUIOS'))
 
     try:
-        msg = EmailMultiAlternatives(
-            subject=_('Código de recuperación - GUIOS'),
-            body=text_content,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[email]
-        )
-        msg.attach_alternative(html_content, "text/html")
+        sent_count = 0
+        multipart_exc: Exception | None = None
+        try:
+            msg = EmailMultiAlternatives(
+                subject=subject,
+                body=text_content,
+                from_email=from_email,
+                to=[user.email],
+            )
+            msg.attach_alternative(html_content, "text/html")
 
-        # Adjuntar logo corporativo como inline MIME (MIMEImage con Content-ID)
-        logo_path = None
-        for candidate in ['Logotipo.png', 'Isotipo.png', 'Logotipo.webp', 'Isotipo.webp']:
-            p = settings.BASE_DIR / 'static' / 'img' / candidate
-            if p.exists():
-                logo_path = p
-                break
+            for candidate in ['Logotipo.png', 'Isotipo.png', 'Logotipo.webp', 'Isotipo.webp']:
+                p = settings.BASE_DIR / 'static' / 'img' / candidate
+                if p.exists():
+                    mime_image = _build_inline_logo_mime(p)
+                    if mime_image is not None:
+                        msg.attach(mime_image)
+                    break
 
-        if logo_path:
-            with open(logo_path, 'rb') as f:
-                logo_data = f.read()
-            mime_image = MIMEImage(logo_data)
-            mime_image.add_header('Content-ID', '<logo_dvi>')
-            mime_image.add_header('Content-Disposition', 'inline', filename=logo_path.name)
-            msg.attach(mime_image)
-        else:
-            logger.debug(f"Logo de correo no disponible en {settings.BASE_DIR / 'static' / 'img'}")
+            sent_count = msg.send(fail_silently=False)
+        except Exception as exc:
+            multipart_exc = exc
+            logger.warning(
+                "Fallo envío multipart de OTP a %s; reintentando con send_mail plano: %s",
+                user.email,
+                exc,
+                exc_info=True,
+            )
+            sent_count = send_mail(
+                subject=subject,
+                message=text_content,
+                from_email=from_email,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
 
-        sent_count = msg.send(fail_silently=False)
         if not sent_count:
+            if multipart_exc is not None:
+                raise multipart_exc
             raise EmailDeliveryError(_(_EMAIL_DELIVERY_ERROR_MSG))
 
-        # Incrementar el contador diario en Redis
-        increment_daily_email_count()
-
-        # Solo guardamos el OTP si el correo se envió con éxito
+        # Guardamos el OTP únicamente si el correo se envió con éxito
         with transaction.atomic():
-            # Invalidar códigos anteriores del usuario
             PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
             PasswordResetOTP.objects.create(user=user, code=code)
 
+        # Incrementar contador diario en caché sin invalidar un correo ya enviado
+        increment_daily_email_count()
         return True
 
     except EmailDeliveryError:
         PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
         raise
     except Exception as e:
-        logger.error(f"Error enviando correo de recuperación a {email}: {e}")
+        logger.exception("Error enviando correo de recuperación a %s: %s", user.email, e)
         PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
         raise EmailDeliveryError(_(_EMAIL_DELIVERY_ERROR_MSG)) from e
 

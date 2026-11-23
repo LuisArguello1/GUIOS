@@ -28,6 +28,8 @@ from apps.guios.services.ai.verdict_narrative import build_predetermined_narrati
 
 class PublicEvaluationAPITests(APITestCase):
     def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
         # Catálogo metodológico mínimo para pruebas
         self.dim = Dimension.objects.create(
             name="Dimensión Tecnológica",
@@ -73,6 +75,11 @@ class PublicEvaluationAPITests(APITestCase):
             base_citations_count=2,
             order=1,
         )
+
+    def tearDown(self):
+        from django.core.cache import cache
+        cache.clear()
+        super().tearDown()
 
     def test_get_public_catalog(self):
         """GET /api/v1/guios/public/evaluations/catalog/ retorna el catálogo activo."""
@@ -865,3 +872,310 @@ class PublicEvaluationAPITests(APITestCase):
             sf_2.refresh_from_db()
             self.assertEqual(sf_1.ai_rating_justification, "Nota individual previa conservada.")
             self.assertTrue(bool(sf_2.ai_rating_justification))
+
+    def test_d17_compute_verdict_cannot_be_repeated_on_completed_evaluation(self):
+        """D-17: compute-verdict público no puede repetirse una vez emitido el dictamen ni re-invoca IA."""
+        from unittest.mock import patch as mock_patch
+        from apps.guios.models import EvaluationVerdict
+
+        res_create = self.client.post(
+            "/api/v1/guios/public/evaluations/",
+            {
+                "software_name": "Redmine",
+                "org_name": "UNEMI",
+                "ai_enabled": True,
+                "ai_processing_consent": True,
+                "data_storage_consent": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        uuid_str = res_create.data["uuid"]
+        Evaluation.objects.filter(uuid=uuid_str).update(ai_status=Evaluation.AI_STATUS_COMPLETED)
+
+        self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": self.factor_func.id, "decisor_importance": 4, "scope_used": "internal"},
+                    {"factor_id": self.factor_soporte.id, "decisor_importance": 3, "scope_used": "external"},
+                ]
+            },
+            format="json",
+        )
+        self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/rate-subfactors/",
+            {
+                "ratings": {
+                    str(self.sub_func_1.id): 4,
+                    str(self.sub_func_2.id): 4,
+                    str(self.sub_sop_1.id): 4,
+                }
+            },
+            format="json",
+        )
+
+        with mock_patch(
+            "apps.guios.api.views.public_evaluation_views.ai_service.generate_executive_summary_and_verdict",
+            return_value={
+                "executive_summary": "Resumen oficial original.",
+                "mitigation_plan": "Plan oficial original.",
+            },
+        ) as ai_mock:
+            res_first = self.client.post(
+                f"/api/v1/guios/public/evaluations/{uuid_str}/compute-verdict/",
+                {},
+                format="json",
+            )
+            self.assertEqual(res_first.status_code, status.HTTP_200_OK)
+            ai_mock.assert_called_once()
+
+            eval_after_first = Evaluation.objects.get(uuid=uuid_str)
+            verdict_after_first = EvaluationVerdict.objects.get(evaluation=eval_after_first)
+            original_completed_at = eval_after_first.completed_at
+
+            ai_mock.reset_mock()
+            ai_mock.return_value = {
+                "executive_summary": "Sobrescritura indebida.",
+                "mitigation_plan": "Plan sobrescrito.",
+            }
+            res_second = self.client.post(
+                f"/api/v1/guios/public/evaluations/{uuid_str}/compute-verdict/",
+                {},
+                format="json",
+            )
+            self.assertEqual(res_second.status_code, status.HTTP_400_BAD_REQUEST)
+            ai_mock.assert_not_called()
+
+            eval_after_first.refresh_from_db()
+            verdict_after_first.refresh_from_db()
+            self.assertEqual(eval_after_first.completed_at, original_completed_at)
+            self.assertEqual(verdict_after_first.ai_executive_summary, "Resumen oficial original.")
+            self.assertEqual(verdict_after_first.ai_mitigation_plan, "Plan oficial original.")
+
+    def test_d20_invalid_factor_and_subfactor_ids_return_400(self):
+        """D-20: IDs inexistentes o claves no numéricas retornan 400 en apply-decisor y rate-subfactors."""
+        ev = Evaluation.objects.create(
+            software_name="Redmine",
+            org_name="UNEMI",
+            ai_enabled=False,
+            data_storage_consent=True,
+        )
+        from apps.guios.services.evaluation import calculate_evaluation_literature
+        calculate_evaluation_literature(evaluation_id=ev.id)
+
+        res_decisor = self.client.post(
+            f"/api/v1/guios/public/evaluations/{ev.uuid}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": 999999, "decisor_importance": 3, "scope_used": "internal"}
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(res_decisor.status_code, status.HTTP_400_BAD_REQUEST)
+
+        res_non_numeric = self.client.post(
+            f"/api/v1/guios/public/evaluations/{ev.uuid}/rate-subfactors/",
+            {"ratings": {"no_es_numero": 3}},
+            format="json",
+        )
+        self.assertEqual(res_non_numeric.status_code, status.HTTP_400_BAD_REQUEST)
+
+        res_unknown_sf = self.client.post(
+            f"/api/v1/guios/public/evaluations/{ev.uuid}/rate-subfactors/",
+            {"ratings": {"999999": 3}},
+            format="json",
+        )
+        self.assertEqual(res_unknown_sf.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_d21_reapplying_decisor_cleans_stale_ir1_results_and_updates_scope(self):
+        """D-21: Reaplicar Paso 1 elimina FODA de factores IR=1 y actualiza ámbito de factores modificados."""
+        factor_drop = Factor.objects.create(
+            dimension=self.dim,
+            name="Portabilidad",
+            systemic_importance=2,
+            expert_importance=2,
+            scope=Factor.SCOPE_INTERNAL,
+            order=3,
+            is_base=True,
+        )
+        sub_drop = Subfactor.objects.create(
+            factor=factor_drop,
+            description="Soporta exportación estándar.",
+            base_citations_count=2,
+            order=1,
+        )
+
+        res_create = self.client.post(
+            "/api/v1/guios/public/evaluations/",
+            {
+                "software_name": "Moodle",
+                "org_name": "UNEMI",
+                "ai_enabled": False,
+                "data_storage_consent": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res_create.status_code, status.HTTP_201_CREATED)
+        uuid_str = res_create.data["uuid"]
+
+        # Paso 1 inicial: factor_soporte (internal) y factor_drop relevantes (IR > 1)
+        res_step1 = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": self.factor_func.id, "decisor_importance": 4, "scope_used": "internal"},
+                    {"factor_id": self.factor_soporte.id, "decisor_importance": 3, "scope_used": "internal"},
+                    {"factor_id": factor_drop.id, "decisor_importance": 3, "scope_used": "internal"},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(res_step1.status_code, status.HTTP_200_OK)
+
+        # Paso 2: calificar todos con 4 (PM = 4.0)
+        res_rate = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/rate-subfactors/",
+            {
+                "ratings": {
+                    str(self.sub_func_1.id): 4,
+                    str(self.sub_func_2.id): 4,
+                    str(self.sub_sop_1.id): 4,
+                    str(sub_drop.id): 4,
+                }
+            },
+            format="json",
+        )
+        self.assertEqual(res_rate.status_code, status.HTTP_200_OK)
+        ev = Evaluation.objects.get(uuid=uuid_str)
+        self.assertEqual(
+            EvaluationResult.objects.get(evaluation=ev, factor=self.factor_soporte).foda_classification,
+            EvaluationResult.FODA_STRENGTH,
+        )
+        self.assertTrue(EvaluationResult.objects.filter(evaluation=ev, factor=factor_drop).exists())
+
+        # Reaplicar Paso 1: factor_drop pasa a ID=1 -> IR=1 (irrelevante), factor_soporte cambia a external
+        res_reapply = self.client.post(
+            f"/api/v1/guios/public/evaluations/{uuid_str}/apply-decisor/",
+            {
+                "factors": [
+                    {"factor_id": self.factor_func.id, "decisor_importance": 4, "scope_used": "internal"},
+                    {"factor_id": self.factor_soporte.id, "decisor_importance": 3, "scope_used": "external"},
+                    {"factor_id": factor_drop.id, "decisor_importance": 1, "scope_used": "internal"},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(res_reapply.status_code, status.HTTP_200_OK)
+        self.assertFalse(EvaluationResult.objects.filter(evaluation=ev, factor=factor_drop).exists())
+        self.assertEqual(
+            EvaluationResult.objects.get(evaluation=ev, factor=self.factor_soporte).foda_classification,
+            EvaluationResult.FODA_OPPORTUNITY,
+        )
+
+    def test_d22_scoped_throttles_enforce_specific_limits_on_expensive_public_endpoints(self):
+        """D-22: IA, exportación PDF/Excel y repo-health aplican cuotas específicas via ScopedRateThrottle."""
+        from django.conf import settings
+        from django.core.cache import cache
+        from django.test import override_settings
+        from rest_framework.throttling import ScopedRateThrottle
+
+        custom_rates = {
+            **settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"],
+            "public_ai": "2/minute",
+            "public_export": "1/minute",
+            "public_repo_health": "1/minute",
+        }
+        custom_rf = {
+            **settings.REST_FRAMEWORK,
+            "DEFAULT_THROTTLE_RATES": custom_rates,
+        }
+        custom_caches = {
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": "d22-throttle-test",
+            }
+        }
+
+        with (
+            override_settings(CACHES=custom_caches, REST_FRAMEWORK=custom_rf),
+            patch.object(ScopedRateThrottle, "THROTTLE_RATES", custom_rates),
+        ):
+            cache.clear()
+            ev = Evaluation.objects.create(
+                software_name="GitLab",
+                org_name="UNEMI",
+                ai_enabled=True,
+                ai_processing_consent=True,
+                data_storage_consent=True,
+                ai_status=Evaluation.AI_STATUS_COMPLETED,
+            )
+            from apps.guios.services.evaluation import calculate_evaluation_literature
+            calculate_evaluation_literature(evaluation_id=ev.id)
+
+            ai_url = f"/api/v1/guios/public/evaluations/{ev.uuid}/ai-suggest-importance/"
+            with patch(
+                "apps.guios.api.views.public_evaluation_views.ai_service.suggest_factor_importance",
+                return_value={"suggested_id": 3, "justification": "Justificación de prueba."},
+            ):
+                self.assertEqual(
+                    self.client.post(ai_url, {"factor_id": self.factor_func.id}, format="json").status_code,
+                    status.HTTP_200_OK,
+                )
+                self.assertEqual(
+                    self.client.post(ai_url, {"factor_id": self.factor_soporte.id}, format="json").status_code,
+                    status.HTTP_200_OK,
+                )
+                self.assertEqual(
+                    self.client.post(ai_url, {"factor_id": self.factor_func.id}, format="json").status_code,
+                    status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+
+            pdf_url = f"/api/v1/guios/public/evaluations/{ev.uuid}/export-pdf/"
+            self.assertEqual(self.client.get(pdf_url).status_code, status.HTTP_200_OK)
+            self.assertEqual(self.client.get(pdf_url).status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+            repo_url = f"/api/v1/guios/public/evaluations/{ev.uuid}/repo-health/"
+            with patch(
+                "apps.guios.services.repository_health.RepositoryHealthClient.fetch",
+                return_value={"status": "missing", "message": "Sin repo", "fetched_at": "2026-11-22T00:00:00Z"},
+            ):
+                self.assertEqual(self.client.post(repo_url, {}, format="json").status_code, status.HTTP_200_OK)
+                self.assertEqual(
+                    self.client.post(repo_url, {}, format="json").status_code,
+                    status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+            cache.clear()
+
+    def test_d24_internal_errors_are_not_leaked_in_create_or_repo_health(self):
+        """D-24: Errores inesperados no exponen str(exc), detail ni trazas internas al cliente."""
+        from apps.guios.services.repository_health import RepositoryHealthClient
+
+        with patch(
+            "apps.guios.api.views.public_evaluation_views.create_evaluation",
+            side_effect=RuntimeError("secreto_interno_pg_password_999"),
+        ):
+            res = self.client.post(
+                "/api/v1/guios/public/evaluations/",
+                {
+                    "software_name": "PostgreSQL",
+                    "org_name": "UNEMI",
+                    "ai_enabled": False,
+                    "data_storage_consent": True,
+                },
+                format="json",
+            )
+        self.assertEqual(res.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertNotIn("detail", res.data)
+        self.assertNotIn("secreto_interno_pg_password_999", str(res.data))
+
+        client = RepositoryHealthClient()
+        with patch.object(
+            client,
+            "_fetch_github",
+            side_effect=RuntimeError("token_interno_github_filtrable"),
+        ):
+            result = client.fetch("https://github.com/postgres/postgres")
+        self.assertEqual(result["status"], "error")
+        self.assertNotIn("token_interno_github_filtrable", result["error_message"])

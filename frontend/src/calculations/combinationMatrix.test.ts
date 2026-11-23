@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calculateRawWeightedAverage,
   calculateRelativeImportance,
   calculateSuggestedImportance,
   classifyFoda,
@@ -28,6 +29,15 @@ describe('combinationMatrix', () => {
     expect(roundWeightedAverage([3, 3])).toBe(3);
     expect(roundWeightedAverage([4, 3, 3])).toBe(3.3);
     expect(roundWeightedAverage([2, 3, 3, 3])).toBe(2.8);
+  });
+
+  it('D-19: evalúa el umbral 3.0 sobre el promedio exacto sin redondeo (2.95 -> Debilidad)', () => {
+    const ratings = [...Array(19).fill(3), 2]; // sum = 59, n = 20 => raw 2.95, redondeado 3.0
+    const raw = calculateRawWeightedAverage(ratings);
+    expect(raw).toBeCloseTo(2.95, 5);
+    expect(roundWeightedAverage(ratings)).toBe(3.0);
+    expect(classifyFoda(raw, 'internal')).toBe('Debilidad');
+    expect(classifyFoda(raw, 'external')).toBe('Amenaza');
   });
 
   it('clasifica FODA según umbral 3.0 y ámbito interno/externo', () => {

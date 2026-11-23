@@ -28,6 +28,7 @@ import {
     type SavedEvaluationItem,
 } from '../utils/historyStorage';
 import {
+    calculateRawWeightedAverage,
     calculateRelativeImportance,
     classifyFoda,
     roundWeightedAverage,
@@ -62,25 +63,44 @@ function draftDecisorState(factor: EvaluationFactorItem): LocalDecisorState {
 }
 
 export interface LocalSubfactorRatingState {
-    rating: number;
+    rating: number | null;
     is_modified: boolean;
     ai_suggested?: number;
     ai_justification?: string;
     user_adjusted?: boolean;
 }
 
-function draftSubfactorRating(sf: EvaluationSubfactorItem): LocalSubfactorRatingState {
+export function draftSubfactorRating(sf: EvaluationSubfactorItem): LocalSubfactorRatingState {
     const saved = sf.rating !== null && sf.rating !== undefined;
     const suggested = sf.ai_suggested_rating && sf.ai_suggested_rating >= 1 && sf.ai_suggested_rating <= 4
         ? sf.ai_suggested_rating
         : undefined;
     return {
-        rating: saved ? sf.rating! : (suggested ?? 3),
+        rating: saved ? sf.rating! : null,
         is_modified: false,
         ai_suggested: suggested,
         ai_justification: sf.ai_rating_justification || undefined,
-        user_adjusted: false,
+        user_adjusted: saved,
     };
+}
+
+export function buildConfirmedSubfactorRatingsPayload(
+    subfactors: EvaluationSubfactorItem[],
+    subfactorRatingsMap: Record<number, LocalSubfactorRatingState>,
+): { ratings: Record<number, number>; hasModified: boolean } {
+    const ratings: Record<number, number> = {};
+    let hasModified = false;
+    for (const sf of subfactors) {
+        const local = subfactorRatingsMap[sf.subfactor_id];
+        const rating = local ? local.rating : sf.rating;
+        if (rating !== null && rating !== undefined && rating >= 1 && rating <= 4) {
+            ratings[sf.subfactor_id] = rating;
+            if (local?.is_modified) {
+                hasModified = true;
+            }
+        }
+    }
+    return { ratings, hasModified };
 }
 
 export const usePublicEvaluation = () => {
@@ -488,7 +508,7 @@ export const usePublicEvaluation = () => {
             }
             setSubfactorRatingsMap((prev) => {
                 const current = prev[subfactorId] || {
-                    rating: 3,
+                    rating: null,
                     is_modified: false,
                 };
                 if (current.rating === rating && current.is_modified) return prev;
@@ -510,18 +530,16 @@ export const usePublicEvaluation = () => {
      * Comprueba si hay calificaciones de subfactores modificadas sin guardar.
      */
     const hasUnsavedSubfactorRatings = useMemo(() => {
-        const hasModified = Object.values(subfactorRatingsMap).some((s) => s.is_modified);
-        const hasNullInDb = (evaluation?.subfactors || []).some((sf) => sf.rating === null || sf.rating === undefined);
-        return hasModified || hasNullInDb;
-    }, [subfactorRatingsMap, evaluation?.subfactors]);
+        return Object.values(subfactorRatingsMap).some(
+            (s) => s.is_modified && s.rating !== null && s.rating !== undefined
+        );
+    }, [subfactorRatingsMap]);
 
     const unsavedSubfactorRatingsCount = useMemo(() => {
-        const modifiedCount = Object.values(subfactorRatingsMap).filter((s) => s.is_modified).length;
-        const unpersistedDbCount = (evaluation?.subfactors || []).filter(
-            (sf) => (sf.rating === null || sf.rating === undefined) && !subfactorRatingsMap[sf.subfactor_id]?.is_modified
+        return Object.values(subfactorRatingsMap).filter(
+            (s) => s.is_modified && s.rating !== null && s.rating !== undefined
         ).length;
-        return modifiedCount + unpersistedDbCount;
-    }, [subfactorRatingsMap, evaluation?.subfactors]);
+    }, [subfactorRatingsMap]);
 
     /**
      * Calcula la Ponderación Media (PM) local de un factor.
@@ -535,17 +553,18 @@ export const usePublicEvaluation = () => {
             const ratings: number[] = [];
             for (const sf of factorSubfactors) {
                 const local = subfactorRatingsMap[sf.subfactor_id];
-                const rating = local?.rating ?? sf.rating ?? sf.ai_suggested_rating ?? 3;
-                if (rating >= 1 && rating <= 4) {
+                const rating = local ? local.rating : sf.rating;
+                if (rating !== null && rating !== undefined && rating >= 1 && rating <= 4) {
                     ratings.push(rating);
                 }
             }
 
             const isComplete = ratings.length === factorSubfactors.length;
             const avg = isComplete ? roundWeightedAverage(ratings) : 0;
+            const rawAvg = isComplete ? calculateRawWeightedAverage(ratings) : 0;
             const savedScope = evaluationFactors?.find((factor) => factor.factor_id === factorId)?.scope_used;
             const scope = decisorMap[factorId]?.scope || savedScope || 'internal';
-            const foda = isComplete ? classifyFoda(avg, scope === 'external' ? 'external' : 'internal') : 'Pendiente';
+            const foda = isComplete ? classifyFoda(rawAvg, scope === 'external' ? 'external' : 'internal') : 'Pendiente';
 
             return { average: avg, isComplete, foda };
         },
@@ -716,22 +735,14 @@ export const usePublicEvaluation = () => {
                 return false;
             }
 
-            const ratingsToSend: Record<number, number> = {};
             const subfactorsToFilter = factorIdToSave
                 ? (evaluation.subfactors || []).filter((sf) => sf.factor_id === factorIdToSave)
                 : evaluation.subfactors || [];
 
-            let hasModified = false;
-            for (const sf of subfactorsToFilter) {
-                const local = subfactorRatingsMap[sf.subfactor_id];
-                const rating = local?.rating ?? sf.rating ?? sf.ai_suggested_rating ?? 3;
-                if (rating >= 1 && rating <= 4) {
-                    ratingsToSend[sf.subfactor_id] = rating;
-                    if (local?.is_modified || sf.rating === null || sf.rating === undefined) {
-                        hasModified = true;
-                    }
-                }
-            }
+            const { ratings: ratingsToSend, hasModified } = buildConfirmedSubfactorRatingsPayload(
+                subfactorsToFilter,
+                subfactorRatingsMap
+            );
 
             // Validación: Si el usuario presiona guardar sin haber hecho cambios, se le notifica
             if (!hasModified) {
@@ -1100,11 +1111,13 @@ export const usePublicEvaluation = () => {
                         const current = next[item.subfactor_id];
                         if (current?.ai_justification || current?.user_adjusted) continue;
                         next[item.subfactor_id] = {
-                            rating: item.suggested_rating,
-                            is_modified: true,
+                            ...(current || {
+                                rating: null,
+                                is_modified: false,
+                            }),
                             ai_suggested: item.suggested_rating,
                             ai_justification: item.justification,
-                            user_adjusted: false,
+                            user_adjusted: current?.user_adjusted ?? false,
                         };
                     }
                     return next;
@@ -1123,7 +1136,7 @@ export const usePublicEvaluation = () => {
                 } : prev);
                 addToast({
                     type: 'info',
-                    message: `Sugerencias listas para ${res.ratings.length} subfactores de este factor. Revísalas y guárdalas.`,
+                    message: `Sugerencias listas para ${res.ratings.length} subfactores de este factor. Revísalas y selecciona tu calificación antes de guardar.`,
                 });
             } catch (err: unknown) {
                 if (aiRequestEpochRef.current !== requestEpoch) return;
@@ -1216,11 +1229,13 @@ export const usePublicEvaluation = () => {
                                 const current = next[item.subfactor_id];
                                 if (current?.ai_justification || current?.user_adjusted) continue;
                                 next[item.subfactor_id] = {
-                                    rating: item.suggested_rating,
-                                    is_modified: true,
+                                    ...(current || {
+                                        rating: null,
+                                        is_modified: false,
+                                    }),
                                     ai_suggested: item.suggested_rating,
                                     ai_justification: item.justification,
-                                    user_adjusted: false,
+                                    user_adjusted: current?.user_adjusted ?? false,
                                 };
                             }
                             return next;
@@ -1262,7 +1277,7 @@ export const usePublicEvaluation = () => {
                         type: hadErrors ? 'warning' : 'info',
                         message: hadErrors
                             ? `Sugerencias generadas para ${generatedFactors} factor(es). Algunos fallaron y puedes reintentarlos.`
-                            : `Sugerencias listas para ${generatedRatingsCount} subfactores en ${generatedFactors} factor(es). Revísalas y guárdalas.`,
+                            : `Sugerencias listas para ${generatedRatingsCount} subfactores en ${generatedFactors} factor(es). Revísalas y confirma tus calificaciones.`,
                     });
                 }
             } catch (err: unknown) {
@@ -1301,7 +1316,7 @@ export const usePublicEvaluation = () => {
                     ...prev,
                     [subfactorId]: {
                         ...(prev[subfactorId] || {
-                            rating: existingRating,
+                            rating: storedSf?.rating ?? null,
                             is_modified: false,
                         }),
                         ai_suggested: existingRating,
@@ -1325,10 +1340,10 @@ export const usePublicEvaluation = () => {
                     setSubfactorRatingsMap((prev) => ({
                         ...prev,
                         [subfactorId]: {
-                            rating: prev[subfactorId]?.user_adjusted
-                                ? prev[subfactorId].rating
-                                : res.suggested_rating!,
-                            is_modified: true,
+                            ...(prev[subfactorId] || {
+                                rating: null,
+                                is_modified: false,
+                            }),
                             ai_suggested: res.suggested_rating,
                             ai_justification: res.justification,
                             user_adjusted: prev[subfactorId]?.user_adjusted ?? false,
@@ -1352,7 +1367,7 @@ export const usePublicEvaluation = () => {
                     );
                     addToast({
                         type: 'info',
-                        message: `Sugerencia IA aplicada: ${res.suggested_rating} de 4. Revísala antes de guardar.`,
+                        message: `Sugerencia IA lista: ${res.suggested_rating} de 4. Revísala y confirma tu calificación.`,
                     });
                 }
             } catch (err: unknown) {
@@ -1649,6 +1664,17 @@ export const usePublicEvaluation = () => {
             return;
         }
 
+        const incompleteRelevantCount = relevantFactors.filter(
+            (factor) => !getFactorLocalPM(factor.factor_id).isComplete
+        ).length;
+        if (incompleteRelevantCount > 0) {
+            addToast({
+                type: 'warning',
+                message: `Faltan subfactores por calificar en ${incompleteRelevantCount} factor(es) relevante(s) antes de avanzar a la Fase 3.`,
+            });
+            return;
+        }
+
         if (!evaluation.results || evaluation.results.length === 0) {
             addToast({
                 type: 'warning',
@@ -1662,7 +1688,8 @@ export const usePublicEvaluation = () => {
         evaluation,
         isStep1And2Locked,
         currentStep,
-        relevantFactors.length,
+        relevantFactors,
+        getFactorLocalPM,
         hasUnsavedSubfactorRatings,
         unsavedSubfactorRatingsCount,
         addToast,

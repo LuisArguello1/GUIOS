@@ -17,6 +17,7 @@ from apps.guios.services.calculations import (
     calculate_expert_importance,
     calculate_literature_thresholds,
     calculate_quartiles,
+    calculate_raw_weighted_average,
     calculate_suggested_importance,
     calculate_weighted_average,
     classify_foda,
@@ -198,3 +199,14 @@ class VerdictRuleTests(SimpleTestCase):
     def test_c_when_any_failure_is_important(self):
         factors = [self._factor("2.0", 3)] + [self._factor("4.0", 2)] * 5
         self.assertEqual(classify_recommendation(factors)[0], "C")
+
+    def test_d19_threshold_uses_unrounded_weighted_average(self):
+        """D-19: PM = 2.95 redondea a 3.0 para mostrar, pero no alcanza el umbral (>= 3.0)."""
+        ratings = [3] * 19 + [2]  # sum = 59, n = 20 -> raw 2.95, redondeado 3.0
+        raw_pm = calculate_raw_weighted_average(ratings)
+        rounded_pm = calculate_weighted_average(ratings)
+        self.assertEqual(raw_pm, Decimal("2.95"))
+        self.assertEqual(rounded_pm, Decimal("3.0"))
+        self.assertFalse(meets_adoption_threshold(raw_pm))
+        self.assertEqual(classify_foda(raw_pm, "internal"), FODA_WEAKNESS)
+        self.assertEqual(classify_foda(raw_pm, "external"), FODA_THREAT)

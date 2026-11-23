@@ -502,19 +502,40 @@ def save_subfactor_ratings(
     if not ratings_by_subfactor:
         raise EvaluationValidationError("Debe enviar las calificaciones de los subfactores evaluados.")
 
-    # Validar que los ratings estén en escala [1, 4]
+    # Validar que los identificadores y ratings estén en formato y rango válido [1, 4]
     clean_ratings: dict[int, int] = {}
     for sf_id, val in ratings_by_subfactor.items():
+        if isinstance(sf_id, bool):
+            raise EvaluationValidationError(
+                f"El identificador de subfactor '{sf_id}' debe ser un entero positivo."
+            )
+        try:
+            clean_sf_id = int(str(sf_id).strip())
+        except (ValueError, TypeError):
+            raise EvaluationValidationError(
+                f"El identificador de subfactor '{sf_id}' debe ser un entero positivo."
+            )
+        if clean_sf_id < 1:
+            raise EvaluationValidationError(
+                f"El identificador de subfactor '{sf_id}' debe ser mayor o igual a 1."
+            )
+
+        if isinstance(val, bool):
+            raise EvaluationValidationError(
+                f"La calificación para el subfactor #{clean_sf_id} debe ser numérica."
+            )
         try:
             numeric_val = int(val)
         except (ValueError, TypeError):
-            raise EvaluationValidationError(f"La calificación para el subfactor #{sf_id} debe ser numérica.")
+            raise EvaluationValidationError(
+                f"La calificación para el subfactor #{clean_sf_id} debe ser numérica."
+            )
 
         if numeric_val not in (1, 2, 3, 4):
             raise EvaluationValidationError(
-                f"La calificación para el subfactor #{sf_id} debe estar en el rango de 1 a 4 (recibido: {numeric_val})."
+                f"La calificación para el subfactor #{clean_sf_id} debe estar en el rango de 1 a 4 (recibido: {numeric_val})."
             )
-        clean_ratings[int(sf_id)] = numeric_val
+        clean_ratings[clean_sf_id] = numeric_val
 
     try:
         return apply_step3_subfactor_ratings_and_foda(
@@ -537,6 +558,14 @@ def generate_evaluation_verdict(
     y finaliza la sesión de evaluación (STATUS_COMPLETED).
     """
     evaluation = get_evaluation_or_error(evaluation_id)
+
+    if (
+        evaluation.status == Evaluation.STATUS_COMPLETED
+        or EvaluationVerdict.objects.filter(evaluation_id=evaluation.id).exists()
+    ):
+        raise EvaluationAlreadyCompletedError(
+            f"La evaluación #{evaluation.id} ya cuenta con un dictamen emitido y se encuentra cerrada."
+        )
 
     try:
         return compute_final_verdict(

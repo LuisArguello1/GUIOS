@@ -342,14 +342,70 @@ class QASprint3AuthFixesTests(APITestCase):
         EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
         DEFAULT_FROM_EMAIL='noreply@guios.test',
     )
+    @patch('apps.auth.services.otp.send_mail', side_effect=OSError('SMTP down'))
     @patch('apps.auth.services.otp.EmailMultiAlternatives.send', side_effect=OSError('SMTP down'))
-    def test_d35_password_reset_returns_503_when_smtp_send_fails(self, _mock_send):
-        """D-35: retorna HTTP 503 cuando msg.send() falla al entregar OTP."""
+    def test_d35_password_reset_returns_503_when_smtp_send_fails(self, _mock_send, _mock_send_mail):
+        """D-35: retorna HTTP 503 cuando msg.send() y el fallback send_mail() fallan al entregar OTP."""
         res = self.client.post(self.reset_request_url, {
             'email': self.user.email,
         })
         self.assertEqual(res.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
         self.assertEqual(res.data.get('code'), 'email_delivery_failed')
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        EMAIL_HOST='smtp.gmail.com',
+        EMAIL_HOST_USER='smtp-sender@guios.test',
+        DEFAULT_FROM_EMAIL='tucorreo@gmail.com',
+    )
+    @patch('apps.auth.services.otp.EmailMultiAlternatives.send', side_effect=OSError('MIME error'))
+    @patch('apps.auth.services.otp.send_mail', return_value=1)
+    def test_d35_password_reset_falls_back_to_send_mail_and_uses_host_user_sender(
+        self, mock_send_mail, _mock_mime_send
+    ):
+        """D-35: resuelve remitente desde EMAIL_HOST_USER y usa send_mail() si falla el envío multipart."""
+        res = self.client.post(self.reset_request_url, {
+            'email': self.user.email,
+        })
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        mock_send_mail.assert_called_once()
+        self.assertEqual(mock_send_mail.call_args.kwargs['from_email'], 'smtp-sender@guios.test')
+        self.assertEqual(mock_send_mail.call_args.kwargs['recipient_list'], [self.user.email])
+
+    def test_d28_destroy_user_with_audit_logs_soft_deletes_and_returns_200(self):
+        """D-28 (RF-ADM-29): usuario con registros en AuditLog se desactiva (SOFT_DELETE, HTTP 200)."""
+        from apps.auth.models.audit import AuditLog
+
+        target = User.objects.create_user(
+            email="con-auditoria@example.com",
+            username="con_auditoria",
+            password=self.password,
+            is_active=True,
+        )
+        AuditLog.objects.create(action='UPDATE', source='api', object_id='1', user=target)
+
+        self.client.force_authenticate(user=self.superuser)
+        res = self.client.delete(reverse('authentication:user-detail', args=[target.id]))
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data.get('action'), 'SOFT_DELETE')
+
+        target.refresh_from_db()
+        self.assertFalse(target.is_active)
+
+    def test_d28_destroy_user_without_activity_hard_deletes_with_empty_204(self):
+        """D-28: usuario sin historial en auditoría ni evaluaciones responde 204 sin cuerpo."""
+        target = User.objects.create_user(
+            email="sin-actividad@example.com",
+            username="sin_actividad",
+            password=self.password,
+            is_active=True,
+        )
+
+        self.client.force_authenticate(user=self.superuser)
+        res = self.client.delete(reverse('authentication:user-detail', args=[target.id]))
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(res.content, b'')
+        self.assertFalse(User.objects.filter(pk=target.id).exists())
 
 
 @override_settings(

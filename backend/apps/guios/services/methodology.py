@@ -23,6 +23,7 @@ from apps.guios.services.calculations import (
     calculate_citation_ratio,
     calculate_literature_thresholds,
     calculate_quartiles,
+    calculate_raw_weighted_average,
     calculate_relative_importance,
     calculate_suggested_importance,
     calculate_systemic_importance,
@@ -208,6 +209,53 @@ def compute_evaluation_literature_metrics(
     return evaluation
 
 
+def _sync_factor_result(
+    evaluation: Evaluation,
+    eval_factor: EvaluationFactor,
+) -> EvaluationResult | None:
+    """
+    Recalcula o limpia EvaluationResult para un factor según relevancia y completitud de subfactores.
+    Evalúa el umbral PM >= 3.0 con el promedio exacto (sin redondeo previo).
+    """
+    if not eval_factor.is_relevant:
+        EvaluationResult.objects.filter(
+            evaluation=evaluation,
+            factor=eval_factor.factor,
+        ).delete()
+        return None
+
+    stored_ratings = list(
+        EvaluationSubfactor.objects.filter(
+            evaluation=evaluation,
+            subfactor__factor=eval_factor.factor,
+            subfactor__is_active=True,
+        ).values_list("rating", flat=True)
+    )
+    # RN-02: la PM solo es válida cuando todos los subfactores activos tienen calificación.
+    if not stored_ratings or any(rating is None for rating in stored_ratings):
+        EvaluationResult.objects.filter(
+            evaluation=evaluation,
+            factor=eval_factor.factor,
+        ).delete()
+        return None
+
+    raw_average = calculate_raw_weighted_average(stored_ratings)
+    weighted_average = calculate_weighted_average(stored_ratings)
+    meets_threshold = meets_adoption_threshold(raw_average)
+    foda_classification = classify_foda(raw_average, eval_factor.scope_used)
+
+    result, _ = EvaluationResult.objects.update_or_create(
+        evaluation=evaluation,
+        factor=eval_factor.factor,
+        defaults={
+            "weighted_average": weighted_average,
+            "meets_threshold": meets_threshold,
+            "foda_classification": foda_classification,
+        },
+    )
+    return result
+
+
 @transaction.atomic
 def apply_step1_decisor_importance(
     evaluation: Evaluation,
@@ -215,14 +263,21 @@ def apply_step1_decisor_importance(
 ) -> list[EvaluationFactor]:
     """
     Paso 1-2: IR = M(ID, IS) y es_relevante = IR > 1.
+    Sincroniza EvaluationResult existentes ante cambios de relevancia o ámbito.
     """
     updated_factors: list[EvaluationFactor] = []
+    factors_by_id = {
+        ef.factor_id: ef
+        for ef in EvaluationFactor.objects.select_related("factor").filter(evaluation=evaluation)
+    }
 
     for entry in decisor_data:
-        eval_factor = EvaluationFactor.objects.select_related("factor").get(
-            evaluation=evaluation,
-            factor_id=entry["factor_id"],
-        )
+        factor_id = entry["factor_id"]
+        eval_factor = factors_by_id.get(factor_id)
+        if eval_factor is None:
+            raise ValidationError(
+                f"El factor #{factor_id} no pertenece a la evaluación #{evaluation.id}."
+            )
         decisor_importance = int(entry["decisor_importance"])
         relative_importance = calculate_relative_importance(
             eval_factor.systemic_importance_snapshot,
@@ -266,12 +321,15 @@ def apply_step1_decisor_importance(
             "is_relevant",
             "scope_used",
         ])
-        if not eval_factor.is_relevant:
-            EvaluationResult.objects.filter(
-                evaluation=evaluation,
-                factor=eval_factor.factor,
-            ).delete()
+        _sync_factor_result(evaluation, eval_factor)
         updated_factors.append(eval_factor)
+
+    relevant_factor_ids = [
+        ef.factor_id for ef in EvaluationFactor.objects.filter(evaluation=evaluation, is_relevant=True)
+    ]
+    EvaluationResult.objects.filter(evaluation=evaluation).exclude(
+        factor_id__in=relevant_factor_ids
+    ).delete()
 
     return updated_factors
 
@@ -284,6 +342,22 @@ def apply_step3_subfactor_ratings_and_foda(
     """
     Paso 3-4: guarda PS, calcula PM y clasifica FODA en los factores relevantes.
     """
+    if ratings_by_subfactor:
+        existing_subfactor_ids = set(
+            EvaluationSubfactor.objects.filter(
+                evaluation=evaluation,
+                subfactor_id__in=ratings_by_subfactor.keys(),
+            ).values_list("subfactor_id", flat=True)
+        )
+        invalid_ids = sorted(
+            sf_id for sf_id in ratings_by_subfactor.keys() if sf_id not in existing_subfactor_ids
+        )
+        if invalid_ids:
+            raise ValidationError(
+                "Los siguientes subfactores no pertenecen a la evaluación "
+                f"#{evaluation.id}: {', '.join(str(sf_id) for sf_id in invalid_ids)}."
+            )
+
     for subfactor_id, rating in ratings_by_subfactor.items():
         EvaluationSubfactor.objects.filter(
             evaluation=evaluation,
@@ -296,37 +370,10 @@ def apply_step3_subfactor_ratings_and_foda(
     ).select_related("factor")
 
     results: list[EvaluationResult] = []
-
     for eval_factor in relevant_eval_factors:
-        stored_ratings = list(
-            EvaluationSubfactor.objects.filter(
-                evaluation=evaluation,
-                subfactor__factor=eval_factor.factor,
-                subfactor__is_active=True,
-            ).values_list("rating", flat=True)
-        )
-        # RN-02: la PM solo es válida cuando todos los subfactores activos tienen calificación.
-        if not stored_ratings or any(rating is None for rating in stored_ratings):
-            EvaluationResult.objects.filter(
-                evaluation=evaluation,
-                factor=eval_factor.factor,
-            ).delete()
-            continue
-
-        weighted_average = calculate_weighted_average(stored_ratings)
-        meets_threshold = meets_adoption_threshold(weighted_average)
-        foda_classification = classify_foda(weighted_average, eval_factor.scope_used)
-
-        result, _ = EvaluationResult.objects.update_or_create(
-            evaluation=evaluation,
-            factor=eval_factor.factor,
-            defaults={
-                "weighted_average": weighted_average,
-                "meets_threshold": meets_threshold,
-                "foda_classification": foda_classification,
-            },
-        )
-        results.append(result)
+        result = _sync_factor_result(evaluation, eval_factor)
+        if result is not None:
+            results.append(result)
 
     return results
 
@@ -410,6 +457,14 @@ def compute_final_verdict(
     """
     Paso 5-6: persiste la recomendación A, B o C y cierra la evaluación.
     """
+    if (
+        evaluation.status == Evaluation.STATUS_COMPLETED
+        or EvaluationVerdict.objects.filter(evaluation_id=evaluation.id).exists()
+    ):
+        raise ValidationError(
+            f"La evaluación #{evaluation.id} ya cuenta con un dictamen emitido y se encuentra cerrada."
+        )
+
     results = ensure_all_relevant_factors_have_results(evaluation)
     recommendation, explanation = determine_final_recommendation(results)
 

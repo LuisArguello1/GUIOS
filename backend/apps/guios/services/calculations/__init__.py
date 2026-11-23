@@ -34,6 +34,7 @@ from apps.guios.services.calculations.verdict import (
 )
 from apps.guios.services.calculations.weighted_average import (
     ADOPTION_THRESHOLD,
+    calculate_raw_weighted_average,
     calculate_weighted_average,
     meets_adoption_threshold,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "calculate_expert_importance",
     "calculate_literature_thresholds",
     "calculate_quartiles",
+    "calculate_raw_weighted_average",
     "calculate_relative_importance",
     "calculate_suggested_importance",
     "calculate_systemic_importance",

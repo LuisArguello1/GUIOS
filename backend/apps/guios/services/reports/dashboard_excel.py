@@ -10,6 +10,8 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+from .excel_security import sanitize_excel_value
+
 
 class DashboardExcelReport:
     """Generador institucional de informe analítico consolidado en Excel."""
@@ -50,10 +52,14 @@ class DashboardExcelReport:
         buffer.seek(0)
         return buffer
 
+    @staticmethod
+    def _set_cell(ws, row: int, column: int, value):
+        return ws.cell(row=row, column=column, value=sanitize_excel_value(value))
+
     @classmethod
     def _apply_header_style(cls, cell, text: str, dark: bool = False):
         bg = cls.COLOR_PRIMARY_DARK if dark else cls.COLOR_PRIMARY
-        cell.value = text
+        cell.value = sanitize_excel_value(text)
         cell.font = Font(name="Calibri", size=10, bold=True, color=cls.COLOR_WHITE)
         cell.fill = PatternFill(start_color=bg, end_color=bg, fill_type="solid")
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -81,11 +87,11 @@ class DashboardExcelReport:
         # Título
         ws.merge_cells("A1:D1")
         title_cell = ws["A1"]
-        title_cell.value = "GUIOS — DASHBOARD ANALÍTICO DE ADOPCIÓN FLOSS"
+        title_cell.value = sanitize_excel_value("GUIOS — DASHBOARD ANALÍTICO DE ADOPCIÓN FLOSS")
         title_cell.font = Font(name="Calibri", size=14, bold=True, color=cls.COLOR_PRIMARY_DARK)
         title_cell.alignment = Alignment(horizontal="left", vertical="center")
 
-        ws["A2"] = f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+        ws["A2"] = sanitize_excel_value(f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
         ws["A2"].font = Font(name="Calibri", size=9, italic=True, color="5B5D68")
 
         # Tabla de KPIs
@@ -110,7 +116,7 @@ class DashboardExcelReport:
 
         for row_idx, data in enumerate(kpi_rows, start=5):
             for col_idx, val in enumerate(data, start=1):
-                cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                cell = cls._set_cell(ws, row=row_idx, column=col_idx, value=val)
                 cls._apply_border(cell)
                 if col_idx == 2:
                     cell.font = Font(name="Calibri", size=10, bold=True, color=cls.COLOR_PRIMARY_DARK)
@@ -134,10 +140,10 @@ class DashboardExcelReport:
         for row_idx, item in enumerate(stats.get('verdict_distribution', []), start=4):
             count = item.get('count', 0)
             pct = round((count / total_v) * 100, 1)
-            ws.cell(row=row_idx, column=1, value=f"Recomendación {item.get('recommendation')}")
-            ws.cell(row=row_idx, column=2, value=item.get('label'))
-            ws.cell(row=row_idx, column=3, value=count)
-            ws.cell(row=row_idx, column=4, value=f"{pct}%")
+            cls._set_cell(ws, row=row_idx, column=1, value=f"Recomendación {item.get('recommendation')}")
+            cls._set_cell(ws, row=row_idx, column=2, value=item.get('label'))
+            cls._set_cell(ws, row=row_idx, column=3, value=count)
+            cls._set_cell(ws, row=row_idx, column=4, value=f"{pct}%")
 
             for c in range(1, 5):
                 cls._apply_border(ws.cell(row=row_idx, column=c))
@@ -157,11 +163,11 @@ class DashboardExcelReport:
         for row_idx, d in enumerate(stats.get('dimension_averages', []), start=4):
             score = d.get('avg_score', 0.0)
             state = "Óptimo" if score >= 3.0 else ("Parcial" if score >= 2.0 else "Riesgo")
-            ws.cell(row=row_idx, column=1, value=d.get('dimension_id'))
-            ws.cell(row=row_idx, column=2, value=d.get('name'))
-            ws.cell(row=row_idx, column=3, value=score)
-            ws.cell(row=row_idx, column=4, value=d.get('sample_count'))
-            ws.cell(row=row_idx, column=5, value=state)
+            cls._set_cell(ws, row=row_idx, column=1, value=d.get('dimension_id'))
+            cls._set_cell(ws, row=row_idx, column=2, value=d.get('name'))
+            cls._set_cell(ws, row=row_idx, column=3, value=score)
+            cls._set_cell(ws, row=row_idx, column=4, value=d.get('sample_count'))
+            cls._set_cell(ws, row=row_idx, column=5, value=state)
 
             for c in range(1, 6):
                 cls._apply_border(ws.cell(row=row_idx, column=c))
@@ -181,14 +187,14 @@ class DashboardExcelReport:
         for row_idx, item in enumerate(stats.get('recent_evaluations', []), start=4):
             rec = item.get('recommendation')
             rec_val = f"Rec. {rec}" if rec else "En Curso"
-            ws.cell(row=row_idx, column=1, value=item.get('id'))
-            ws.cell(row=row_idx, column=2, value=item.get('software_name'))
-            ws.cell(row=row_idx, column=3, value=item.get('software_version') or 'N/A')
-            ws.cell(row=row_idx, column=4, value=item.get('software_category') or 'General')
-            ws.cell(row=row_idx, column=5, value=item.get('org_name') or 'N/A')
-            ws.cell(row=row_idx, column=6, value=item.get('status_display'))
-            ws.cell(row=row_idx, column=7, value=rec_val)
-            ws.cell(row=row_idx, column=8, value=item.get('started_at') or '')
+            cls._set_cell(ws, row=row_idx, column=1, value=item.get('id'))
+            cls._set_cell(ws, row=row_idx, column=2, value=item.get('software_name'))
+            cls._set_cell(ws, row=row_idx, column=3, value=item.get('software_version') or 'N/A')
+            cls._set_cell(ws, row=row_idx, column=4, value=item.get('software_category') or 'General')
+            cls._set_cell(ws, row=row_idx, column=5, value=item.get('org_name') or 'N/A')
+            cls._set_cell(ws, row=row_idx, column=6, value=item.get('status_display'))
+            cls._set_cell(ws, row=row_idx, column=7, value=rec_val)
+            cls._set_cell(ws, row=row_idx, column=8, value=item.get('started_at') or '')
 
             for c in range(1, 9):
                 cls._apply_border(ws.cell(row=row_idx, column=c))

@@ -76,10 +76,6 @@ iniciar-dev.ps1
 # Plan de importación
 plans/
 
-# Migraciones
-**/migrations/*
-!**/migrations/__init__.py
-
 # Agent
 *.agent
 .agent/

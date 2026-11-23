@@ -11,14 +11,21 @@ from typing import Sequence
 ADOPTION_THRESHOLD = Decimal("3.0")
 
 
-def calculate_weighted_average(ratings: Sequence[int]) -> Decimal:
+def calculate_raw_weighted_average(ratings: Sequence[int]) -> Decimal:
     """
-    Promedio aritmético de las calificaciones de cumplimiento, redondeado a 1 decimal.
+    Promedio aritmético exacto (sin redondeo) de las calificaciones de cumplimiento.
     """
     if not ratings:
         raise ValueError("No hay calificaciones para calcular la ponderación media.")
 
-    raw_average = Decimal(str(sum(ratings))) / Decimal(str(len(ratings)))
+    return Decimal(str(sum(ratings))) / Decimal(str(len(ratings)))
+
+
+def calculate_weighted_average(ratings: Sequence[int]) -> Decimal:
+    """
+    Promedio aritmético de las calificaciones de cumplimiento, redondeado a 1 decimal.
+    """
+    raw_average = calculate_raw_weighted_average(ratings)
     return raw_average.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
 
 

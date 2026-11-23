@@ -31,8 +31,8 @@ def get_users_list(*, search: str = None, show_inactive: bool = False) -> QueryS
     return users.order_by('-created_at')
 
 def get_user_by_email(email: str) -> CustomUser:
-    """Obtiene un usuario por email o retorna None."""
-    return CustomUser.objects.filter(email=email).first()
+    """Obtiene un usuario por email (case-insensitive) o retorna None."""
+    return CustomUser.objects.filter(email__iexact=email.strip()).first()
 
 def get_active_user_by_id(user_id: int) -> CustomUser:
     """Obtiene un usuario activo por ID o retorna None."""
